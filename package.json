@@ -1,0 +1,33 @@
+{
+  "name": "ha-dashboard",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Custom mobile-first Home Assistant dashboard (design direction 2a)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BKodeerts/ha-dashboard.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run build:app && npm run build:panel",
+    "build:app": "vite build",
+    "build:panel": "BUILD_TARGET=panel vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "home-assistant-js-websocket": "^9.6.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1"
+  }
+}
