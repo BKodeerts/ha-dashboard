@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run build
+
+      # The panel is loaded straight by the browser, so a development build of
+      # React here would ship to every dashboard. Fail loudly if that regresses.
+      - name: Panel bundle is a production build
+        run: |
+          if grep -q "react-stack-bottom-frame" dist/panel/ha-dashboard-panel.js; then
+            echo "::error::panel bundle contains React's development build"
+            exit 1
+          fi
+          ls -lh dist/panel/ha-dashboard-panel.js

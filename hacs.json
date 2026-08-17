@@ -1,0 +1,7 @@
+{
+  "name": "Home dashboard",
+  "filename": "ha-dashboard-panel.js",
+  "render_readme": true,
+  "homeassistant": "2024.4.0",
+  "hide_default_branch": true
+}

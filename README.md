@@ -22,25 +22,19 @@ custom properties for the tokens.
 Everything renders inside a **shadow root** with the stylesheet inlined, so the dashboard cannot
 style — or be styled by — the Home Assistant frontend around it.
 
-## Two ways to run it
+## Three ways to run it
 
-Both targets mount the same `<ha-dashboard-panel>` custom element, so there is one code path.
+All of them mount the same `<ha-dashboard-panel>` custom element, so there is one code path.
 
-### 1. As a Home Assistant panel (recommended)
+### 1. As a Home Assistant panel, via HACS (recommended)
 
-HA handles authentication, and `hui-card` is available for the embedded Lovelace cards.
+HA handles authentication, `hui-card` is available for the embedded Lovelace cards, and updates are
+one click — no file copying.
 
-```bash
-npm run build:panel      # → dist/panel/ha-dashboard-panel.js
-```
-
-Copy that one file into your HA config directory under `www/` (served as `/local/`):
-
-```bash
-cp dist/panel/ha-dashboard-panel.js /config/www/ha-dashboard-panel.js
-```
-
-Then register it in `configuration.yaml` and restart HA:
+1. HACS → ⋮ → **Custom repositories** → add `BKodeerts/ha-dashboard`, type **Dashboard**.
+2. Find "Home dashboard" in HACS and **Download**. It lands at
+   `/config/www/community/ha-dashboard/ha-dashboard-panel.js`, served as `/hacsfiles/…`.
+3. Add the panel to `configuration.yaml` (once — later updates never touch this):
 
 ```yaml
 panel_custom:
@@ -48,7 +42,7 @@ panel_custom:
     url_path: home
     sidebar_title: Home
     sidebar_icon: mdi:home-variant
-    module_url: /local/ha-dashboard-panel.js
+    module_url: /hacsfiles/ha-dashboard/ha-dashboard-panel.js
     embed_iframe: false
     require_admin: false
     # Optional: defaults for the client-side config (see "Configuration").
@@ -57,10 +51,37 @@ panel_custom:
       favouriteAreas: [living, bureau, slaapkamer, clara, oliver]
 ```
 
-The dashboard is then at `/home`. Bump the filename (or add `?v=2`) when you deploy a new build —
-HA caches `/local/` aggressively.
+4. Restart Home Assistant — a YAML reload will not register a new panel. The dashboard is at `/home`.
 
-### 2. Standalone
+Three fields matter and are easy to get wrong:
+
+- `name` **must** be `ha-dashboard-panel` — it is the custom element the bundle registers.
+- `module_url`, not `js_url` — the build is an ES module.
+- `embed_iframe: false` is required. Inside an iframe the panel never receives `hass`, so there is
+  no data and no Lovelace embeds.
+
+Releases are built by CI (`.github/workflows/release.yml`) and the panel is attached as a release
+asset, which is what HACS downloads. To cut one:
+
+```bash
+npm version patch && git push --follow-tags
+```
+
+HACS then offers the update in Home Assistant.
+
+### 2. As a Home Assistant panel, manually
+
+Same thing without HACS, if you would rather not add the custom repository:
+
+```bash
+npm run build:panel                                        # → dist/panel/ha-dashboard-panel.js
+scp dist/panel/ha-dashboard-panel.js root@homeassistant.local:/config/www/
+```
+
+Use `module_url: /local/ha-dashboard-panel.js` in the snippet above. HA caches `/local/`
+aggressively, so bump `?v=2` on every redeploy — this is the copying that HACS saves you.
+
+### 3. Standalone
 
 ```bash
 npm run build:app        # → dist/
