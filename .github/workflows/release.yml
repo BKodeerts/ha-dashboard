@@ -1,22 +1,38 @@
 name: Release
 
-# Tag a version and this builds the panel and attaches it to the GitHub release.
-# HACS reads that release asset, so updating the dashboard in Home Assistant is
-# one click — no file copying, no YAML change.
+# Builds the panel and attaches it to the GitHub release. HACS reads that release
+# asset, so updating the dashboard in Home Assistant is one click.
 #
-#   npm version patch && git push --follow-tags
+# Two ways to cut a release, both supported:
+#   - push a tag:  npm version patch && git push --follow-tags
+#   - the GitHub UI: draft a release, which creates the tag for you
+#
+# The UI route publishes the release *before* the tag push event fires, so the
+# publish step below has to cope with the release already existing.
 on:
   push:
     tags: ['v*']
+  release:
+    types: [published]
 
 permissions:
   contents: write
+
+# A UI-created release fires both triggers for the same tag; let the first finish
+# rather than racing two uploads onto one release.
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # `release: published` checks out the default branch by default; pin to
+          # the tag so the asset is built from the commit the release points at.
+          ref: ${{ github.ref_name }}
 
       - uses: actions/setup-node@v4
         with:
@@ -29,12 +45,33 @@ jobs:
 
       - run: npm run build:panel
 
-      # HACS downloads this asset by the `filename` in hacs.json.
-      - name: Publish release
+      # HACS downloads this asset by the `filename` in hacs.json. Create the
+      # release if it does not exist yet, otherwise just attach the file to it.
+      - name: Publish release asset
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            dist/panel/ha-dashboard-panel.js \
-            --title "$GITHUB_REF_NAME" \
-            --generate-notes
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "release $TAG exists — uploading asset"
+            gh release upload "$TAG" dist/panel/ha-dashboard-panel.js --clobber
+          else
+            echo "creating release $TAG"
+            gh release create "$TAG" dist/panel/ha-dashboard-panel.js \
+              --title "$TAG" \
+              --generate-notes
+          fi
+
+      # A release without the panel attached is invalid to HACS, and the failure
+      # is silent until someone tries to install. Assert it landed.
+      - name: Verify the asset is attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          assets=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          echo "$assets"
+          if ! grep -qx 'ha-dashboard-panel.js' <<<"$assets"; then
+            echo "::error::ha-dashboard-panel.js is not attached to $TAG — HACS will reject this release"
+            exit 1
+          fi
