@@ -18,12 +18,20 @@
       html,
       body {
         margin: 0;
-        height: 100%;
+        min-height: 100%;
+        /* Only ever seen behind the panel (overscroll, safe areas) — it follows
+           the OS the way the panel's own `auto` theme does. */
         background: #111318;
+        color-scheme: dark light;
+      }
+      @media (prefers-color-scheme: light) {
+        html,
+        body {
+          background: #f3f1ed;
+        }
       }
       ha-dashboard-panel {
         display: block;
-        height: 100%;
       }
     </style>
   </head>

@@ -14,6 +14,8 @@ export interface DashboardConfig {
   roomOrder: string[];
   /** The one accent variable the design ships in four hues. */
   accent: string;
+  /** Colour scheme. `auto` follows Home Assistant's own light/dark setting. */
+  theme: ThemeSetting;
   /** Entity overrides. Left empty, each is auto-detected from the state machine. */
   alarmEntity?: string;
   personEntity?: string;
@@ -47,6 +49,14 @@ export interface MediaPreset {
 }
 
 export type LovelaceCardConfig = { type: string } & Record<string, unknown>;
+
+export type ThemeSetting = 'auto' | 'light' | 'dark';
+
+export const THEMES: { value: ThemeSetting; label: string }[] = [
+  { value: 'auto', label: 'Volg HA' },
+  { value: 'light', label: 'Licht' },
+  { value: 'dark', label: 'Donker' },
+];
 
 const STORAGE_KEY = 'ha-dashboard.config.v1';
 
@@ -85,6 +95,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   areaTint: {},
   roomOrder: [],
   accent: ACCENTS.amber,
+  theme: 'auto',
   power: { loads: [] },
   mediaPresets: {},
   lovelace: {},

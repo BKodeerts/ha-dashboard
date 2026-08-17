@@ -32,28 +32,44 @@ export function LovelaceCard({
   const { hass } = useHass();
   const containerRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<(HTMLElement & { hass?: HomeAssistant; config?: unknown }) | null>(null);
+  const hassRef = useRef(hass);
+  hassRef.current = hass;
+
+  /*
+   * The mount effect must not depend on `hass` itself. Home Assistant replaces
+   * that object on every state change — several times a second in a busy house —
+   * so a `[hass]` dependency tore every embedded card down and rebuilt it, which
+   * is what made them flash. It reads the current one through a ref instead.
+   *
+   * The config likewise arrives as a fresh object whenever the config memo
+   * recomputes, so the identity of `config` is not a safe remount signal either;
+   * the serialised value is.
+   */
+  const ready = hass !== null;
+  const configKey = config ? JSON.stringify(config) : null;
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container || !hass || !config) return;
+    if (!container || !ready || !configKey) return;
 
     let cancelled = false;
 
     const mount = async () => {
       let element: (HTMLElement & { hass?: HomeAssistant; config?: unknown }) | null = null;
+      const cardConfig = JSON.parse(configKey) as LovelaceCardConfig;
 
       if (customElements.get('hui-card')) {
         element = document.createElement('hui-card');
-        element.config = config;
+        element.config = cardConfig;
       } else if (window.loadCardHelpers) {
         const helpers = await window.loadCardHelpers();
-        element = (await helpers.createCardElement(config)) as HTMLElement & {
+        element = (await helpers.createCardElement(cardConfig)) as HTMLElement & {
           hass?: HomeAssistant;
         };
       }
 
       if (!element || cancelled) return;
-      element.hass = hass;
+      element.hass = hassRef.current ?? undefined;
       cardRef.current = element;
       container.replaceChildren(element);
     };
@@ -65,8 +81,7 @@ export function LovelaceCard({
       cardRef.current = null;
       container.replaceChildren();
     };
-    // `config` is a stable object from the config store; remount only if it changes.
-  }, [hass, config]);
+  }, [ready, configKey]);
 
   // Keep the card's `hass` fresh without remounting it.
   useEffect(() => {

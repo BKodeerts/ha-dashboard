@@ -43,7 +43,8 @@ export interface HomeAssistant {
   connection: Connection;
   language: string;
   locale?: { language: string };
-  themes?: unknown;
+  /** `themes.darkMode` is how the HA frontend reports the scheme it is painting. */
+  themes?: { darkMode?: boolean } & Record<string, unknown>;
   callService(
     domain: string,
     service: string,
@@ -73,6 +74,12 @@ export interface HaBackend {
   subscribeMessage<T>(cb: (msg: T) => void, message: HaMessage): Promise<() => void>;
   /** Connection lifecycle, surfaced as the reconnect banner. */
   subscribeStatus(cb: (status: ConnectionStatus) => void): () => void;
+  /**
+   * Panel mode only: fires when the HA frontend switches between its light and
+   * dark themes, so `theme: auto` can follow it without waiting for the next
+   * state update to re-read `hass`. Absent outside HA.
+   */
+  subscribeDarkMode?(cb: (dark: boolean | undefined) => void): () => void;
 }
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
