@@ -43,6 +43,31 @@ export function toggleLight(entityId: string, states: HassEntities): ServiceCall
   };
 }
 
+/**
+ * Drag on a per-lamp row. 0 turns the lamp off outright: `brightness_pct: 0` is
+ * rejected by some integrations and merely ignored by others.
+ */
+export function setLightBrightness(entityId: string, percent: number): ServiceCall {
+  const clamped = Math.max(0, Math.min(100, Math.round(percent)));
+  if (clamped === 0) {
+    return {
+      domain: 'light',
+      service: 'turn_off',
+      target: { entity_id: entityId },
+      optimistic: [{ entityId, state: 'off', attributes: { brightness: 0 } }],
+    };
+  }
+  return {
+    domain: 'light',
+    service: 'turn_on',
+    data: { brightness_pct: clamped },
+    target: { entity_id: entityId },
+    optimistic: [
+      { entityId, state: 'on', attributes: { brightness: Math.round((clamped / 100) * 255) } },
+    ],
+  };
+}
+
 /** Picks the mode an AC returns to when switched back on. */
 export function preferredHvacMode(states: HassEntities, entityId: string): string {
   const modes = states[entityId]?.attributes?.hvac_modes;
@@ -60,6 +85,29 @@ export function toggleClimate(entityId: string, states: HassEntities): ServiceCa
     data: { hvac_mode: mode },
     target: { entity_id: entityId },
     optimistic: [{ entityId, state: mode }],
+  };
+}
+
+/**
+ * The room card's mode button steps through whatever the unit reports, in the
+ * order it reports it. The design gives cool, heat, dry and fan a colour each,
+ * and this button is the only way to reach them — a plain on/off toggle would
+ * leave three of the four unreachable.
+ */
+export function cycleHvacMode(entityId: string, states: HassEntities): ServiceCall {
+  const modes = states[entityId]?.attributes?.hvac_modes;
+  const list = Array.isArray(modes) ? (modes as string[]) : [];
+  if (list.length === 0) return toggleClimate(entityId, states);
+
+  const current = states[entityId]?.state ?? 'off';
+  const index = list.indexOf(current);
+  const next = list[(index + 1) % list.length] ?? 'off';
+  return {
+    domain: 'climate',
+    service: 'set_hvac_mode',
+    data: { hvac_mode: next },
+    target: { entity_id: entityId },
+    optimistic: [{ entityId, state: next }],
   };
 }
 

@@ -1,55 +1,71 @@
 /*
- * Design tokens and layout for direction 2a.
+ * Design tokens and layout for the v2 home screen.
  *
  * Loaded as a string and injected into the panel's shadow root, so nothing here
  * leaks into (or is overridden by) the Home Assistant frontend around it.
- * Values are the handoff's, verbatim — see design_handoff_ha_dashboard/README.md.
+ * The light values are the handoff's, verbatim — see
+ * design_handoff_ha_dashboard_v2/README.md. The dark set mirrors them role for
+ * role, so no rule below knows which scheme it is painting.
  */
 
 :host {
-  /* colour — dark is the shipped default; the light palette below swaps the
-     same tokens, so nothing downstream knows which scheme it is painting. */
-  --bg: #111318;
-  --sheet-bg: #1b1e24;
-  --text: #f0eeea;
-  /* Every translucent surface is a wash of this over --bg, so one token flips
-     all of them with the scheme. */
-  --wash: #ffffff;
-  --knob: #ffffff;
-  --knob-shadow: none;
-  --text-muted: color-mix(in srgb, var(--text) 40%, transparent);
-  --text-faint: color-mix(in srgb, var(--text) 28%, transparent);
-  --text-dim: color-mix(in srgb, var(--text) 55%, transparent);
-  --surface: color-mix(in srgb, var(--wash) 5%, transparent);
-  --surface-hover: color-mix(in srgb, var(--wash) 8.5%, transparent);
-  --surface-alt: color-mix(in srgb, var(--wash) 7%, transparent);
-  --hairline: color-mix(in srgb, var(--wash) 7%, transparent);
-  --scrim: rgba(10, 11, 14, 0.55);
+  /* surfaces */
+  --page: #f0eeea;
+  --card: #fbfaf7;
+  --sheet: #f6f4f0;
+  --control: #eae7e0;
+  --control-alt: #e6e3dc;
+  --chip-off: #e4e1da;
+  --border: #e2dfd8;
+  --divider: #d8d4cc;
 
-  /* the accent is one variable; the app ships amber, blue, green and magenta */
+  /* text */
+  --text: #111318;
+  --text-body: #3b3934;
+  --text-2: #57544e;
+  --text-muted: #8a877f;
+  --text-faint: #a8a49c;
+  --text-dim: #7d7a72;
+  --on-accent: #241a00;
+
+  /* accent — lights, and every "needs attention" state */
   --accent: oklch(0.72 0.13 60);
-  --accent-ink: #1a1400;
-  --accent-cool: oklch(0.68 0.13 250);
-  --accent-cool-ink: #ffffff;
-  /* The accent used as *text* rather than as a fill. The hues ship tuned for a
-     dark ground, so the light palette darkens them instead of the reverse. */
-  --accent-text: var(--accent);
-  --accent-cool-text: var(--accent-cool);
-  --pill-warn-bg: oklch(0.32 0.05 60);
-  --pill-presence-bg: oklch(0.34 0.05 250);
+  --accent-chip: oklch(0.72 0.13 60 / 0.5);
+  --accent-fill: oklch(0.72 0.13 60 / 0.55);
+  --accent-star: oklch(0.72 0.13 60 / 0.28);
+  --warn-bg: oklch(0.72 0.13 60 / 0.22);
+  --warn-fg: oklch(0.45 0.11 60);
+
+  /* hvac modes, at full chroma for the mode button and washed for the chips */
+  --cool: oklch(0.68 0.13 250);
+  --cool-bg: oklch(0.68 0.13 250 / 0.18);
+  --cool-fg: oklch(0.42 0.12 250);
+  --heat: oklch(0.68 0.13 35);
+  --heat-bg: oklch(0.68 0.13 35 / 0.2);
+  --heat-fg: oklch(0.45 0.13 35);
+  --dry: oklch(0.7 0.12 95);
+  --dry-bg: oklch(0.7 0.12 95 / 0.2);
+  --dry-fg: oklch(0.44 0.11 95);
+  --fan: oklch(0.7 0.12 185);
+  --fan-bg: oklch(0.7 0.12 185 / 0.2);
+  --fan-fg: oklch(0.42 0.09 185);
+
+  --alert: oklch(0.62 0.16 40);
+  --export: oklch(0.44 0.11 150);
+  --import: oklch(0.42 0.12 250);
+  --scrim: rgba(17, 19, 24, 0.28);
 
   /* type */
   --font-ui: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* spacing */
-  --pad-screen: 22px;
-  --pad-tabbar: 18px;
+  --gutter: 20px;
 
   /* motion */
   --ease-sheet: cubic-bezier(0.2, 0.9, 0.2, 1);
 
-  color-scheme: dark;
+  color-scheme: light;
 
   /*
    * Fill the screen, not the content. Home Assistant drops a custom panel into
@@ -64,7 +80,7 @@
   height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
-  background: var(--bg);
+  background: var(--page);
   color: var(--text);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
@@ -72,41 +88,47 @@
 }
 
 /*
- * Light palette. `data-theme` is stamped on the shadow host by <App>, and
- * mirrored onto `.app` so the tokens still flip if this ever renders without a
- * shadow root. Only the tokens change — no rule below cares which is active.
+ * Dark scheme. `data-theme` is stamped on the shadow host by <App>, and mirrored
+ * onto `.app` so the tokens still flip if this ever renders without a shadow
+ * root. Only the tokens change.
  */
-:host([data-theme='light']),
-.app[data-theme='light'] {
-  --bg: #f3f1ed;
-  --sheet-bg: #fbfaf8;
-  --text: #14161b;
-  --wash: #14161b;
-  --knob: #ffffff;
-  --knob-shadow: 0 1px 2px rgba(20, 22, 27, 0.3);
-  --surface: color-mix(in srgb, var(--wash) 4.5%, transparent);
-  --surface-hover: color-mix(in srgb, var(--wash) 8%, transparent);
-  --surface-alt: color-mix(in srgb, var(--wash) 6%, transparent);
-  --hairline: color-mix(in srgb, var(--wash) 11%, transparent);
-  --scrim: rgba(20, 22, 27, 0.32);
+:host([data-theme='dark']),
+.app[data-theme='dark'] {
+  --page: #111318;
+  --card: #181b21;
+  --sheet: #1b1e24;
+  --control: #23262d;
+  --control-alt: #2a2e36;
+  --chip-off: #22252c;
+  --border: #252931;
+  --divider: #2e323b;
 
-  --accent-text: color-mix(in oklab, var(--accent) 72%, #101216);
-  --accent-cool-text: color-mix(in oklab, var(--accent-cool) 78%, #101216);
-  --pill-warn-bg: oklch(0.93 0.05 60);
-  --pill-presence-bg: oklch(0.93 0.045 250);
+  --text: #f0eeea;
+  --text-body: #d6d2ca;
+  --text-2: #b6b2aa;
+  --text-muted: #8a877f;
+  --text-faint: #6e6b64;
+  --text-dim: #7d7a72;
 
-  color-scheme: light;
-}
+  /* The washes need more alpha to register on a dark ground, and the readable
+     halves of each pair are lifted rather than darkened. */
+  --warn-bg: oklch(0.72 0.13 60 / 0.2);
+  --warn-fg: oklch(0.8 0.12 60);
+  --accent-star: oklch(0.72 0.13 60 / 0.26);
+  --cool-bg: oklch(0.68 0.13 250 / 0.22);
+  --cool-fg: oklch(0.76 0.11 250);
+  --heat-bg: oklch(0.68 0.13 35 / 0.22);
+  --heat-fg: oklch(0.78 0.12 35);
+  --dry-bg: oklch(0.7 0.12 95 / 0.22);
+  --dry-fg: oklch(0.82 0.11 95);
+  --fan-bg: oklch(0.7 0.12 185 / 0.22);
+  --fan-fg: oklch(0.8 0.09 185);
 
-/* The room tints are picked to glow on a dark ground; pull them down on paper. */
-.app[data-theme='light'] .room__edge,
-.app[data-theme='light'] .sheet__dot {
-  filter: saturate(1.45) brightness(0.82);
-}
+  --export: oklch(0.72 0.13 150);
+  --import: oklch(0.7 0.12 250);
+  --scrim: rgba(6, 7, 10, 0.5);
 
-.app[data-theme='light'] .room__spark {
-  opacity: 0.85;
-  filter: saturate(1.45) brightness(0.82);
+  color-scheme: dark;
 }
 
 /*
@@ -116,18 +138,24 @@
  * The rules on :host cannot: a host element is styled from the *document*, and
  * document rules beat :host, so both `display` and `height` there are only a
  * suggestion that the HA frontend (or index.html) can overrule. This one is
- * inside the shadow root, where nothing outside can reach it. `height: 100%`
- * takes a definite host height when there is one, and `min-height` falls back
- * to the viewport when there is not — which is the case that left the tab bar
- * floating in the middle of the page.
+ * inside the shadow root, where nothing outside can reach it.
  */
 .root {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
+  /*
+   * A *definite* height, not just a minimum. `height: 100%` takes the host's
+   * height when HA gives it one; the min/max pair pins it to the viewport when
+   * it does not, which is the standalone case — and without the cap the column
+   * grows with the room grid, `.scroll` never gets a bound to scroll inside,
+   * and the tab bar is pushed off the bottom of the screen.
+   */
   height: 100%;
   min-height: 100vh;
   min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
 }
 
 *,
@@ -168,8 +196,8 @@ button {
 }
 
 /* ── app shell ─────────────────────────────────────────────────────────────
-   The prototype's 390 × 844 phone with a 44px radius; the real app is
-   full-bleed and uses the safe-area insets instead.                        */
+   The prototype's 390 × 844 phone; the real app is full-bleed and uses the
+   safe-area insets instead.                                                */
 
 .app {
   position: relative;
@@ -178,7 +206,7 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg);
+  background: var(--page);
   color: var(--text);
 }
 
@@ -189,104 +217,86 @@ button {
   min-height: 0;
 }
 
-/* ── header ─────────────────────────────────────────────────────────────── */
+/* ── weather block ─────────────────────────────────────────────────────────
+   Centred, and the whole thing is the tap target for the weather sheet.    */
 
-.header {
+.weather {
   flex: 0 0 auto;
-  padding: max(50px, calc(env(safe-area-inset-top) + 14px)) var(--pad-screen) 0;
-}
-
-.header__row {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: max(52px, calc(env(safe-area-inset-top) + 16px)) var(--gutter) 0;
 }
 
-.header__clock {
-  font-size: 32px;
-  font-weight: 500;
-  letter-spacing: -0.03em;
-  line-height: 1;
-}
-
-.header__date {
-  margin-top: 6px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  color: var(--text-muted);
-}
-
-.header__weather {
-  text-align: right;
-  cursor: pointer;
-}
-
-.header__weather-row {
+.weather__row {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 7px;
-  color: color-mix(in srgb, var(--text) 75%, transparent);
+  gap: 10px;
+  color: var(--text-2);
 }
 
-.header__temp {
-  font-size: 26px;
+.weather__temp {
+  font-size: 30px;
   font-weight: 400;
   letter-spacing: -0.03em;
   color: var(--text);
 }
 
-.header__meta {
-  margin-top: 4px;
+.weather__meta {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: color-mix(in srgb, var(--text) 32%, transparent);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-/* ── status pills ──────────────────────────────────────────────────────── */
+/* ── status pills ──────────────────────────────────────────────────────────
+   Alarm, openings, presence — always three, so the row never reflows to a
+   different shape as the house changes state.                             */
 
 .pills {
   flex: 0 0 auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
-  padding: 16px var(--pad-screen) 0;
+  gap: 8px;
+  padding: 18px var(--gutter) 0;
 }
 
 .pill {
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 18px;
-  font-size: 13px;
+  gap: 9px;
+  height: 46px;
+  padding: 0 16px;
+  border-radius: 23px;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
-  background: var(--surface-alt);
-  color: var(--text-dim);
+  background: var(--control-alt);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
-.pill--attention {
-  background: var(--pill-warn-bg);
-  color: var(--accent-text);
+.pill--warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 
-.pill--presence-home {
-  background: var(--pill-presence-bg);
-  color: var(--accent-cool-text);
+.pill--presence {
+  background: var(--cool-bg);
+  color: var(--cool-fg);
 }
 
-/* ── section header ────────────────────────────────────────────────────── */
+/* ── section head ──────────────────────────────────────────────────────── */
 
 .section-head {
   flex: 0 0 auto;
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  padding: 18px var(--pad-screen) 8px;
+  padding: 20px 14px 8px var(--gutter);
 }
 
 .section-head__title {
@@ -297,241 +307,261 @@ button {
   color: var(--text-muted);
 }
 
-.section-head__meta {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.section-head__gear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   color: var(--text-faint);
-  background: none;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-/* ── scroll area + room grid ───────────────────────────────────────────── */
+.section-head__gear:hover,
+.section-head__gear[aria-pressed='true'] {
+  background: var(--control-alt);
+  color: var(--text-2);
+}
+
+/* ── room grid ─────────────────────────────────────────────────────────────
+   One scroll, favourites first — no fold.                                  */
 
 .scroll {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--pad-screen) 14px;
+  padding: 0 var(--gutter) 16px;
   -webkit-overflow-scrolling: touch;
 }
 
 .room-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  gap: 10px;
 }
 
-.room-grid--others {
-  margin-top: 10px;
-}
+/* ── room tile ─────────────────────────────────────────────────────────── */
 
-/* ── room card ─────────────────────────────────────────────────────────── */
-
-.room {
+.tile {
   position: relative;
   overflow: hidden;
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  width: 100%;
-  padding: 12px 12px 12px 14px;
+  flex-direction: column;
   border-radius: 20px;
-  border: 1px solid var(--hairline);
-  background: var(--surface);
-  text-align: left;
-  transition: background 0.15s ease;
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
-.room:hover {
-  background: var(--surface-hover);
-}
-
-.room__edge {
+.tile__spine {
   position: absolute;
   left: 0;
   top: 0;
   bottom: 0;
-  width: 3px;
-  opacity: 0.75;
+  width: 5px;
 }
 
-.room__body {
-  flex: 1 1 auto;
-  min-width: 0;
+/* The tap area opens the room card; the light chip inside it does not. */
+.tile__body {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 4px;
+  padding: 13px 13px 11px 18px;
+  text-align: left;
+  transition: background 0.15s ease;
 }
 
-.room__name {
+.tile__body:hover {
+  background: var(--control-alt);
+}
+
+.tile__name {
   font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.015em;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.room__reading {
+.tile__reading {
   display: flex;
   align-items: baseline;
   gap: 5px;
 }
 
-.room__temp {
-  font-size: 27px;
+.tile__temp {
+  font-size: 24px;
   font-weight: 400;
   letter-spacing: -0.035em;
   line-height: 1;
 }
 
-.room__hum {
+.tile__hum {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: color-mix(in srgb, var(--text) 35%, transparent);
+  color: var(--text-muted);
 }
 
-.room__spark {
-  display: block;
-  width: 100%;
-  height: 20px;
-  opacity: 0.5;
-}
-
-/* In flow, not absolutely positioned: four devices grow the card. */
-.room__icons {
+.tile__chips {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 5px;
-  align-items: flex-end;
-  flex: 0 0 auto;
+  margin-top: 2px;
 }
 
-.icon-btn {
-  position: relative;
+/* light chip — the one control on the tile, and the one target under 44px */
+
+.chip-light {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--surface-alt);
-  color: color-mix(in srgb, var(--text) 42%, transparent);
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-/* 30 × 30 visually, ≥ 44 × 44 to the finger. */
-.icon-btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 44px;
-  height: 44px;
-  transform: translate(-50%, -50%);
-}
-
-.icon-btn--active {
-  background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.icon-btn--active-cool {
-  background: var(--accent-cool);
-  color: var(--accent-cool-ink);
-}
-
-.icon-btn--readonly {
-  cursor: default;
-}
-
-.icon-btn--readonly::after {
-  content: none;
-}
-
-/* ── other-rooms toggle ────────────────────────────────────────────────── */
-
-.others {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 109px;
+  gap: 5px;
+  height: 34px;
   padding: 0 10px;
-  border-radius: 20px;
-  border: 1px dashed color-mix(in srgb, var(--wash) 16%, transparent);
-  background: none;
-  color: color-mix(in srgb, var(--text) 45%, transparent);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  border-radius: 10px;
+  user-select: none;
+  background: var(--control);
+  color: var(--text-2);
 }
 
-.others:hover {
-  background: color-mix(in srgb, var(--wash) 4%, transparent);
-  color: color-mix(in srgb, var(--text) 80%, transparent);
-  border-color: color-mix(in srgb, var(--wash) 28%, transparent);
+.chip-light--on {
+  background: var(--accent-chip);
+  color: var(--on-accent);
 }
 
-.others__chevron {
-  transition: transform 180ms ease;
-}
-
-.others__chevron--up {
-  transform: rotate(180deg);
-}
-
-.others__label {
+.chip-light__label {
   font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.1em;
+  font-size: 10px;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  text-align: center;
 }
 
-/* ── tab bar ───────────────────────────────────────────────────────────── */
+/* state chips — read-only, and rendered in a fixed slot whether or not the
+   device is active, so nothing shifts sideways as the house changes.       */
+
+.chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  height: 26px;
+  min-width: 26px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: var(--chip-off);
+  color: var(--text-dim);
+}
+
+.chip__note {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.02em;
+}
+
+.chip--warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.chip--cool {
+  background: var(--cool-bg);
+  color: var(--cool-fg);
+}
+
+.chip--heat {
+  background: var(--heat-bg);
+  color: var(--heat-fg);
+}
+
+.chip--dry {
+  background: var(--dry-bg);
+  color: var(--dry-fg);
+}
+
+.chip--fan_only {
+  background: var(--fan-bg);
+  color: var(--fan-fg);
+}
+
+/* ── tab bar ───────────────────────────────────────────────────────────────
+   z-index 2 puts it above the sheet scrim: the bar is always visible and
+   always tappable, which is the whole point of v2's sheet geometry.        */
 
 .tabbar {
+  position: relative;
+  z-index: 2;
   flex: 0 0 auto;
-  padding: 0 var(--pad-tabbar) calc(26px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(22px + env(safe-area-inset-bottom));
 }
 
 .tabbar__inner {
   display: flex;
   align-items: center;
-  justify-content: space-around;
-  height: 58px;
+  gap: 4px;
+  height: 64px;
   padding: 0 6px;
   border-radius: 22px;
-  border: 1px solid var(--hairline);
-  background: color-mix(in srgb, var(--wash) 6%, transparent);
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
 .tabbar__item {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   flex: 1;
-  height: 42px;
-  border-radius: 15px;
+  height: 52px;
+  border-radius: 16px;
   background: transparent;
-  color: color-mix(in srgb, var(--text) 45%, transparent);
+  color: var(--text-faint);
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .tabbar__item--active {
-  background: var(--text);
-  color: var(--bg);
+  background: var(--control-alt);
+  color: var(--text);
 }
 
-/* ── sheets ────────────────────────────────────────────────────────────── */
+/* Energie and Netwerk say something about the house regardless of selection. */
+.tabbar__item--export {
+  color: var(--export);
+}
+
+.tabbar__item--import {
+  color: var(--import);
+}
+
+.tabbar__item--stale {
+  color: var(--warn-fg);
+}
+
+.tabbar__dot {
+  position: absolute;
+  top: 11px;
+  right: calc(50% - 17px);
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--alert);
+  border: 2px solid var(--card);
+}
+
+.tabbar__item--active .tabbar__dot {
+  border-color: var(--control-alt);
+}
+
+/* ── sheets ────────────────────────────────────────────────────────────────
+   The panel stops 96px above the bottom so the tab bar stays clear of it.  */
 
 .sheet {
   position: absolute;
   inset: 0;
-  z-index: 20;
+  z-index: 1;
   background: var(--scrim);
-  backdrop-filter: blur(3px);
   animation: fadeIn 0.18s ease;
 }
 
@@ -544,22 +574,20 @@ button {
 
 .sheet__panel {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-height: 100%;
+  left: 8px;
+  right: 8px;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  max-height: calc(100% - 104px - env(safe-area-inset-bottom));
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 20px 20px calc(34px + env(safe-area-inset-bottom));
-  border-radius: 32px 32px 44px 44px;
-  background: var(--sheet-bg);
+  gap: 14px;
+  padding: 18px 18px 20px;
+  border-radius: 28px;
+  background: var(--sheet);
+  border: 1px solid var(--border);
+  box-shadow: 0 -18px 44px -22px rgba(17, 19, 24, 0.3);
   animation: sheetUp 0.28s var(--ease-sheet);
-}
-
-.sheet__panel--gap18 {
-  gap: 18px;
 }
 
 .sheet__head {
@@ -568,10 +596,11 @@ button {
   gap: 12px;
 }
 
-.sheet__dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
+/* The room's tint, as a bar rather than a dot — it reads at 5 × 40. */
+.sheet__bar {
+  width: 5px;
+  height: 40px;
+  border-radius: 3px;
   flex: 0 0 auto;
 }
 
@@ -579,21 +608,22 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  background: var(--surface-alt);
-  color: color-mix(in srgb, var(--text) 70%, transparent);
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+  background: var(--control);
+  color: var(--text-2);
   flex: 0 0 auto;
 }
 
 .sheet__tile--warn {
-  background: var(--pill-warn-bg);
-  color: var(--accent-text);
+  background: var(--warn-bg);
+  color: var(--warn-fg);
 }
 
 .sheet__tile--accent {
-  color: var(--accent-text);
+  background: var(--cool-bg);
+  color: var(--cool-fg);
 }
 
 .sheet__titles {
@@ -608,50 +638,33 @@ button {
 }
 
 .sheet__subtitle {
-  margin-top: 2px;
+  margin-top: 4px;
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
+  font-size: 11px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 35%, transparent);
+  color: var(--text-muted);
 }
 
 .sheet__close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--wash) 8%, transparent);
-  color: color-mix(in srgb, var(--text) 60%, transparent);
-  flex: 0 0 auto;
-  position: relative;
-}
-
-.sheet__close::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 44px;
   height: 44px;
-  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--control-alt);
+  color: var(--text-2);
+  flex: 0 0 auto;
 }
 
 .sheet__footnote {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 25%, transparent);
+  color: var(--text-faint);
   text-align: center;
-}
-
-.sheet__row {
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 14px;
 }
 
 .sheet__list {
@@ -660,57 +673,167 @@ button {
   gap: 8px;
 }
 
-/* room sheet reading */
+/* ── 24 h temperature line ─────────────────────────────────────────────────
+   A plain polyline in the room's tint. No Lovelace embed anywhere in here.  */
 
-.reading {
+.spark {
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  padding: 4px 2px 8px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 14px;
 }
 
-.reading__temp {
-  font-size: 56px;
-  font-weight: 400;
-  letter-spacing: -0.04em;
-  line-height: 0.9;
+.spark__svg {
+  flex: 1;
+  height: 44px;
+  display: block;
+  min-width: 0;
 }
 
-.reading__hum {
+.spark__stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  flex: 0 0 auto;
   font-family: var(--font-mono);
-  font-size: 12px;
-  color: var(--text-muted);
-  padding-bottom: 8px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
-/* climate row */
+.spark__hi {
+  color: var(--text-2);
+}
+
+/* ── per-lamp brightness rows ──────────────────────────────────────────── */
+
+.lamp {
+  position: relative;
+  overflow: hidden;
+  height: 54px;
+  border-radius: 16px;
+  background: var(--control);
+  /* Horizontal drag belongs to the row, vertical scrolling to the sheet — the
+     sheet can hold several lamps plus climate and media, and `none` here would
+     make a finger that starts on a lamp unable to scroll past it. */
+  touch-action: pan-y;
+  user-select: none;
+  cursor: pointer;
+  width: 100%;
+  display: block;
+  text-align: left;
+}
+
+.lamp--dimmable {
+  cursor: ew-resize;
+}
+
+.lamp__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent-fill);
+  transition: width 0.09s linear;
+}
+
+.lamp__row {
+  position: relative;
+  height: 100%;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lamp__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lamp__kind {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  flex: 0 0 auto;
+}
+
+.lamp__value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  flex: 0 0 auto;
+  min-width: 34px;
+  text-align: right;
+}
+
+/* ── climate row ───────────────────────────────────────────────────────── */
 
 .climate {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--surface);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 12px 14px;
+  padding: 8px 10px 8px 12px;
 }
 
-.climate__chip {
+.climate__mode {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 7px 11px;
-  border-radius: 9px;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: color-mix(in srgb, var(--wash) 8%, transparent);
-  color: color-mix(in srgb, var(--text) 50%, transparent);
+  background: var(--control);
+  color: var(--text-dim);
+  flex: 0 0 auto;
 }
 
-.climate__chip--on {
-  background: var(--accent-cool);
-  color: var(--accent-cool-ink);
+/* The mode button carries the hue at full chroma — it is the loudest control
+   in the sheet, and the one that says what the unit is actually doing. */
+.climate__mode--cool {
+  background: var(--cool);
+  color: #fff;
+}
+
+.climate__mode--heat {
+  background: var(--heat);
+  color: #fff;
+}
+
+.climate__mode--dry {
+  background: var(--dry);
+  color: #fff;
+}
+
+.climate__mode--fan_only {
+  background: var(--fan);
+  color: #fff;
+}
+
+.climate__mode--other {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .climate__spacer {
@@ -721,22 +844,12 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--wash) 8%, transparent);
-  font-size: 18px;
-  position: relative;
-}
-
-.stepper::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 44px;
   height: 44px;
-  transform: translate(-50%, -50%);
+  border-radius: 12px;
+  background: var(--control);
+  font-size: 20px;
+  flex: 0 0 auto;
 }
 
 .stepper:disabled {
@@ -747,37 +860,26 @@ button {
 .climate__target {
   font-size: 17px;
   font-weight: 500;
-  min-width: 62px;
+  min-width: 64px;
   text-align: center;
 }
 
-/* media block */
+/* ── media row ─────────────────────────────────────────────────────────── */
 
 .media {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  background: var(--surface);
+  gap: 10px;
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 13px;
+  padding: 12px;
 }
 
 .media__row {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.media__tile {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--wash) 6%, transparent);
-  color: color-mix(in srgb, var(--text) 60%, transparent);
-  flex: 0 0 auto;
 }
 
 .media__names {
@@ -796,10 +898,10 @@ button {
 .media__state {
   margin-top: 3px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 38%, transparent);
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -809,77 +911,21 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--wash) 8%, transparent);
-  flex: 0 0 auto;
-  position: relative;
-}
-
-.media__btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
   width: 44px;
   height: 44px;
-  transform: translate(-50%, -50%);
+  border-radius: 12px;
+  background: var(--control);
+  color: var(--text-2);
+  flex: 0 0 auto;
 }
 
 .media__btn--play {
-  width: 44px;
-  color: color-mix(in srgb, var(--text) 60%, transparent);
+  width: 52px;
 }
 
 .media__btn--playing {
   background: var(--accent);
-  color: var(--accent-ink);
-}
-
-.media__vol-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--wash) 8%, transparent);
-  font-size: 16px;
-  flex: 0 0 auto;
-  position: relative;
-}
-
-.media__vol-btn::after {
-  content: '';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 44px;
-  height: 44px;
-  transform: translate(-50%, -50%);
-}
-
-.media__track {
-  flex: 1;
-  height: 6px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--wash) 12%, transparent);
-  overflow: hidden;
-}
-
-.media__fill {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--accent);
-}
-
-.media__pct {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  color: color-mix(in srgb, var(--text) 38%, transparent);
-  min-width: 34px;
-  text-align: right;
+  color: var(--on-accent);
 }
 
 .media__presets {
@@ -893,15 +939,15 @@ button {
   justify-content: center;
   flex: 1;
   min-width: 0;
-  height: 30px;
+  height: 38px;
   padding: 0 6px;
-  border-radius: 10px;
+  border-radius: 11px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  background: color-mix(in srgb, var(--wash) 8%, transparent);
-  color: color-mix(in srgb, var(--text) 50%, transparent);
+  background: var(--control);
+  color: var(--text-2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -909,86 +955,7 @@ button {
 
 .media__preset--on {
   background: var(--text);
-  color: var(--bg);
-}
-
-/* entity rows */
-
-.entity {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  background: var(--surface);
-  border-radius: 16px;
-  padding: 14px;
-  text-align: left;
-  transition: background 0.15s ease;
-}
-
-.entity:hover {
-  background: color-mix(in srgb, var(--wash) 8%, transparent);
-}
-
-.entity__names {
-  flex: 1;
-  min-width: 0;
-  /* The rows are <button>s, so these are spans — make them stack like blocks. */
-  display: flex;
-  flex-direction: column;
-}
-
-.entity__name {
-  display: block;
-  font-size: 15px;
-  font-weight: 500;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.entity__id {
-  display: block;
-  margin-top: 3px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 38%, transparent);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.switch {
-  display: flex;
-  align-items: center;
-  width: 46px;
-  height: 27px;
-  border-radius: 14px;
-  padding: 3px;
-  background: color-mix(in srgb, var(--wash) 14%, transparent);
-  flex: 0 0 auto;
-}
-
-.switch--on {
-  background: var(--accent);
-}
-
-.switch__knob {
-  display: block;
-  flex: 0 0 auto;
-  width: 21px;
-  height: 21px;
-  border-radius: 50%;
-  background: var(--knob);
-  box-shadow: var(--knob-shadow);
-  transform: translateX(0);
-  transition: transform 0.18s ease;
-}
-
-.switch--on .switch__knob {
-  transform: translateX(19px);
+  color: var(--page);
 }
 
 /* ── openings sheet ────────────────────────────────────────────────────── */
@@ -997,15 +964,14 @@ button {
   display: flex;
   flex-direction: column;
   gap: 7px;
-  max-height: 340px;
-  overflow-y: auto;
 }
 
 .opening {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--surface);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 12px 14px;
 }
@@ -1017,8 +983,8 @@ button {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: var(--pill-warn-bg);
-  color: var(--accent-text);
+  background: var(--warn-bg);
+  color: var(--warn-fg);
   flex: 0 0 auto;
 }
 
@@ -1037,9 +1003,9 @@ button {
   margin-top: 3px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 35%, transparent);
+  color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1053,14 +1019,14 @@ button {
   gap: 12px;
 }
 
-.weather__temp {
-  font-size: 54px;
+.weather__big {
+  font-size: 48px;
   font-weight: 400;
   letter-spacing: -0.04em;
   line-height: 0.9;
 }
 
-.weather__meta {
+.weather__lines {
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -1085,7 +1051,8 @@ button {
   min-width: 0;
   padding: 8px 9px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--wash) 4%, transparent);
+  background: var(--card);
+  border: 1px solid var(--border);
 }
 
 .forecast__code {
@@ -1099,7 +1066,7 @@ button {
   display: flex;
   align-items: center;
   gap: 5px;
-  color: var(--text-dim);
+  color: var(--text-2);
 }
 
 .forecast__high {
@@ -1112,128 +1079,7 @@ button {
 .forecast__low {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: color-mix(in srgb, var(--text) 30%, transparent);
-}
-
-/* ── power sheet ───────────────────────────────────────────────────────── */
-
-.power {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.power__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-}
-
-.power__now {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: color-mix(in srgb, var(--text) 45%, transparent);
-}
-
-.power__net {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  color: color-mix(in srgb, var(--text) 30%, transparent);
-}
-
-.power__cols {
-  display: flex;
-  gap: 14px;
-}
-
-.power__col {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 1;
-  min-width: 0;
-}
-
-.power__value-row {
-  display: flex;
-  align-items: baseline;
-  gap: 4px;
-}
-
-.power__value {
-  font-size: 22px;
-  font-weight: 400;
-  letter-spacing: -0.03em;
-}
-
-.power__unit {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  color: color-mix(in srgb, var(--text) 35%, transparent);
-}
-
-.power__icon {
-  margin-left: auto;
-}
-
-.power__icon--solar {
-  color: var(--accent-text);
-}
-
-.power__icon--use {
-  color: var(--accent-cool-text);
-}
-
-.power__bar {
-  height: 5px;
-  border-radius: 3px;
-  background: color-mix(in srgb, var(--wash) 10%, transparent);
-  overflow: hidden;
-}
-
-.power__bar-fill {
-  height: 5px;
-  border-radius: 3px;
-}
-
-.power__bar-fill--solar {
-  background: var(--accent);
-}
-
-.power__bar-fill--use {
-  background: var(--accent-cool);
-}
-
-.power__loads {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-  padding-top: 2px;
-}
-
-.power__load {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-
-.power__load-name {
-  color: color-mix(in srgb, var(--text) 50%, transparent);
-  text-transform: uppercase;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.power__load-value {
-  color: color-mix(in srgb, var(--text) 75%, transparent);
-  flex: 0 0 auto;
+  color: var(--text-faint);
 }
 
 /* ── alarm sheet ───────────────────────────────────────────────────────── */
@@ -1250,10 +1096,11 @@ button {
   justify-content: center;
   gap: 6px;
   flex: 1;
-  padding: 14px 8px;
-  border-radius: 16px;
-  background: var(--surface);
-  color: var(--text-dim);
+  min-height: 60px;
+  padding: 12px 8px;
+  border-radius: 14px;
+  background: var(--control);
+  color: var(--text-2);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -1261,20 +1108,21 @@ button {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.alarm__mode:hover {
-  background: var(--surface-hover);
-}
-
 .alarm__mode--current {
   background: var(--accent);
-  color: var(--accent-ink);
+  color: var(--on-accent);
+}
+
+.alarm__mode:disabled {
+  cursor: default;
 }
 
 .alarm__code {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: var(--surface);
+  background: var(--card);
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 12px 14px;
 }
@@ -1282,11 +1130,11 @@ button {
 .alarm__code input {
   flex: 1;
   min-width: 0;
-  height: 36px;
+  height: 40px;
   padding: 0 12px;
-  border: 1px solid var(--hairline);
-  border-radius: 11px;
-  background: color-mix(in srgb, var(--wash) 6%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--control);
   color: var(--text);
   font-family: var(--font-mono);
   font-size: 15px;
@@ -1305,63 +1153,436 @@ button {
 
 .lovelace--empty {
   padding: 18px 14px;
-  background: var(--surface);
+  background: var(--card);
+  border: 1px dashed var(--divider);
   text-align: center;
 }
 
-/* ── views (non-home tabs) ─────────────────────────────────────────────── */
+/* ── views (the non-home tabs) ─────────────────────────────────────────── */
 
 .view {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--pad-screen) 14px;
+  padding: 20px var(--gutter) 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
-.view__empty {
-  margin-top: 40px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  color: var(--text-muted);
-  text-align: center;
+.view__title {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
-/* ── settings sheet ────────────────────────────────────────────────────── */
-
-.settings__group {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.settings__label {
+.view__sub {
+  margin-top: 5px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* ── Energie ───────────────────────────────────────────────────────────── */
+
+.energy__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.energy__now {
+  font-family: var(--font-mono);
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.settings__accents {
+.energy__net {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.energy__cols {
+  display: flex;
+  gap: 14px;
+}
+
+.energy__col {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+}
+
+.energy__value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.energy__value {
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+}
+
+.energy__unit {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.energy__bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.energy__fill {
+  height: 6px;
+  border-radius: 3px;
+}
+
+.energy__fill--solar {
+  background: var(--accent);
+}
+
+.energy__fill--use {
+  background: var(--cool);
+}
+
+.energy__loads {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.energy__load {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.04em;
+}
+
+.energy__load-name {
+  color: var(--text-muted);
+  text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.energy__load-value {
+  color: var(--text-body);
+  flex: 0 0 auto;
+}
+
+/* ── Netwerk ───────────────────────────────────────────────────────────── */
+
+.stale {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.stale__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.stale__names {
+  flex: 1;
+  min-width: 0;
+}
+
+.stale__name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stale__meta {
+  display: flex;
+  overflow: hidden;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  white-space: nowrap;
+}
+
+.stale__meta > span {
+  flex: 0 0 auto;
+  white-space: pre;
+}
+
+/* Outranks the `> span` rule above, so this is the one item that gives way. */
+.stale__meta > .stale__meta-id {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stale__badge {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  background: var(--control);
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+
+.stale__badge--warn {
+  background: var(--warn-bg);
+  color: var(--warn-fg);
+}
+
+.stale__foot {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  text-align: center;
+  padding-top: 4px;
+}
+
+/* ── Settings (the gear view) ──────────────────────────────────────────── */
+
+.settings__label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.settings__note {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.settings__section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.persons {
   display: flex;
   gap: 8px;
 }
 
-.settings__accent {
-  width: 34px;
-  height: 34px;
-  border-radius: 11px;
-  border: 2px solid transparent;
+.person {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--control);
+  color: var(--text-2);
 }
 
-.settings__accent--on {
+.person--on {
+  background: var(--text);
+  color: var(--page);
+}
+
+.person__name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.person__id {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  opacity: 0.6;
+}
+
+.order {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.order__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 5px 6px 5px 14px;
+}
+
+.order__names {
+  flex: 1;
+  min-width: 0;
+}
+
+.order__name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.order__id {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.order__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: var(--control);
+  color: var(--text-2);
+  flex: 0 0 auto;
+}
+
+.order__btn--fav {
+  background: var(--control);
+  color: var(--text-faint);
+}
+
+.order__btn--fav-on {
+  background: var(--accent-star);
+  color: var(--warn-fg);
+}
+
+.order__btn:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.more__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 0 16px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  text-align: left;
+  transition: background 0.15s ease;
+}
+
+.more__row:hover {
+  background: var(--control-alt);
+}
+
+.more__names {
+  flex: 1;
+  min-width: 0;
+}
+
+.more__name {
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.more__meta {
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.more__chevron {
+  color: var(--text-faint);
+  flex: 0 0 auto;
+  transition: transform 0.18s ease;
+}
+
+.more__chevron--open {
+  transform: rotate(90deg);
+}
+
+.more__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 4px 4px;
+}
+
+.tint-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tint-row__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tint-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  flex: 0 0 auto;
+}
+
+.tint-swatch--on {
   border-color: var(--text);
 }
 
@@ -1373,9 +1594,9 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 7px var(--pad-screen);
-  background: var(--pill-warn-bg);
-  color: var(--accent-text);
+  padding: 7px var(--gutter);
+  background: var(--warn-bg);
+  color: var(--warn-fg);
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.08em;
@@ -1384,10 +1605,10 @@ button {
 
 .toasts {
   position: absolute;
-  left: var(--pad-screen);
-  right: var(--pad-screen);
-  bottom: calc(96px + env(safe-area-inset-bottom));
-  z-index: 40;
+  left: var(--gutter);
+  right: var(--gutter);
+  bottom: calc(104px + env(safe-area-inset-bottom));
+  z-index: 3;
   display: flex;
   flex-direction: column;
   gap: 7px;
@@ -1397,15 +1618,15 @@ button {
 .toast {
   padding: 11px 14px;
   border-radius: 14px;
-  background: var(--sheet-bg);
-  border: 1px solid var(--hairline);
+  background: var(--sheet);
+  border: 1px solid var(--border);
   color: var(--text);
   font-size: 13px;
   letter-spacing: -0.01em;
   animation: fadeIn 0.18s ease;
 }
 
-/* ── loading / error ───────────────────────────────────────────────────── */
+/* ── loading / empty ───────────────────────────────────────────────────── */
 
 .centered {
   display: flex;
@@ -1421,6 +1642,16 @@ button {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.view__empty {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 /* ── animation ─────────────────────────────────────────────────────────── */
@@ -1450,20 +1681,19 @@ button {
     animation: none;
   }
 
-  .switch__knob,
-  .others__chevron,
-  .room,
-  .icon-btn,
+  .lamp__fill,
+  .tile__body,
   .tabbar__item,
-  .entity {
+  .more__row,
+  .more__chevron,
+  .section-head__gear {
     transition: none;
   }
 }
 
 /* ── responsive ────────────────────────────────────────────────────────────
    Phone is primary. 481–1024: 3-up grid, sheets capped at 560 and centred.
-   ≥1025: 4-up grid in a 1200 column, tab bar becomes a left rail, sheets
-   become centred modals with an even 24px radius.                          */
+   ≥1025: 4-up grid in a 1200 column, tab bar becomes a left rail.          */
 
 @media (min-width: 481px) {
   .room-grid {
@@ -1474,7 +1704,7 @@ button {
     left: 50%;
     right: auto;
     transform: translateX(-50%);
-    width: min(560px, 100%);
+    width: min(560px, calc(100% - 16px));
   }
 
   @keyframes sheetUp {
@@ -1513,15 +1743,19 @@ button {
     flex-direction: column;
     justify-content: center;
     gap: 6px;
-    width: 58px;
+    width: 64px;
     height: auto;
     padding: 6px 0;
   }
 
   .tabbar__item {
     flex: 0 0 auto;
-    width: 46px;
-    height: 42px;
+    width: 52px;
+    height: 52px;
+  }
+
+  .tabbar__dot {
+    right: calc(50% - 15px);
   }
 
   .sheet__panel {
@@ -1530,7 +1764,6 @@ button {
     transform: translate(-50%, -50%);
     max-height: min(80vh, 760px);
     border-radius: 24px;
-    padding: 20px 20px 24px;
   }
 
   @keyframes sheetUp {

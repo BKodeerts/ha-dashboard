@@ -14,19 +14,94 @@ import type {
  * mutates this state, so the interactions are real.
  */
 
+interface MockLight {
+  id: string;
+  name: string;
+  on: boolean;
+  /** Lamps without a level are switch-only, and get the `aan/uit` row. */
+  brightness?: number;
+}
+
 interface MockRoom {
   id: string;
   name: string;
   temp?: number;
   hum?: number;
-  lights: { id: string; name: string; on: boolean }[];
-  climate?: { id: string; name: string; on: boolean; target: number; current: number };
+  lights: MockLight[];
+  climate?: {
+    id: string;
+    name: string;
+    mode: 'off' | 'cool' | 'heat' | 'dry' | 'fan_only';
+    target: number;
+    current: number;
+  };
   media?: { id: string; name: string; playing: boolean; volume: number; station: string };
   openings?: { id: string; name: string; deviceClass: 'window' | 'door'; open: boolean; agoMin: number }[];
   motion?: { id: string; name: string; on: boolean };
   smoke?: { id: string; name: string; on: boolean };
   camera?: { id: string; name: string };
 }
+
+/**
+ * Devices that stopped reporting, for the Netwerk tab. Each carries a battery
+ * sensor on the same device, which is how the real list finds its percentages.
+ */
+interface MockQuiet {
+  device: string;
+  name: string;
+  area: string;
+  entityId: string;
+  state: string;
+  attributes: Record<string, unknown>;
+  battery?: number;
+  agoMin: number;
+}
+
+const QUIET: MockQuiet[] = [
+  {
+    device: 'dev_waskot_lek',
+    name: 'Waskot lekdetectie',
+    area: 'waskot',
+    entityId: 'binary_sensor.waskot_lek',
+    state: 'off',
+    attributes: { friendly_name: 'Waskot lek', device_class: 'moisture' },
+    battery: 4,
+    agoMin: 6 * 24 * 60,
+  },
+  {
+    device: 'dev_tuin_temp',
+    name: 'Tuinsensor',
+    area: 'living',
+    entityId: 'sensor.tuin_temperatuur',
+    state: '11.4',
+    attributes: {
+      friendly_name: 'Tuin temperatuur',
+      device_class: 'temperature',
+      unit_of_measurement: '°C',
+    },
+    battery: 11,
+    agoMin: 3 * 24 * 60,
+  },
+  {
+    device: 'dev_garage_deur',
+    name: 'Garagepoort contact',
+    area: 'hal',
+    entityId: 'binary_sensor.garage_contact',
+    state: 'off',
+    attributes: { friendly_name: 'Garage contact', device_class: 'door' },
+    battery: 62,
+    agoMin: 55 * 60,
+  },
+  {
+    device: 'dev_repeater',
+    name: 'Zigbee repeater keuken',
+    area: 'living',
+    entityId: 'sensor.zigbee_repeater_lqi',
+    state: 'unavailable',
+    attributes: { friendly_name: 'Zigbee repeater LQI' },
+    agoMin: 31 * 60,
+  },
+];
 
 const ROOMS: MockRoom[] = [
   {
@@ -35,8 +110,9 @@ const ROOMS: MockRoom[] = [
     temp: 24.2,
     hum: 61.9,
     lights: [
-      { id: 'light.living', name: 'Living', on: true },
-      { id: 'light.speelhoek', name: 'Speelhoek', on: false },
+      { id: 'light.living', name: 'Living', on: true, brightness: 62 },
+      { id: 'light.speelhoek', name: 'Speelhoek', on: false, brightness: 45 },
+      // No level: a switched lamp, so the room card shows it as `aan/uit`.
       { id: 'light.eettafel', name: 'Eettafel', on: false },
     ],
     media: {
@@ -58,7 +134,7 @@ const ROOMS: MockRoom[] = [
     name: 'Bureau',
     temp: 23.4,
     hum: 64.0,
-    lights: [{ id: 'light.bureau', name: 'Bureau ring', on: true }],
+    lights: [{ id: 'light.bureau', name: 'Bureau ring', on: true, brightness: 80 }],
     openings: [
       { id: 'binary_sensor.bureau_raam', name: 'Raam', deviceClass: 'window', open: true, agoMin: 93 },
     ],
@@ -68,11 +144,11 @@ const ROOMS: MockRoom[] = [
     name: 'Slaapkamer',
     temp: 23.1,
     hum: 63.4,
-    lights: [{ id: 'light.slaapkamer', name: 'Plafond', on: false }],
+    lights: [{ id: 'light.slaapkamer', name: 'Plafond', on: false, brightness: 70 }],
     climate: {
       id: 'climate.slaapkamer',
       name: 'Slaapkamer AC',
-      on: false,
+      mode: 'off',
       target: 25,
       current: 23.1,
     },
@@ -86,8 +162,8 @@ const ROOMS: MockRoom[] = [
     name: 'Clara',
     temp: 22.6,
     hum: 60.8,
-    lights: [{ id: 'light.clara', name: 'Nachtlamp', on: false }],
-    climate: { id: 'climate.clara', name: 'Clara AC', on: true, target: 25, current: 22.6 },
+    lights: [{ id: 'light.clara', name: 'Nachtlamp', on: false, brightness: 25 }],
+    climate: { id: 'climate.clara', name: 'Clara AC', mode: 'cool', target: 25, current: 22.6 },
     openings: [
       { id: 'binary_sensor.clara_raam', name: 'Raam', deviceClass: 'window', open: false, agoMin: 900 },
     ],
@@ -98,8 +174,8 @@ const ROOMS: MockRoom[] = [
     name: 'Oliver',
     temp: 24.0,
     hum: 60.2,
-    lights: [{ id: 'light.oliver', name: 'Nachtlamp', on: true }],
-    climate: { id: 'climate.oliver', name: 'Oliver AC', on: true, target: 24, current: 24.0 },
+    lights: [{ id: 'light.oliver', name: 'Nachtlamp', on: true, brightness: 35 }],
+    climate: { id: 'climate.oliver', name: 'Oliver AC', mode: 'dry', target: 24, current: 24.0 },
     openings: [
       { id: 'binary_sensor.oliver_raam', name: 'Raam', deviceClass: 'window', open: false, agoMin: 800 },
     ],
@@ -109,7 +185,7 @@ const ROOMS: MockRoom[] = [
     name: 'Dressing',
     temp: 24.0,
     hum: 61.0,
-    lights: [{ id: 'light.dressing', name: 'Dressing', on: false }],
+    lights: [{ id: 'light.dressing', name: 'Dressing', on: false, brightness: 60 }],
   },
   {
     id: 'waskot',
@@ -127,9 +203,9 @@ const ROOMS: MockRoom[] = [
     name: 'Badkamer',
     temp: 24.4,
     hum: 66.0,
-    lights: [{ id: 'light.badkamer', name: 'Badkamer', on: false }],
+    lights: [{ id: 'light.badkamer', name: 'Badkamer', on: false, brightness: 80 }],
     openings: [
-      { id: 'binary_sensor.badkamer_raam', name: 'Raam', deviceClass: 'window', open: false, agoMin: 1500 },
+      { id: 'binary_sensor.badkamer_raam', name: 'Raam', deviceClass: 'window', open: false, agoMin: 900 },
     ],
   },
   {
@@ -139,7 +215,7 @@ const ROOMS: MockRoom[] = [
     hum: 61.0,
     lights: [{ id: 'light.toilet', name: 'Toilet', on: false }],
     openings: [
-      { id: 'binary_sensor.toilet_raam', name: 'Raam', deviceClass: 'window', open: false, agoMin: 2000 },
+      { id: 'binary_sensor.toilet_raam', name: 'Raam', deviceClass: 'window', open: false, agoMin: 1100 },
     ],
   },
   {
@@ -206,11 +282,21 @@ function buildStates(globals: MockGlobals): HassEntities {
       );
     }
     for (const light of room.lights) {
-      add(entity(light.id, light.on ? 'on' : 'off', { friendly_name: light.name }));
+      const dimmable = light.brightness !== undefined;
+      add(
+        entity(light.id, light.on ? 'on' : 'off', {
+          friendly_name: light.name,
+          supported_color_modes: dimmable ? ['brightness'] : ['onoff'],
+          color_mode: light.on ? (dimmable ? 'brightness' : 'onoff') : null,
+          ...(dimmable
+            ? { brightness: Math.round(((light.brightness ?? 0) / 100) * 255) }
+            : {}),
+        }),
+      );
     }
     if (room.climate) {
       add(
-        entity(room.climate.id, room.climate.on ? 'cool' : 'off', {
+        entity(room.climate.id, room.climate.mode, {
           friendly_name: room.climate.name,
           hvac_modes: ['off', 'cool', 'heat', 'dry', 'fan_only'],
           temperature: room.climate.target,
@@ -271,7 +357,28 @@ function buildStates(globals: MockGlobals): HassEntities {
       supported_features: 47,
     }),
   );
+  // Two people, so the settings screen has a real choice and the pill has an
+  // "other" to show.
+  add(entity('person.bart', 'home', { friendly_name: 'Bart' }, 45));
   add(entity('person.leen', globals.person, { friendly_name: 'Leen' }, 60));
+
+  for (const quiet of QUIET) {
+    add(entity(quiet.entityId, quiet.state, quiet.attributes, quiet.agoMin));
+    if (quiet.battery !== undefined) {
+      add(
+        entity(
+          `${quiet.entityId.replace(/^[a-z_]+\./, 'sensor.')}_battery`,
+          String(quiet.battery),
+          {
+            friendly_name: `${quiet.name} batterij`,
+            device_class: 'battery',
+            unit_of_measurement: '%',
+          },
+          quiet.agoMin,
+        ),
+      );
+    }
+  }
   add(
     entity('weather.kmi', 'cloudy', {
       friendly_name: 'KMI Halle',
@@ -341,13 +448,32 @@ function buildRegistries(states: HassEntities): {
   // The three front-door sensors live in the hall but are named `o_*`.
   const HALL = ['binary_sensor.o_voordeur', 'binary_sensor.o_garagepoort', 'binary_sensor.o_achterdeur'];
 
-  const entities: EntityRegistryEntry[] = Object.keys(states).map((entity_id) => ({
-    entity_id,
-    device_id: null,
-    area_id: HALL.includes(entity_id) ? 'hal' : areaOf(entity_id),
+  // Only the quiet devices are modelled as devices — that is the one place the
+  // dashboard groups by device rather than by entity.
+  const devices: DeviceRegistryEntry[] = QUIET.map((quiet) => ({
+    id: quiet.device,
+    area_id: quiet.area,
+    name: quiet.name,
   }));
 
-  return { areas, devices: [], entities };
+  const deviceOf = (entityId: string): string | null =>
+    QUIET.find(
+      (q) =>
+        entityId === q.entityId ||
+        entityId === `${q.entityId.replace(/^[a-z_]+\./, 'sensor.')}_battery`,
+    )?.device ?? null;
+
+  const entities: EntityRegistryEntry[] = Object.keys(states).map((entity_id) => {
+    const device_id = deviceOf(entity_id);
+    const quiet = device_id ? QUIET.find((q) => q.device === device_id) : undefined;
+    return {
+      entity_id,
+      device_id,
+      area_id: quiet?.area ?? (HALL.includes(entity_id) ? 'hal' : areaOf(entity_id)),
+    };
+  });
+
+  return { areas, devices, entities };
 }
 
 /**
@@ -417,9 +543,25 @@ export function mockBackend(): HaBackend {
       const ids = targetIds(target, data);
       for (const id of ids) {
         if (domain === 'light' || domain === 'switch') {
-          if (service === 'turn_on') patch(id, 'on');
-          else if (service === 'turn_off') patch(id, 'off');
-          else if (service === 'toggle') patch(id, states[id]?.state === 'on' ? 'off' : 'on');
+          const dimmable = Array.isArray(states[id]?.attributes?.supported_color_modes)
+            ? !(states[id]!.attributes!.supported_color_modes as string[]).includes('onoff')
+            : true;
+          const pct = Number(data?.brightness_pct);
+          if (service === 'turn_on') {
+            patch(
+              id,
+              'on',
+              dimmable && Number.isFinite(pct)
+                ? { brightness: Math.round((pct / 100) * 255) }
+                : undefined,
+            );
+          } else if (service === 'turn_off') {
+            // Keep the level: HA restores the last brightness on the next
+            // `turn_on`, and the UI reads 0 % from the state, not the attribute.
+            patch(id, 'off');
+          } else if (service === 'toggle') {
+            patch(id, states[id]?.state === 'on' ? 'off' : 'on');
+          }
         } else if (domain === 'climate') {
           if (service === 'set_hvac_mode') patch(id, String(data?.hvac_mode ?? 'off'));
           else if (service === 'set_temperature')

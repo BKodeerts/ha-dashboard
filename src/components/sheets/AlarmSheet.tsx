@@ -32,7 +32,7 @@ export function AlarmSheet({ alarm, onClose }: { alarm: AlarmInfo; onClose(): vo
   };
 
   return (
-    <Sheet onClose={onClose} labelledBy="alarm-sheet-title" wideGap>
+    <Sheet onClose={onClose} labelledBy="alarm-sheet-title">
       <div className="sheet__head">
         <div className={`sheet__tile${alarm.attention ? ' sheet__tile--warn' : ''}`}>
           <Icon name={alarm.state === 'disarmed' ? 'shieldOff' : 'shieldHome'} size={18} />

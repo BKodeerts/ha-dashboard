@@ -1,12 +1,29 @@
 # ha-dashboard
 
-A custom mobile-first Home Assistant frontend, built to the design handoff in
-[`design_handoff_ha_dashboard/`](design_handoff_ha_dashboard/) (direction **2a** — "Dense — cards
-with device badges, trend, energy").
+A custom mobile-first Home Assistant frontend, built to the **v2** design handoff in
+[`design_handoff_ha_dashboard_v2/`](design_handoff_ha_dashboard_v2/) (section `3b` — "Tegel opent de
+kamer, lichtchip schakelt").
 
-It answers four questions at a glance — is the alarm set, is anything open, is Leen home, what are
-the favourite rooms doing — and puts the common controls (lights, AC, radio) one tap from the home
-screen. Heavy data views stay Home Assistant's own Lovelace cards, embedded in the shell.
+It answers three questions at a glance — is the alarm set, is anything open, where is the other
+person — and puts the lights one tap from the home screen. Everything a tile cannot hold lives in
+the room card: per-lamp brightness, the AC, the radio, and the room's own 24 h temperature line.
+
+Four tabs, each a real view: **Home**, **Energie**, **Netwerk**, **Auto**. The bottom bar is always
+visible and always tappable — sheets stop 96 px above it. Heavy data views (the energy dashboard,
+the car cards) stay Home Assistant's own Lovelace cards, embedded in the shell.
+
+### What changed in v2
+
+| v1 (rejected on UX grounds) | v2 |
+| --- | --- |
+| 5 tabs; `Stroom` opened a modal instead of a view | 4 tabs, each a real view |
+| A sheet could cover the bottom bar | Bar always visible; sheets stop 96 px above it, and switching tab dismisses any sheet |
+| Room card held large Lovelace temp + humidity graphs | One reading line and a single 24 h sparkline, no embeds |
+| Lights on/off only | Per-lamp brightness in the room card, non-dimmable lamps handled explicitly |
+| 30 px icon buttons nested in a tappable card | One 34 px light chip; every other target ≥ 44 px |
+| State written as text ("AC uit") | Coloured state icons, read at a glance |
+| Favourites/others fold | All rooms in one scroll, favourites first, order user-defined |
+| Settings hidden behind a text link | Gear button next to "Kamers" |
 
 ```
 npm install
@@ -107,57 +124,75 @@ Rooms come from the **area registry**, not from a hand-written list. At startup 
 area, device and entity registries once, resolves each entity to an area (directly via
 `entity.area_id`, or through its device), and buckets the result:
 
-| Card slot | Selector |
+| Tile / room-card slot | Selector |
 | --- | --- |
 | Temperature | `sensor` with `device_class: temperature` (prefers the one whose name matches the area) |
 | Humidity | `sensor` with `device_class: humidity` |
-| Lights icon | every `light.*` in the area |
-| AC icon | `climate.*` in the area |
-| Radio icon | `media_player.*` in the area |
-| Window / door | `binary_sensor` with `device_class` `window` / `door` / `garage_door` |
-| Motion | `binary_sensor` with `device_class` `motion` / `occupancy` |
-| Smoke | `binary_sensor` with `device_class: smoke` |
-| Camera | `camera.*` in the area |
+| Light chip + per-lamp rows | every `light.*` in the area |
+| AC chip + climate row | `climate.*` in the area |
+| Radio chip + media row | `media_player.*` in the area |
+| Window chip | `binary_sensor` with `device_class` `window` / `door` / `garage_door` |
 
 **Adding a device in HA and assigning it to an area is the only step needed for it to appear here.**
 Hidden, disabled and config/diagnostic entities are skipped. Areas with nothing to show are dropped.
 The app re-reads the registries when HA reports a registry change, so no reload is needed.
 
-One WebSocket subscription (`subscribeEntities`) feeds the whole home screen. The sparklines add one
-`history/history_during_period` call per temperature sensor, cached for five minutes.
+A lamp counts as **dimmable** when its `supported_color_modes` lists anything other than `onoff`
+(or, for older integrations, when it reports a `brightness` attribute). Non-dimmable lamps get a
+tap-only row and the room's light chip reads `aan` rather than a percentage.
+
+One WebSocket subscription (`subscribeEntities`) feeds the whole home screen. The room card's
+temperature line adds one `history/history_during_period` call per temperature sensor (~28 points,
+cached for five minutes).
+
+### Netwerk: what has gone quiet
+
+The Netwerk tab is **not** a card page. It compares each entity's `last_updated` to now and lists
+what has not reported in over 24 hours — dead batteries, dropped Zigbee nodes, offline bridges.
+Entities are **grouped by device**, so one silent sensor produces one row rather than five, and a
+device counts as silent only when *none* of its entities has reported. The battery percentage comes
+from the `device_class: battery` sensor on the same device. Past 48 h the badge turns amber and the
+tab grows a dot.
+
+Entities belonging to a disabled device are skipped, as are the domains that are legitimately quiet
+for months (`automation`, `script`, `scene`, the `input_*` helpers, `zone`, …) — listing them would
+bury the devices that are actually broken.
 
 ## Configuration
 
 Everything user-specific is client-side — a JSON blob in `localStorage` under
-`ha-dashboard.config.v1`, layered over `panel_custom`'s `config:` block, layered over the defaults.
+`ha-dashboard.config.v2`, layered over `panel_custom`'s `config:` block, layered over the defaults.
 No YAML edit is needed to change a favourite or a colour.
 
-Tap the **room-count line** in the "Kamers" header (`5 favoriet · 10 totaal`) to open the settings
-sheet: favourites, accent hue, light/dark, and reset.
+The **gear next to "Kamers"** opens the settings view: who you are, room order and favourites, and
+the display odds and ends (weather, theme, per-room tints).
 
 Everything that is left blank is derived from the state machine on first run:
 
 | Key | Type | Default when unset |
 | --- | --- | --- |
 | `favouriteAreas` | `string[]` | first five areas that have a light, climate or media player |
-| `areaTint` | `Record<areaId, string>` | the design's nine tints by area name, then a cycling palette |
-| `roomOrder` | `string[]` | area registry order |
-| `accent` | `string` | amber `oklch(0.72 0.13 60)`; also ships blue, green, magenta |
+| `areaTint` | `Record<areaId, string>` | the v2 handoff's nine tints by area name, then a cycling palette |
+| `roomOrder` | `string[]` | area registry order (favourites always sort first) |
 | `theme` | `'auto' \| 'light' \| 'dark'` | `auto` — follows Home Assistant's own light/dark setting |
+| `me` | `string` | first `person.*` — the presence pill then shows *the other one* |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
-| `personEntity` | `string` | first `person.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | a `device_class: power` sensor matched by name |
 | `power.loads` | `string[]` | the remaining power sensors, sorted by value at render time |
+| `power.scale` | `number` | `2000` — full scale of the two bars on the Energie tab, in watts |
+| `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
-| `lovelace.*` | card configs | sensible per-sheet defaults, see below |
+| `lovelace.*` | card configs | sensible per-surface defaults, see below |
 
 Example, set from the browser console:
 
 ```js
-localStorage.setItem('ha-dashboard.config.v1', JSON.stringify({
+localStorage.setItem('ha-dashboard.config.v2', JSON.stringify({
   favouriteAreas: ['living', 'bureau', 'slaapkamer', 'clara', 'oliver'],
+  me: 'person.bart',
   power: { solar: 'sensor.zonnepanelen_vermogen', consumption: 'sensor.verbruik_vermogen' },
+  car: { name: 'Kona electric', battery: 'sensor.kona_battery', range: 'sensor.kona_range' },
   mediaPresets: {
     'media_player.living_radio': [
       { name: 'Studio Brussel', media_content_type: 'music', media_content_id: 'https://…/stubru.mp3' },
@@ -167,10 +202,15 @@ localStorage.setItem('ha-dashboard.config.v1', JSON.stringify({
   },
   lovelace: {
     energy: [{ type: 'energy-distribution' }, { type: 'energy-usage-graph' }],
-    netwerk: [{ type: 'entities', entities: ['sensor.wan_download', 'sensor.wan_upload'] }],
+    auto: [{ type: 'entities', entities: ['sensor.kona_battery', 'sensor.kona_range'] }],
   },
 }));
 ```
+
+v1's `accent`, `personEntity`, `lovelace.netwerk` and `lovelace.roomHistory` are gone: the accent is
+fixed at amber, the person entity is derived from `me`, Netwerk is no longer a card page, and the
+room card draws its own history line. The storage key changed with them, so a v1 install starts
+from the derived defaults rather than half-reading an old shape.
 
 ## What stays Lovelace
 
@@ -179,12 +219,14 @@ rewrite, and where the old dashboard's maintenance came from:
 
 | Where | Config key | Default card |
 | --- | --- | --- |
-| Power sheet + `energie` tab | `lovelace.energy` | none — set it to your energy cards |
-| Room sheet history | `lovelace.roomHistory` | `history-graph` over the room's temp + humidity |
+| Bottom of the `energie` tab | `lovelace.energy` | none — set it to your energy cards |
+| `auto` tab | `lovelace.auto` | none — empty state explains how to set it |
 | Presence sheet | `lovelace.map` | `map` for the person entity |
 | Weather sheet | `lovelace.forecast` | `weather-forecast` |
-| Room sheet camera | — | `picture-entity` when the area has a camera |
-| `netwerk` / `auto` tabs | `lovelace.netwerk`, `lovelace.auto` | none — empty state explains how to set them |
+
+**The room card embeds nothing.** v1 put a `history-graph` and a camera card in there, which is what
+made it slow and unreadable on a phone; v2 draws a plain polyline in the room's tint instead.
+Netwerk is a computed list, not a card page.
 
 Mounting uses `hui-card` when it is defined, falling back to `window.loadCardHelpers()`. Cards
 inherit HA's theme through the shadow boundary (custom properties cross it), so aligning your HA
@@ -192,18 +234,28 @@ theme to these tokens makes the embeds blend in.
 
 ## Interaction notes
 
-- Room card tap opens the room sheet; **icon-button taps stop propagation** and only make the
-  service call.
-- Lights icon: if any light in the room is on, turn them all off; else turn them all on.
+- Tile body tap opens the room card; the **light chip stops propagation** and only toggles.
+- Light chip: if any light in the room is on, turn them all off; else turn them all on.
+- **Per-lamp rows** drag horizontally to set brightness and tap to toggle. A pointer that never
+  travelled more than 6 px is a tap. The drag state is set *before* `setPointerCapture`, and the
+  capture is wrapped in `try`/`catch` — a failed capture must not kill the tap. Rows use
+  `touch-action: pan-y` so a finger starting on a lamp can still scroll the sheet.
+- Non-dimmable lamps drag nowhere: tap only, `cursor: pointer`, and an `aan`/`uit` label.
+- The climate **mode button cycles** through the modes the unit reports (`hvac_modes`). It is the
+  only way to reach the four modes the design colours, so a plain on/off toggle would leave three of
+  them unreachable.
+- **State chips are read-only and always rendered** for a device the room has, active or not, so the
+  light chip beside them never moves under your thumb.
 - Writes are **optimistic** — the UI flips immediately, the incoming `state_changed` confirms it, and
   a failure reverts the flip and raises a toast. Unconfirmed overlays expire after 5 s.
 - The alarm pill opens an arm/disarm sheet with code entry (the prototype only cycled the state).
   The code field appears when the panel declares a `code_format`, and arming skips it when
   `code_arm_required` is false.
-- The `stroom` tab opens the power sheet, as designed. `energie`, `netwerk` and `auto` are their own
-  views, per the handoff's production note.
-- Every 30 × 30 icon button carries a ≥ 44 × 44 hit area via a pseudo-element, without changing its
-  visual size. `Escape` closes any sheet; `prefers-reduced-motion` drops the transforms.
+- **Sheets never cover the tab bar**: the scrim sits at `z-index: 1` and the bar at `2`, and the
+  panel stops 96 px above the bottom. Switching tab, opening the gear, `Escape` or a scrim tap all
+  dismiss it; `prefers-reduced-motion` drops the transforms.
+- Hit targets are ≥ 44 px throughout, except the 34 px light chip and the 26 px read-only state
+  chips, which are not tappable.
 - The last entity snapshot is cached in `localStorage`, so a cold start paints real values before the
   socket connects. A dropped socket shows a subdued banner, not an error screen.
 
@@ -225,14 +277,23 @@ Small, deliberate, and listed so they are easy to reverse:
 
 - **Numbers use the `nl-BE` locale** (`24,2°`, `1.877 W`), matching the design's own power values.
   Pressure is printed without a thousands separator (`1015 hPa`) as the design shows.
-- **The room-count line is a button** so the settings sheet has a way in. It is styled identically to
-  the static text in the design.
 - **Weather glyphs are the MDI placeholders** the handoff shipped, behind the single `WEATHER_ICONS`
   lookup in `src/ui/icons.ts` — pointing that map at Meteocons is the whole swap. Conditions with no
   verified MDI path map to the nearest available glyph rather than to an invented one.
-- **The room sheet also embeds a history graph and, when the area has one, a camera card** — the
-  handoff lists both under "what stays Lovelace" but the prototype had no slot for them.
-- The prototype's 44px phone radius is dropped: the real app is full-bleed and uses safe-area insets.
+- **The handoff shows the light scheme only.** The app follows Home Assistant's light/dark setting,
+  so `src/ui/styles.css` carries a dark set that mirrors the specified one role for role — same
+  tokens, no rule below them knows which is painting.
+- **Lamp rows use `touch-action: pan-y`, not the specified `none`.** The room card can hold several
+  lamps plus climate and media, and `none` would make a finger that starts on a lamp unable to
+  scroll past it. Horizontal drag still belongs to the row.
+- **The Netwerk row's entity id is what truncates**, not the whole meta line — a dead-battery list
+  that ellipsises its battery percentage is hiding its own answer.
+- **The climate mode button cycles**; the handoff specifies the button's four colours but not how
+  the mode is chosen.
+- **"Standaardwaarden herstellen" sits below the three "Overig" rows** rather than being a fourth
+  one, so the specified three-row block stays as drawn while the escape hatch survives from v1.
+- The prototype's 44 px phone radius is dropped: the real app is full-bleed and uses safe-area
+  insets.
 
 ## Project layout
 
@@ -246,11 +307,19 @@ src/
     backend.ts       panel and standalone connections, snapshot cache
     mock.ts          a stand-in Home Assistant, same interface as the live socket
     registry.ts      area/device/entity registries → per-area device buckets
-    selectors.ts     rooms, openings, alarm, presence, weather, power; formatting
+    selectors.ts     rooms, lamps, climate, openings, alarm, presence, weather, power; formatting
+    stale.ts         the Netwerk list: entities grouped by device, silent over 24 h
     services.ts      every write, each with its optimistic patch
     history.ts       sparkline fetch, downsample, polyline points
     HassProvider.tsx the one subscription, the optimistic overlay, config resolution
-  components/        header, pills, room grid/card, tab bar, sheets, Lovelace mount
+  components/
+    WeatherBlock     the centred weather header
+    StatusPills      alarm / openings / presence
+    RoomGrid, RoomTile
+    TabBar           four tabs, with the energy-flow and stale indicators
+    Sheet            scrim + panel chrome, sitting below the tab bar
+    sheets/          room card, weather, alarm, openings, presence
+    views/           Energie, Netwerk, Auto, Settings
   config/config.ts   client-side config, defaults and derivation
   ui/                icons, tokens + layout CSS, self-hosted fonts
 scripts/
