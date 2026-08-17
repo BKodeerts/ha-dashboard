@@ -11,10 +11,27 @@ import type {
 
 export const UNAVAILABLE = new Set(['unavailable', 'unknown', '']);
 
+/** Narrows to a real, finite number — `null` and `NaN` are not readings. */
+export const isNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+/**
+ * Coerces a value out of an HA payload to a number, or `undefined` when there
+ * is no reading. HA sends `null` for values it does not have (`templow` on a
+ * forecast day, a climate target while the unit is off), and `Number(null)` is
+ * `0` — so null, booleans and blank strings are rejected instead of silently
+ * becoming zero.
+ */
+export function toNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined || typeof value === 'boolean') return undefined;
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  const parsed = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 export function numericState(entity: HassEntity | undefined): number | undefined {
   if (!entity || UNAVAILABLE.has(entity.state)) return undefined;
-  const value = Number(entity.state);
-  return Number.isFinite(value) ? value : undefined;
+  return toNumber(entity.state);
 }
 
 export const isOn = (entity: HassEntity | undefined): boolean => entity?.state === 'on';
@@ -210,8 +227,11 @@ export interface WeatherInfo {
 const COMPASS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 
 export function bearingToCompass(bearing: unknown): string | undefined {
-  const value = typeof bearing === 'number' ? bearing : Number(bearing);
-  if (!Number.isFinite(value)) return typeof bearing === 'string' ? bearing : undefined;
+  const value = toNumber(bearing);
+  // Integrations that report a cardinal name ("SW") pass it through unchanged.
+  if (value === undefined) {
+    return typeof bearing === 'string' && bearing.length > 0 ? bearing : undefined;
+  }
   return COMPASS[Math.round(((value % 360) + 360) % 360 / 45) % 8];
 }
 
@@ -226,12 +246,12 @@ export function weatherInfo(states: HassEntities, config: DashboardConfig): Weat
     name: entityId ? friendlyName(states, entityId) : 'Weer',
   };
   if (entityId) info.entityId = entityId;
-  const temperature = Number(attributes.temperature);
-  if (Number.isFinite(temperature)) info.temperature = temperature;
-  const pressure = Number(attributes.pressure);
-  if (Number.isFinite(pressure)) info.pressure = pressure;
-  const windSpeed = Number(attributes.wind_speed);
-  if (Number.isFinite(windSpeed)) info.windSpeed = windSpeed;
+  const temperature = toNumber(attributes.temperature);
+  if (temperature !== undefined) info.temperature = temperature;
+  const pressure = toNumber(attributes.pressure);
+  if (pressure !== undefined) info.pressure = pressure;
+  const windSpeed = toNumber(attributes.wind_speed);
+  if (windSpeed !== undefined) info.windSpeed = windSpeed;
   const bearing = bearingToCompass(attributes.wind_bearing);
   if (bearing) info.windBearing = bearing;
   return info;
@@ -301,20 +321,34 @@ export function formatDate(date: Date): string {
     .toUpperCase();
 }
 
-export const formatNumber = (value: number, digits = 0, grouping = true): string =>
-  value.toLocaleString(LOCALE, {
-    minimumFractionDigits: digits,
-    maximumFractionDigits: digits,
-    useGrouping: grouping,
-  });
+/** Shown wherever a reading is missing. */
+export const NO_READING = '—';
+
+/**
+ * Formats a reading. Missing values render as a dash rather than throwing: HA
+ * hands the panel `null` for readings it does not have, and a `TypeError` here
+ * takes the whole dashboard down with it.
+ */
+export const formatNumber = (
+  value: number | null | undefined,
+  digits = 0,
+  grouping = true,
+): string =>
+  isNumber(value)
+    ? value.toLocaleString(LOCALE, {
+        minimumFractionDigits: digits,
+        maximumFractionDigits: digits,
+        useGrouping: grouping,
+      })
+    : NO_READING;
 
 /** Readings that are identifiers rather than quantities: no thousands separator. */
-export const formatPlain = (value: number, digits = 0): string =>
+export const formatPlain = (value: number | null | undefined, digits = 0): string =>
   formatNumber(value, digits, false);
 
 /** Card reading: rounded, no decimal. Sheet reading: one decimal. */
-export const formatTemp = (value: number | undefined, digits = 0): string =>
-  value === undefined ? '—' : `${formatNumber(value, digits)}°`;
+export const formatTemp = (value: number | null | undefined, digits = 0): string =>
+  isNumber(value) ? `${formatNumber(value, digits)}°` : NO_READING;
 
-export const formatHumidity = (value: number | undefined, digits = 1): string =>
-  value === undefined ? '' : `${formatNumber(value, digits)}%`;
+export const formatHumidity = (value: number | null | undefined, digits = 1): string =>
+  isNumber(value) ? `${formatNumber(value, digits)}%` : '';

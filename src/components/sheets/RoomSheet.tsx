@@ -5,6 +5,7 @@ import {
   formatTemp,
   friendlyName,
   shortName,
+  toNumber,
 } from '../../ha/selectors';
 import {
   mediaPlayPause,
@@ -20,10 +21,7 @@ import { Icon } from '../../ui/Icon';
 import { LovelaceCard } from '../LovelaceCard';
 import { Sheet, SheetClose } from '../Sheet';
 
-const number = (value: unknown, fallback: number): number => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
+const number = (value: unknown, fallback: number): number => toNumber(value) ?? fallback;
 
 function ClimateRow({ entityId }: { entityId: string }) {
   const { entities, call } = useHass();
@@ -33,8 +31,8 @@ function ClimateRow({ entityId }: { entityId: string }) {
   const min = number(state?.attributes?.min_temp, 16);
   const max = number(state?.attributes?.max_temp, 30);
   const step = number(state?.attributes?.target_temp_step, 0.5);
-  const rawTarget = Number(state?.attributes?.temperature);
-  const target = Number.isFinite(rawTarget) ? rawTarget : undefined;
+  // `null` while the unit reports no setpoint — the stepper stays disabled.
+  const target = toNumber(state?.attributes?.temperature);
 
   const bump = (direction: 1 | -1) => {
     if (target === undefined) return;
@@ -87,8 +85,8 @@ function MediaBlock({ entityId }: { entityId: string }) {
   const station =
     typeof title === 'string' && title.length > 0 ? title : friendlyName(entities, entityId);
 
-  const volumeLevel = Number(state?.attributes?.volume_level);
-  const volume = Number.isFinite(volumeLevel) ? Math.round(volumeLevel * 100) : undefined;
+  const volumeLevel = toNumber(state?.attributes?.volume_level);
+  const volume = volumeLevel === undefined ? undefined : Math.round(volumeLevel * 100);
 
   const presets = config.mediaPresets[entityId] ?? [];
 

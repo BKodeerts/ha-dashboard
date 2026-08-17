@@ -135,9 +135,14 @@ export type AlarmState =
   | 'triggered'
   | 'unavailable';
 
+/**
+ * A normalised forecast day. Both readings are optional: integrations leave
+ * `templow` (and occasionally `temperature`) out, or send them as `null`, which
+ * `normalizeForecast` drops.
+ */
 export interface ForecastDay {
   datetime: string;
   condition: string;
-  temperature: number;
+  temperature?: number;
   templow?: number;
 }

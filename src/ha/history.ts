@@ -1,3 +1,4 @@
+import { toNumber } from './selectors';
 import type { HaBackend } from './types';
 
 /** Number of points the card's polyline draws, per the design. */
@@ -22,9 +23,8 @@ function parseHistory(payload: unknown, entityId: string): number[] {
   if (!Array.isArray(rows)) return [];
   const values: number[] = [];
   for (const row of rows as HistoryRow[]) {
-    const raw = row.s ?? row.state;
-    const value = Number(raw);
-    if (Number.isFinite(value)) values.push(value);
+    const value = toNumber(row.s ?? row.state);
+    if (value !== undefined) values.push(value);
   }
   return values;
 }
