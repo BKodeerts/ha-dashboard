@@ -1,8 +1,8 @@
 import { toNumber } from './selectors';
 import type { HaBackend } from './types';
 
-/** Number of points the card's polyline draws, per the design. */
-export const SPARK_POINTS = 22;
+/** Number of points the room card's polyline draws, per the design. */
+export const SPARK_POINTS = 28;
 
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -76,6 +76,18 @@ export async function fetchSparkline(backend: HaBackend, entityId: string): Prom
 
 export function clearHistoryCache(): void {
   cache.clear();
+}
+
+/** The two figures printed beside the line. `undefined` for an empty series. */
+export function seriesRange(values: number[]): { min: number; max: number } | undefined {
+  if (values.length === 0) return undefined;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const value of values) {
+    if (value < min) min = value;
+    if (value > max) max = value;
+  }
+  return { min, max };
 }
 
 /**

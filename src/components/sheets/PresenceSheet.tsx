@@ -23,7 +23,7 @@ export function PresenceSheet({
       : undefined);
 
   return (
-    <Sheet onClose={onClose} labelledBy="presence-sheet-title" wideGap>
+    <Sheet onClose={onClose} labelledBy="presence-sheet-title">
       <div className="sheet__head">
         <div className={`sheet__tile${presence.home ? ' sheet__tile--accent' : ''}`}>
           <Icon name="mapMarker" size={18} />

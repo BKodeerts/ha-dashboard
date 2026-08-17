@@ -1,12 +1,16 @@
-import type { DashboardConfig } from '../config/config';
+import { personEntities, type DashboardConfig } from '../config/config';
 import { bucketEntities } from './registry';
 import type {
   AlarmState,
   HassEntities,
   HassEntity,
+  HvacMode,
   Opening,
   Registries,
   Room,
+  RoomClimate,
+  RoomLight,
+  RoomMedia,
 } from './types';
 
 export const UNAVAILABLE = new Set(['unavailable', 'unknown', '']);
@@ -51,8 +55,84 @@ export function shortName(full: string, roomName: string): string {
 }
 
 /**
- * The room list the home screen renders: area registry order (config.roomOrder
- * first), each area resolved to its device buckets and current readings.
+ * Colour modes that carry a brightness. Anything reporting only `onoff` (or
+ * nothing at all) gets a tap row instead of a drag — the design is explicit that
+ * a non-dimmable lamp must never look draggable.
+ */
+const DIMMABLE_MODES = new Set([
+  'brightness',
+  'color_temp',
+  'hs',
+  'xy',
+  'rgb',
+  'rgbw',
+  'rgbww',
+  'white',
+]);
+
+export function isDimmable(entity: HassEntity | undefined): boolean {
+  const modes = entity?.attributes?.supported_color_modes;
+  if (Array.isArray(modes)) return modes.some((mode) => DIMMABLE_MODES.has(String(mode)));
+  // Integrations that predate colour modes only ever show a brightness attribute.
+  return toNumber(entity?.attributes?.brightness) !== undefined;
+}
+
+/** HA stores brightness as 0–255; every surface here works in percent. */
+export function brightnessPercent(entity: HassEntity | undefined): number {
+  if (!isOn(entity)) return 0;
+  const raw = toNumber(entity?.attributes?.brightness);
+  // A lamp that is on but has not reported a level yet reads as full.
+  if (raw === undefined) return 100;
+  return Math.max(1, Math.min(100, Math.round((raw / 255) * 100)));
+}
+
+function buildLight(entityId: string, roomName: string, states: HassEntities): RoomLight {
+  const entity = states[entityId];
+  return {
+    entityId,
+    name: shortName(friendlyName(states, entityId), roomName),
+    on: isOn(entity),
+    dimmable: isDimmable(entity),
+    brightness: brightnessPercent(entity),
+  };
+}
+
+const HVAC_MODES = new Set(['off', 'cool', 'heat', 'dry', 'fan_only']);
+
+/** Narrows an `hvac_mode` to the five the design gives a treatment. */
+export function hvacMode(state: string | undefined): HvacMode {
+  if (state === undefined || UNAVAILABLE.has(state)) return 'off';
+  return HVAC_MODES.has(state) ? (state as HvacMode) : 'other';
+}
+
+function buildClimate(entityId: string, states: HassEntities): RoomClimate {
+  const entity = states[entityId];
+  const attributes = entity?.attributes ?? {};
+  const climate: RoomClimate = {
+    entityId,
+    mode: hvacMode(entity?.state),
+    min: toNumber(attributes.min_temp) ?? 16,
+    max: toNumber(attributes.max_temp) ?? 30,
+    step: toNumber(attributes.target_temp_step) ?? 0.5,
+  };
+  const target = toNumber(attributes.temperature);
+  if (target !== undefined) climate.target = target;
+  return climate;
+}
+
+function buildMedia(entityId: string, states: HassEntities): RoomMedia {
+  const title = states[entityId]?.attributes?.media_title;
+  return {
+    entityId,
+    playing: states[entityId]?.state === 'playing',
+    station:
+      typeof title === 'string' && title.length > 0 ? title : friendlyName(states, entityId),
+  };
+}
+
+/**
+ * The room list the home screen renders: favourites first, then the user's own
+ * order within each group, each area resolved to its device buckets and readings.
  */
 export function buildRooms(
   registries: Registries,
@@ -70,40 +150,47 @@ export function buildRooms(
       : undefined;
     const humidity = entities.humidity ? numericState(states[entities.humidity]) : undefined;
 
+    const lights = entities.lights.map((id) => buildLight(id, area.name, states));
+    const lit = lights.filter((light) => light.on && light.dimmable);
+    const climateId = entities.climate[0];
+    const mediaId = entities.mediaPlayers[0];
+
     const room: Room = {
       id: area.area_id,
       name: area.name,
-      tint: config.areaTint[area.area_id] ?? 'oklch(0.80 0.06 250)',
+      tint: config.areaTint[area.area_id] ?? 'oklch(0.74 0.07 70)',
       favourite: favourites.has(area.area_id),
       entities,
-      lightsOn: entities.lights.some((id) => isOn(states[id])),
-      climateOn: entities.climate.some((id) => {
-        const state = states[id]?.state;
-        return state !== undefined && state !== 'off' && !UNAVAILABLE.has(state);
-      }),
-      mediaPlaying: entities.mediaPlayers.some((id) => states[id]?.state === 'playing'),
+      lights,
+      lightsOn: lights.some((light) => light.on),
+      hasOpenings: entities.openings.length > 0,
       openingOpen: entities.openings.some((id) => isOn(states[id])),
-      motionDetected: entities.motion.some((id) => isOn(states[id])),
-      smokeDetected: entities.smoke.some((id) => isOn(states[id])),
     };
     if (temperature !== undefined) room.temperature = temperature;
     if (humidity !== undefined) room.humidity = humidity;
+    if (lit.length > 0) {
+      room.brightness = Math.round(
+        lit.reduce((sum, light) => sum + light.brightness, 0) / lit.length,
+      );
+    }
+    if (climateId) room.climate = buildClimate(climateId, states);
+    if (mediaId) room.media = buildMedia(mediaId, states);
     return room;
   });
 
-  // Areas with nothing to show would render an empty card; drop them.
+  // Areas with nothing to show would render an empty tile; drop them.
   const visible = rooms.filter(
     (room) =>
       room.temperature !== undefined ||
-      room.entities.lights.length > 0 ||
-      room.entities.climate.length > 0 ||
-      room.entities.mediaPlayers.length > 0,
+      room.lights.length > 0 ||
+      room.climate !== undefined ||
+      room.media !== undefined,
   );
 
+  const rank = (room: Room): number => orderIndex.get(room.id) ?? Number.MAX_SAFE_INTEGER;
   return visible.sort((a, b) => {
-    const ai = orderIndex.get(a.id) ?? Number.MAX_SAFE_INTEGER;
-    const bi = orderIndex.get(b.id) ?? Number.MAX_SAFE_INTEGER;
-    return ai === bi ? 0 : ai - bi;
+    if (a.favourite !== b.favourite) return a.favourite ? -1 : 1;
+    return rank(a) - rank(b);
   });
 }
 
@@ -199,8 +286,14 @@ export interface PresenceInfo {
   label: string;
 }
 
+/**
+ * The pill shows whoever the user did *not* pick as themselves in settings —
+ * telling you that you are home is not news. With only one person configured it
+ * falls back to that one.
+ */
 export function presenceInfo(states: HassEntities, config: DashboardConfig): PresenceInfo {
-  const entityId = config.personEntity;
+  const persons = personEntities(states);
+  const entityId = persons.find((id) => id !== config.me) ?? persons[0];
   const state = entityId ? states[entityId] : undefined;
   const name = entityId ? friendlyName(states, entityId) : 'Niemand';
   const home = state?.state === 'home';

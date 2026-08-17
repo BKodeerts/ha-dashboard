@@ -15,6 +15,7 @@ export interface DeviceRegistryEntry {
   area_id: string | null;
   name?: string | null;
   name_by_user?: string | null;
+  disabled_by?: string | null;
 }
 
 export interface EntityRegistryEntry {
@@ -97,7 +98,42 @@ export interface RoomEntities {
   cameras: string[];
 }
 
-/** A room card's data, derived from registries + live states. */
+/**
+ * The HVAC modes the design gives a colour to. Anything else a unit reports
+ * (`auto`, `heat_cool`, …) is rendered with the neutral "on" treatment.
+ */
+export type HvacMode = 'off' | 'cool' | 'heat' | 'dry' | 'fan_only' | 'other';
+
+/** One lamp, as the room card's brightness row needs it. */
+export interface RoomLight {
+  entityId: string;
+  /** Name with the room prefix stripped: "Living Speelhoek" → "Speelhoek". */
+  name: string;
+  on: boolean;
+  /** Lamps that only switch get a tap row, never a drag. */
+  dimmable: boolean;
+  /** 0–100. Always 0 when off, so the row's fill needs no special case. */
+  brightness: number;
+}
+
+export interface RoomClimate {
+  entityId: string;
+  mode: HvacMode;
+  /** `undefined` while the unit reports no setpoint — the stepper stays disabled. */
+  target?: number;
+  min: number;
+  max: number;
+  step: number;
+}
+
+export interface RoomMedia {
+  entityId: string;
+  playing: boolean;
+  /** `media_title` when the player has one, else its friendly name. */
+  station: string;
+}
+
+/** A room tile's data, derived from registries + live states. */
 export interface Room {
   id: string;
   name: string;
@@ -107,12 +143,18 @@ export interface Room {
   /** `undefined` when the area has no temperature sensor or it is unavailable. */
   temperature?: number;
   humidity?: number;
+  lights: RoomLight[];
   lightsOn: boolean;
-  climateOn: boolean;
-  mediaPlaying: boolean;
+  /**
+   * Mean brightness of the lamps that are on and dimmable, or `undefined` when
+   * the room has none — that is what makes the chip read `aan` instead of `62%`.
+   */
+  brightness?: number;
+  climate?: RoomClimate;
+  media?: RoomMedia;
+  /** The room has opening sensors at all — the chip keeps its slot either way. */
+  hasOpenings: boolean;
   openingOpen: boolean;
-  motionDetected: boolean;
-  smokeDetected: boolean;
 }
 
 export interface Opening {

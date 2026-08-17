@@ -6,19 +6,21 @@ import type { AreaRegistryEntry, HassEntities } from '../ha/types';
  * favourite or a tint never means editing a config file and restarting HA.
  */
 export interface DashboardConfig {
-  /** Area ids shown before the "Andere kamers" card. */
+  /** Area ids sorted to the front of the room grid. */
   favouriteAreas: string[];
-  /** Accent edge colour per area id. */
+  /** Tint spine colour per area id. */
   areaTint: Record<string, string>;
   /** Explicit ordering of area ids; unknown areas keep registry order after these. */
   roomOrder: string[];
-  /** The one accent variable the design ships in four hues. */
-  accent: string;
   /** Colour scheme. `auto` follows Home Assistant's own light/dark setting. */
   theme: ThemeSetting;
+  /**
+   * Which `person.*` entity is the user holding the phone. The presence pill
+   * deliberately shows *the other one* — you already know where you are.
+   */
+  me?: string;
   /** Entity overrides. Left empty, each is auto-detected from the state machine. */
   alarmEntity?: string;
-  personEntity?: string;
   weatherEntity?: string;
   power: {
     solar?: string;
@@ -27,17 +29,26 @@ export interface DashboardConfig {
     grid?: string;
     /** Sensors listed in the "top loads" block, sorted by value at render time. */
     loads: string[];
+    /** Full scale of the two bars on the Energie tab, in watts. */
+    scale: number;
+  };
+  /** The Auto tab's heading; the subtitle is built from whatever is set. */
+  car: {
+    name?: string;
+    battery?: string;
+    range?: string;
   };
   /** Radio presets per media_player entity id. */
   mediaPresets: Record<string, MediaPreset[]>;
-  /** Lovelace card configs embedded in the sheets and the non-home tabs. */
+  /**
+   * Lovelace card configs. After v2 these are only the energy dashboard, the car
+   * cards, and the two cards the weather and presence sheets embed — the room
+   * card draws its own history line and Netwerk is not a card page at all.
+   */
   lovelace: {
     energy?: LovelaceCardConfig[];
     map?: LovelaceCardConfig;
     forecast?: LovelaceCardConfig;
-    /** Rendered in the room sheet; `{{entity}}` is replaced with the temp sensor. */
-    roomHistory?: LovelaceCardConfig;
-    netwerk?: LovelaceCardConfig[];
     auto?: LovelaceCardConfig[];
   };
 }
@@ -58,45 +69,42 @@ export const THEMES: { value: ThemeSetting; label: string }[] = [
   { value: 'dark', label: 'Donker' },
 ];
 
-const STORAGE_KEY = 'ha-dashboard.config.v1';
+/** v2 renumbers the stored shape: accent and personEntity are gone. */
+const STORAGE_KEY = 'ha-dashboard.config.v2';
 
-/** The nine tints from the design, keyed by normalised area name. */
+/**
+ * The nine tints from the v2 handoff, keyed by normalised area name — personal
+ * rooms distinct, wet rooms cool, dry rooms warm.
+ */
 const TINT_BY_NAME: Record<string, string> = {
-  living: 'oklch(0.78 0.07 250)',
-  bureau: 'oklch(0.78 0.07 250)',
-  slaapkamer: 'oklch(0.82 0.08 60)',
-  clara: 'oklch(0.80 0.07 20)',
-  oliver: 'oklch(0.82 0.07 150)',
-  dressing: 'oklch(0.85 0.06 150)',
-  waskot: 'oklch(0.82 0.06 250)',
-  badkamer: 'oklch(0.82 0.06 220)',
-  toilet: 'oklch(0.88 0.07 95)',
+  living: 'oklch(0.74 0.07 70)',
+  bureau: 'oklch(0.74 0.07 55)',
+  dressing: 'oklch(0.76 0.06 95)',
+  slaapkamer: 'oklch(0.62 0.10 300)',
+  clara: 'oklch(0.72 0.11 350)',
+  oliver: 'oklch(0.70 0.10 195)',
+  badkamer: 'oklch(0.72 0.09 230)',
+  waskot: 'oklch(0.70 0.09 245)',
+  toilet: 'oklch(0.74 0.08 215)',
 };
 
 /** Hues cycled through for areas the design did not name. */
-const TINT_CYCLE = [
-  'oklch(0.78 0.07 250)',
-  'oklch(0.82 0.08 60)',
-  'oklch(0.80 0.07 20)',
-  'oklch(0.82 0.07 150)',
-  'oklch(0.88 0.07 95)',
-  'oklch(0.82 0.06 220)',
+export const TINT_CYCLE = [
+  'oklch(0.74 0.07 70)',
+  'oklch(0.62 0.10 300)',
+  'oklch(0.72 0.11 350)',
+  'oklch(0.70 0.10 195)',
+  'oklch(0.72 0.09 230)',
+  'oklch(0.76 0.06 95)',
 ];
-
-export const ACCENTS = {
-  amber: 'oklch(0.72 0.13 60)',
-  blue: 'oklch(0.68 0.13 250)',
-  green: 'oklch(0.70 0.12 150)',
-  magenta: 'oklch(0.68 0.13 330)',
-} as const;
 
 export const DEFAULT_CONFIG: DashboardConfig = {
   favouriteAreas: [],
   areaTint: {},
   roomOrder: [],
-  accent: ACCENTS.amber,
   theme: 'auto',
-  power: { loads: [] },
+  power: { loads: [], scale: 2000 },
+  car: {},
   mediaPresets: {},
   lovelace: {},
 };
@@ -116,6 +124,7 @@ export function mergeConfig(
     ...patch,
     areaTint: { ...base.areaTint, ...(patch.areaTint ?? {}) },
     power: { ...base.power, ...(patch.power ?? {}) },
+    car: { ...base.car, ...(patch.car ?? {}) },
     mediaPresets: { ...base.mediaPresets, ...(patch.mediaPresets ?? {}) },
     lovelace: { ...base.lovelace, ...(patch.lovelace ?? {}) },
   };
@@ -181,12 +190,18 @@ function derivePower(
       ? power.loads
       : candidates.filter((id) => id !== solar && id !== consumption && id !== grid).slice(0, 8);
 
-  const next: DashboardConfig['power'] = { loads };
+  const next: DashboardConfig['power'] = { loads, scale: power.scale };
   if (solar) next.solar = solar;
   if (consumption) next.consumption = consumption;
   if (grid) next.grid = grid;
   return next;
 }
+
+/** Every `person.*` entity, sorted so the settings buttons keep a stable order. */
+export const personEntities = (states: HassEntities): string[] =>
+  Object.keys(states)
+    .filter((id) => id.startsWith('person.'))
+    .sort();
 
 /**
  * Fills the blanks a fresh install leaves: which areas are favourites, what tint
@@ -224,8 +239,10 @@ export function withDerivedDefaults(
   }
 
   const alarmEntity = config.alarmEntity ?? firstEntityOfDomain(states, 'alarm_control_panel');
-  const personEntity = config.personEntity ?? firstEntityOfDomain(states, 'person');
   const weatherEntity = config.weatherEntity ?? firstEntityOfDomain(states, 'weather');
+  // Until the user says who they are in settings, assume the first person — the
+  // pill then shows the second, which is the useful half of the pair.
+  const me = config.me ?? personEntities(states)[0];
 
   const next: DashboardConfig = {
     ...config,
@@ -234,7 +251,7 @@ export function withDerivedDefaults(
     power: derivePower(config.power, states),
   };
   if (alarmEntity) next.alarmEntity = alarmEntity;
-  if (personEntity) next.personEntity = personEntity;
   if (weatherEntity) next.weatherEntity = weatherEntity;
+  if (me) next.me = me;
   return next;
 }

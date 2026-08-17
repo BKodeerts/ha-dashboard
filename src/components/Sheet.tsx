@@ -2,19 +2,21 @@ import { useEffect, useRef, type ReactNode } from 'react';
 import { Icon } from '../ui/Icon';
 
 /**
- * Shared bottom-sheet chrome: scrim + panel, with scrim-tap and Escape to
- * dismiss. Only one sheet is ever open, so a single instance handles the key
- * listener. On desktop the CSS turns this into a centred modal.
+ * Shared sheet chrome: scrim + panel, with scrim-tap and Escape to dismiss.
+ * Only one sheet is ever open, so a single instance handles the key listener.
+ *
+ * The panel stops 96px above the bottom and the scrim sits *below* the tab bar
+ * in the stacking order — v1's sheets covered the bar, which is what made the
+ * navigation feel like it disappeared. On desktop the CSS turns this into a
+ * centred modal.
  */
 export function Sheet({
   onClose,
   labelledBy,
-  wideGap,
   children,
 }: {
   onClose(): void;
   labelledBy: string;
-  wideGap?: boolean;
   children: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -46,7 +48,7 @@ export function Sheet({
       />
       <div
         ref={panelRef}
-        className={`sheet__panel${wideGap ? ' sheet__panel--gap18' : ''}`}
+        className="sheet__panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
@@ -61,7 +63,7 @@ export function Sheet({
 export function SheetClose({ onClose }: { onClose(): void }) {
   return (
     <button type="button" className="sheet__close" onClick={onClose} aria-label="Sluiten">
-      <Icon name="close" size={15} />
+      <Icon name="close" size={16} />
     </button>
   );
 }

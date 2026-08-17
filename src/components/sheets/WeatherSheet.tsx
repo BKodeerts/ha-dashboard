@@ -59,7 +59,7 @@ export function WeatherSheet({
       : undefined);
 
   return (
-    <Sheet onClose={onClose} labelledBy="weather-sheet-title" wideGap>
+    <Sheet onClose={onClose} labelledBy="weather-sheet-title">
       <div className="sheet__head">
         <div className="sheet__tile">
           <Icon name={weatherIcon(weather.condition)} size={19} />
@@ -71,10 +71,10 @@ export function WeatherSheet({
       </div>
 
       <div className="weather__now">
-        <span className="weather__temp">
+        <span className="weather__big">
           {formatTemp(weather.temperature, 1)}
         </span>
-        <div className="weather__meta">
+        <div className="weather__lines">
           {line1 && <span>{line1}</span>}
           {line2 && <span>{line2}</span>}
         </div>
