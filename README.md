@@ -133,7 +133,7 @@ Everything user-specific is client-side — a JSON blob in `localStorage` under
 No YAML edit is needed to change a favourite or a colour.
 
 Tap the **room-count line** in the "Kamers" header (`5 favoriet · 10 totaal`) to open the settings
-sheet: favourites, accent hue, and reset.
+sheet: favourites, accent hue, light/dark, and reset.
 
 Everything that is left blank is derived from the state machine on first run:
 
@@ -143,6 +143,7 @@ Everything that is left blank is derived from the state machine on first run:
 | `areaTint` | `Record<areaId, string>` | the design's nine tints by area name, then a cycling palette |
 | `roomOrder` | `string[]` | area registry order |
 | `accent` | `string` | amber `oklch(0.72 0.13 60)`; also ships blue, green, magenta |
+| `theme` | `'auto' \| 'light' \| 'dark'` | `auto` — follows Home Assistant's own light/dark setting |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `personEntity` | `string` | first `person.*` |
 | `weatherEntity` | `string` | first `weather.*` |

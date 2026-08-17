@@ -43,13 +43,17 @@ function fromConnection(connection: Connection, hass: HomeAssistant | null): HaB
  * `hass` is read through a getter because HA replaces the object on every state
  * change, and the embedded Lovelace cards need the current one.
  */
-export function panelBackend(getHass: () => HomeAssistant): HaBackend {
+export function panelBackend(
+  getHass: () => HomeAssistant,
+  onDarkMode?: (cb: (dark: boolean | undefined) => void) => () => void,
+): HaBackend {
   const base = fromConnection(getHass().connection, null);
   return {
     ...base,
     get hass() {
       return getHass();
     },
+    ...(onDarkMode ? { subscribeDarkMode: onDarkMode } : {}),
   };
 }
 

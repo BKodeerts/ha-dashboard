@@ -1,4 +1,4 @@
-import { ACCENTS } from '../../config/config';
+import { ACCENTS, THEMES } from '../../config/config';
 import { useHass } from '../../ha/HassProvider';
 import type { Room } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
@@ -46,6 +46,25 @@ export function SettingsSheet({ rooms, onClose }: { rooms: Room[]; onClose(): vo
               aria-pressed={config.accent === value}
               onClick={() => updateConfig({ accent: value })}
             />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <div className="settings__label" style={{ marginBottom: 8 }}>
+          Weergave
+        </div>
+        <div className="alarm__modes">
+          {THEMES.map(({ value, label }) => (
+            <button
+              key={value}
+              type="button"
+              className={`alarm__mode${config.theme === value ? ' alarm__mode--current' : ''}`}
+              aria-pressed={config.theme === value}
+              onClick={() => updateConfig({ theme: value })}
+            >
+              {label}
+            </button>
           ))}
         </div>
       </div>

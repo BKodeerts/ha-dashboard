@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Header } from '../components/Header';
 import { LovelaceView } from '../components/LovelaceView';
 import { RoomGrid } from '../components/RoomGrid';
@@ -22,6 +22,7 @@ import {
   presenceInfo,
   weatherInfo,
 } from '../ha/selectors';
+import { useScheme, useThemeAttribute } from '../ui/theme';
 
 /** Only one sheet is open at a time. */
 type SheetState =
@@ -35,11 +36,15 @@ type SheetState =
   | null;
 
 export function App() {
-  const { entities, registries, areaEntities, config, status, toasts } = useHass();
+  const { backend, entities, registries, areaEntities, config, status, toasts } = useHass();
 
   const [sheet, setSheet] = useState<SheetState>(null);
   const [showOthers, setShowOthers] = useState(false);
   const [tab, setTab] = useState<Tab>('home');
+
+  const rootRef = useRef<HTMLDivElement>(null);
+  const scheme = useScheme(config.theme, backend);
+  useThemeAttribute(rootRef, scheme);
 
   const rooms = useMemo(
     () => (registries ? buildRooms(registries, areaEntities, entities, config) : []),
@@ -78,9 +83,17 @@ export function App() {
   const activeRoom =
     sheet?.kind === 'room' ? rooms.find((room) => room.id === sheet.id) : undefined;
 
+  const showHome = tab === 'home' || tab === 'stroom';
+
+  // One root element in both states, so the theme ref never goes missing.
   if (!registries) {
     return (
-      <div className="app" style={{ '--accent': config.accent } as React.CSSProperties}>
+      <div
+        className="app"
+        ref={rootRef}
+        data-theme={scheme}
+        style={{ '--accent': config.accent } as React.CSSProperties}
+      >
         <div className="centered">
           {status === 'disconnected' ? 'Verbinding verbroken' : 'Verbinden met Home Assistant…'}
         </div>
@@ -88,10 +101,13 @@ export function App() {
     );
   }
 
-  const showHome = tab === 'home' || tab === 'stroom';
-
   return (
-    <div className="app" style={{ '--accent': config.accent } as React.CSSProperties}>
+    <div
+      className="app"
+      ref={rootRef}
+      data-theme={scheme}
+      style={{ '--accent': config.accent } as React.CSSProperties}
+    >
       {status !== 'connected' && (
         <div className="banner">
           {status === 'disconnected' ? 'Verbinding verbroken — opnieuw proberen…' : 'Verbinden…'}

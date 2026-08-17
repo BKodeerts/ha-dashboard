@@ -42,13 +42,27 @@ export class HaDashboardPanel extends HTMLElement {
   #backend: HaBackend | null = null;
   #panelConfig: Partial<DashboardConfig> | undefined;
   #starting = false;
+  #darkMode: boolean | undefined;
+  #darkModeListeners = new Set<(dark: boolean | undefined) => void>();
 
   /* ── properties HA's panel_custom sets ─────────────────────────────────── */
 
   set hass(value: HomeAssistant) {
     const first = this.#hass === null;
     this.#hass = value;
-    if (first) void this.#start();
+    if (first) {
+      this.#darkMode = value.themes?.darkMode;
+      void this.#start();
+      return;
+    }
+
+    /* HA replaces `hass` on every change, its own theme included. Only the
+       scheme is worth waking React for; everything else rides the state feed. */
+    const dark = value.themes?.darkMode;
+    if (dark !== this.#darkMode) {
+      this.#darkMode = dark;
+      for (const listener of this.#darkModeListeners) listener(dark);
+    }
   }
 
   get hass(): HomeAssistant | null {
@@ -91,7 +105,7 @@ export class HaDashboardPanel extends HTMLElement {
     const style = document.createElement('style');
     style.textContent = styles;
     const mount = document.createElement('div');
-    mount.style.height = '100%';
+    mount.className = 'root';
     shadow.replaceChildren(style, mount);
     this.#mountPoint = mount;
     return mount;
@@ -111,7 +125,13 @@ export class HaDashboardPanel extends HTMLElement {
         mode === 'mock'
           ? mockBackend()
           : this.#hass
-            ? panelBackend(() => this.#hass!)
+            ? panelBackend(
+                () => this.#hass!,
+                (cb) => {
+                  this.#darkModeListeners.add(cb);
+                  return () => this.#darkModeListeners.delete(cb);
+                },
+              )
             : await standaloneBackend();
 
       this.#backend = backend;
