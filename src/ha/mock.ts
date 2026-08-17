@@ -478,6 +478,8 @@ export function mockBackend(): HaBackend {
             { datetime: iso(-48 * 60), condition: 'rainy', temperature: 24, templow: 17 },
             { datetime: iso(-72 * 60), condition: 'rainy', temperature: 21, templow: 20 },
             { datetime: iso(-96 * 60), condition: 'partlycloudy', temperature: 23, templow: 14 },
+            // HA sends `null` for readings an integration does not have.
+            { datetime: iso(-120 * 60), condition: 'sunny', temperature: null, templow: null },
           ],
         } as unknown as T);
       }

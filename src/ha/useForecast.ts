@@ -1,10 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useHass } from './HassProvider';
+import { toNumber } from './selectors';
 import type { ForecastDay } from './types';
 
 interface ForecastEvent {
   type: string;
-  forecast: ForecastDay[];
+  forecast: unknown;
+}
+
+/**
+ * Forecast entries arrive straight from whichever weather integration produced
+ * them, so they are not trustworthy: `temperature` and `templow` are `null` on
+ * days the integration has no value for. Coercing here keeps the components on
+ * plain numbers — formatting a `null` used to throw and blank the dashboard.
+ */
+export function normalizeForecast(raw: unknown): ForecastDay[] {
+  if (!Array.isArray(raw)) return [];
+  const days: ForecastDay[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue;
+    const record = entry as Record<string, unknown>;
+    if (typeof record.datetime !== 'string' || record.datetime.length === 0) continue;
+
+    const day: ForecastDay = {
+      datetime: record.datetime,
+      condition: typeof record.condition === 'string' ? record.condition : 'unknown',
+    };
+    const temperature = toNumber(record.temperature);
+    if (temperature !== undefined) day.temperature = temperature;
+    const templow = toNumber(record.templow);
+    if (templow !== undefined) day.templow = templow;
+    days.push(day);
+  }
+  return days;
 }
 
 /**
@@ -17,6 +45,8 @@ export function useForecast(entityId: string | undefined): ForecastDay[] {
   const [forecast, setForecast] = useState<ForecastDay[]>([]);
 
   const attributeForecast = entityId ? entities[entityId]?.attributes?.forecast : undefined;
+  // Memoised so the fallback keeps a stable identity across renders.
+  const fallback = useMemo(() => normalizeForecast(attributeForecast), [attributeForecast]);
 
   useEffect(() => {
     if (!entityId) {
@@ -30,7 +60,9 @@ export function useForecast(entityId: string | undefined): ForecastDay[] {
     backend
       .subscribeMessage<ForecastEvent>(
         (event) => {
-          if (!cancelled && Array.isArray(event?.forecast)) setForecast(event.forecast);
+          if (!cancelled && Array.isArray(event?.forecast)) {
+            setForecast(normalizeForecast(event.forecast));
+          }
         },
         { type: 'weather/subscribe_forecast', forecast_type: 'daily', entity_id: entityId },
       )
@@ -48,6 +80,5 @@ export function useForecast(entityId: string | undefined): ForecastDay[] {
     };
   }, [backend, entityId]);
 
-  if (forecast.length > 0) return forecast;
-  return Array.isArray(attributeForecast) ? (attributeForecast as ForecastDay[]) : [];
+  return forecast.length > 0 ? forecast : fallback;
 }

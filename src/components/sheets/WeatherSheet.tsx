@@ -1,5 +1,11 @@
 import { useHass } from '../../ha/HassProvider';
-import { formatNumber, formatPlain, type WeatherInfo } from '../../ha/selectors';
+import {
+  formatNumber,
+  formatPlain,
+  formatTemp,
+  isNumber,
+  type WeatherInfo,
+} from '../../ha/selectors';
 import type { ForecastDay } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
 import { WEATHER_LABELS, weatherIcon } from '../../ui/icons';
@@ -26,9 +32,9 @@ export function WeatherSheet({
 
   const line1 = [
     WEATHER_LABELS[weather.condition] ?? weather.condition,
-    today?.temperature !== undefined
+    isNumber(today?.temperature)
       ? `${formatNumber(today.temperature)}°${
-          today.templow !== undefined ? ` / ${formatNumber(today.templow)}°` : ''
+          isNumber(today.templow) ? ` / ${formatNumber(today.templow)}°` : ''
         }`
       : null,
   ]
@@ -36,8 +42,8 @@ export function WeatherSheet({
     .join(' · ');
 
   const line2 = [
-    weather.pressure !== undefined ? `${formatPlain(weather.pressure)} ${weather.pressureUnit}` : null,
-    weather.windSpeed !== undefined
+    isNumber(weather.pressure) ? `${formatPlain(weather.pressure)} ${weather.pressureUnit}` : null,
+    isNumber(weather.windSpeed)
       ? `${formatNumber(weather.windSpeed)} ${weather.windUnit}${
           weather.windBearing ? ` ${weather.windBearing}` : ''
         }`
@@ -66,7 +72,7 @@ export function WeatherSheet({
 
       <div className="weather__now">
         <span className="weather__temp">
-          {weather.temperature === undefined ? '—' : `${formatNumber(weather.temperature, 1)}°`}
+          {formatTemp(weather.temperature, 1)}
         </span>
         <div className="weather__meta">
           {line1 && <span>{line1}</span>}
@@ -81,10 +87,10 @@ export function WeatherSheet({
               <div className="forecast__code">{dayCode(day.datetime)}</div>
               <div className="forecast__row">
                 <Icon name={weatherIcon(day.condition)} size={16} />
-                <span className="forecast__high">{`${formatNumber(day.temperature)}°`}</span>
+                <span className="forecast__high">{formatTemp(day.temperature)}</span>
               </div>
               <div className="forecast__low">
-                {day.templow === undefined ? '' : `${formatNumber(day.templow)}°`}
+                {isNumber(day.templow) ? `${formatNumber(day.templow)}°` : ''}
               </div>
             </div>
           ))}

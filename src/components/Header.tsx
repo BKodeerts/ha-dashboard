@@ -4,6 +4,8 @@ import {
   formatDate,
   formatNumber,
   formatPlain,
+  formatTemp,
+  isNumber,
   type WeatherInfo,
 } from '../ha/selectors';
 import type { ForecastDay } from '../ha/types';
@@ -33,14 +35,14 @@ export function Header({
   const today = forecast[0];
 
   const meta: string[] = [];
-  if (today?.temperature !== undefined) {
+  if (isNumber(today?.temperature)) {
     const high = `${formatNumber(today.temperature)}°`;
-    meta.push(today.templow !== undefined ? `${high} / ${formatNumber(today.templow)}°` : high);
+    meta.push(isNumber(today.templow) ? `${high} / ${formatNumber(today.templow)}°` : high);
   }
-  if (weather.pressure !== undefined) {
+  if (isNumber(weather.pressure)) {
     meta.push(`${formatPlain(weather.pressure)} ${weather.pressureUnit}`);
   }
-  if (weather.windSpeed !== undefined) {
+  if (isNumber(weather.windSpeed)) {
     meta.push(
       `${formatNumber(weather.windSpeed)} ${weather.windUnit}${
         weather.windBearing ? ` ${weather.windBearing}` : ''
@@ -59,7 +61,7 @@ export function Header({
           <div className="header__weather-row">
             <Icon name={weatherIcon(weather.condition)} size={22} />
             <span className="header__temp">
-              {weather.temperature === undefined ? '—' : `${formatNumber(weather.temperature, 1)}°`}
+              {formatTemp(weather.temperature, 1)}
             </span>
           </div>
           {meta.length > 0 && <div className="header__meta">{meta.join(' · ')}</div>}
