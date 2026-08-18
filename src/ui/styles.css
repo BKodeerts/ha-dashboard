@@ -77,6 +77,18 @@
   /* spacing */
   --gutter: 20px;
 
+  /*
+   * Tab-bar geometry, as tokens because three other things measure themselves
+   * against the bar: the sheet panel, the toasts, and the bar's own inset.
+   * `--bar-space` is everything the bar occupies at the bottom of the screen —
+   * its height, the sliver of page under it, and the home-indicator inset. The
+   * bar sits as low as the indicator allows; on a phone that has none it is
+   * 8px off the edge rather than floating a thumb's width above it.
+   */
+  --bar-h: 64px;
+  --bar-drop: 8px;
+  --bar-space: calc(var(--bar-h) + var(--bar-drop) + env(safe-area-inset-bottom));
+
   /* motion */
   --ease-sheet: cubic-bezier(0.2, 0.9, 0.2, 1);
 
@@ -298,7 +310,7 @@ button {
   align-items: center;
   gap: 4px;
   width: 100%;
-  padding: max(52px, calc(env(safe-area-inset-top) + 16px)) var(--gutter) 0;
+  padding: max(16px, calc(env(safe-area-inset-top) + 8px)) var(--gutter) 0;
 }
 
 .weather__row {
@@ -332,16 +344,16 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 18px var(--gutter) 0;
+  padding: 12px var(--gutter) 0;
 }
 
 .pill {
   display: flex;
   align-items: center;
   gap: 9px;
-  height: 46px;
-  padding: 0 16px;
-  border-radius: 23px;
+  height: 42px;
+  padding: 0 15px;
+  border-radius: 21px;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -367,7 +379,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 14px 8px var(--gutter);
+  padding: 10px 14px 4px var(--gutter);
 }
 
 .section-head__title {
@@ -382,8 +394,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   color: var(--text-faint);
   transition: background 0.15s ease, color 0.15s ease;
@@ -510,8 +522,9 @@ button {
   text-transform: uppercase;
 }
 
-/* state chips — read-only, and rendered in a fixed slot whether or not the
-   device is active, so nothing shifts sideways as the house changes.       */
+/* state chips — rendered in a fixed slot whether or not the device is active,
+   so nothing shifts sideways as the house changes. Most are read-only; the AC
+   chip is a control and wears the light chip's size to say so.             */
 
 .chip {
   display: flex;
@@ -530,6 +543,18 @@ button {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.02em;
+}
+
+/* The one distinction the row makes: what you can press is the taller shape,
+   the same 34px as the light chip. The tones below are shared with the
+   read-only chips — an AC that is cooling looks the same either way. */
+.chip--tap {
+  height: 34px;
+  min-width: 34px;
+  padding: 0 9px;
+  gap: 5px;
+  border-radius: 10px;
+  user-select: none;
 }
 
 .chip--warn {
@@ -565,14 +590,14 @@ button {
   position: relative;
   z-index: 2;
   flex: 0 0 auto;
-  padding: 0 16px calc(22px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(var(--bar-drop) + env(safe-area-inset-bottom));
 }
 
 .tabbar__inner {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 64px;
+  height: var(--bar-h);
   padding: 0 6px;
   border-radius: 22px;
   background: var(--bar-bg);
@@ -641,7 +666,7 @@ button {
 }
 
 /* ── sheets ────────────────────────────────────────────────────────────────
-   The panel stops 96px above the bottom so the tab bar stays clear of it.  */
+   The panel stops a bar's height above the bottom so the tab bar stays clear. */
 
 .sheet {
   position: absolute;
@@ -662,8 +687,8 @@ button {
   position: absolute;
   left: 8px;
   right: 8px;
-  bottom: calc(96px + env(safe-area-inset-bottom));
-  max-height: calc(100% - 104px - env(safe-area-inset-bottom));
+  bottom: calc(var(--bar-space) + 10px);
+  max-height: calc(100% - var(--bar-space) - 18px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -871,6 +896,7 @@ button {
 
 .climate {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   background: var(--card);
@@ -879,51 +905,104 @@ button {
   padding: 8px 10px 8px 12px;
 }
 
-.climate__mode {
+.climate__power {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 44px;
   height: 44px;
-  padding: 0 14px;
   border-radius: 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   background: var(--control);
   color: var(--text-dim);
   flex: 0 0 auto;
 }
 
-/* The mode button carries the hue at full chroma — it is the loudest control
-   in the sheet, and the one that says what the unit is actually doing. */
-.climate__mode--cool {
+/* The power button carries the hue at full chroma — it is the loudest control
+   in the sheet, and between it and the dropdown beside it the mode is said
+   once: this is the colour of it, that is the name. Grey is off. */
+.climate__power--cool {
   background: var(--cool);
   color: #fff;
 }
 
-.climate__mode--heat {
+.climate__power--heat {
   background: var(--heat);
   color: #fff;
 }
 
-.climate__mode--dry {
+.climate__power--dry {
   background: var(--dry);
   color: #fff;
 }
 
-.climate__mode--fan_only {
+.climate__power--fan_only {
   background: var(--fan);
   color: #fff;
 }
 
-.climate__mode--other {
+.climate__power--other {
   background: var(--accent);
   color: var(--on-accent);
 }
 
-.climate__spacer {
-  flex: 1;
+/* The mode dropdown. A native <select> so the phone opens its own wheel — and
+   `color-scheme` on the host is what makes that wheel dark with the app. */
+.climate__pick {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 120px;
+  min-width: 110px;
+  color: var(--text-2);
+}
+
+.climate__select {
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0 32px 0 34px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--control);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* The popup is painted by the OS, which does not read the app's tokens for
+   anything but the scheme — spell the two colours out. */
+.climate__select option {
+  background: var(--sheet);
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.climate__pick-icon,
+.climate__pick-chevron {
+  position: absolute;
+  pointer-events: none;
+}
+
+.climate__pick-icon {
+  left: 11px;
+}
+
+.climate__pick-chevron {
+  right: 9px;
+}
+
+/* Pushed right on a wide row, and the whole reason the row wraps on a narrow
+   one: three controls plus a reading do not fit beside the mode dropdown. */
+.climate__steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .stepper {
@@ -1708,7 +1787,7 @@ button {
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  bottom: calc(104px + env(safe-area-inset-bottom));
+  bottom: calc(var(--bar-space) + 18px);
   z-index: 3;
   display: flex;
   flex-direction: column;

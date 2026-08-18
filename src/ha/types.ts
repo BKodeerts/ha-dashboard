@@ -118,7 +118,19 @@ export interface RoomLight {
 
 export interface RoomClimate {
   entityId: string;
+  /** The narrowed mode — what picks the glyph, the hue and the label. */
   mode: HvacMode;
+  /**
+   * The unit's own `hvac_mode`. `mode` collapses anything outside the design's
+   * five onto `other`, which is enough to paint with and useless to send back,
+   * so the sheet's dropdown reads and writes this instead.
+   */
+  modeId: string;
+  /**
+   * Every mode the unit reports, in its own order, and always containing
+   * `modeId` — the dropdown's `value` would otherwise match no option.
+   */
+  modes: string[];
   /** `undefined` while the unit reports no setpoint — the stepper stays disabled. */
   target?: number;
   min: number;
@@ -152,8 +164,11 @@ export interface Room {
   brightness?: number;
   climate?: RoomClimate;
   media?: RoomMedia;
-  /** The room has opening sensors at all — the chip keeps its slot either way. */
-  hasOpenings: boolean;
+  /**
+   * Any window, door or garage door in the room is open. There is no flag for
+   * *having* opening sensors: the tile draws the chip only while one is open,
+   * so a room with sensors and a room without look the same when shut.
+   */
   openingOpen: boolean;
 }
 

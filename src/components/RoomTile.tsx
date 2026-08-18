@@ -1,6 +1,6 @@
 import { useHass } from '../ha/HassProvider';
 import { formatHumidity, formatTemp } from '../ha/selectors';
-import { toggleRoomLights } from '../ha/services';
+import { toggleClimate, toggleRoomLights } from '../ha/services';
 import type { Room } from '../ha/types';
 import { Icon } from '../ui/Icon';
 import { HVAC_ICONS } from '../ui/icons';
@@ -13,30 +13,42 @@ interface StateChip {
   tone: string;
   note?: string;
   label: string;
+  /** Set on the chips that are controls; the rest render as read-only glyphs. */
+  onTap?: () => void;
+  /** Only meaningful alongside `onTap` — it is the button's `aria-pressed`. */
+  on?: boolean;
 }
 
 /**
- * Read-only chips. Every device the room *has* gets a chip whether or not it is
+ * Read-only chips. A device the room *has* keeps its chip whether or not it is
  * doing anything, so the light chip beside them never shifts sideways as the
  * house changes state — a moving target is a mis-tap.
+ *
+ * The opening chip is the exception: a closed window is the normal state of a
+ * house and says nothing, so it only appears while something is open. It is
+ * last in the row, so appearing and disappearing moves no other chip.
+ *
+ * The AC chip is a control, like the light chip beside it: tapping it switches
+ * the unit on or off. Which mode it comes back in is the sheet's business.
  */
-function stateChips(room: Room): StateChip[] {
+function stateChips(room: Room, onToggleClimate: (entityId: string) => void): StateChip[] {
   const chips: StateChip[] = [];
 
   if (room.climate) {
-    const { mode, target } = room.climate;
+    const { entityId, mode, target } = room.climate;
+    const on = mode !== 'off';
     const chip: StateChip = {
       key: 'climate',
       icon: HVAC_ICONS[mode],
-      tone: mode === 'off' ? '' : `chip--${mode}`,
-      label:
-        mode === 'off'
-          ? `Airco ${room.name} uit`
-          : `Airco ${room.name} ${mode.replace('_only', '')}`,
+      tone: on ? `chip--${mode}` : '',
+      // The action, as on the light chip — `aria-pressed` carries the state.
+      label: `Airco ${room.name} ${on ? 'uit' : 'aan'}`,
+      onTap: () => onToggleClimate(entityId),
+      on,
     };
     // The setpoint is the whole point of the chip — except in fan mode, where
     // there is nothing to hold.
-    if (mode !== 'off' && mode !== 'fan_only' && target !== undefined) {
+    if (on && mode !== 'fan_only' && target !== undefined) {
       chip.note = formatTemp(target);
     }
     chips.push(chip);
@@ -51,12 +63,12 @@ function stateChips(room: Room): StateChip[] {
     });
   }
 
-  if (room.hasOpenings) {
+  if (room.openingOpen) {
     chips.push({
       key: 'window',
       icon: 'window',
-      tone: room.openingOpen ? 'chip--warn' : '',
-      label: room.openingOpen ? `${room.name} open` : `${room.name} dicht`,
+      tone: 'chip--warn',
+      label: `${room.name} open`,
     });
   }
 
@@ -65,6 +77,8 @@ function stateChips(room: Room): StateChip[] {
 
 export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
   const { entities, call } = useHass();
+
+  const chips = stateChips(room, (entityId) => void call(toggleClimate(entityId, entities)));
 
   const lightLabel = !room.lightsOn
     ? 'uit'
@@ -82,6 +96,11 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
         tabIndex={0}
         onClick={onOpen}
         onKeyDown={(event) => {
+          // The chips are buttons inside this one. Enter on a chip already
+          // toggled its device; letting the key bubble on would open the card
+          // on top of it — the keyboard's version of the fall-through the
+          // chips' `stopPropagation` prevents for taps.
+          if (event.target !== event.currentTarget) return;
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             onOpen();
@@ -114,17 +133,41 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
             </button>
           )}
 
-          {stateChips(room).map((chip) => (
-            <span
-              key={chip.key}
-              className={`chip${chip.tone ? ` ${chip.tone}` : ''}`}
-              role="img"
-              aria-label={chip.label}
-            >
-              <Icon name={chip.icon} size={15} />
-              {chip.note && <span className="chip__note">{chip.note}</span>}
-            </span>
-          ))}
+          {chips.map((chip) => {
+            const face = (
+              <>
+                <Icon name={chip.icon} size={15} />
+                {chip.note && <span className="chip__note">{chip.note}</span>}
+              </>
+            );
+
+            return chip.onTap ? (
+              <button
+                key={chip.key}
+                type="button"
+                className={`chip chip--tap${chip.tone ? ` ${chip.tone}` : ''}`}
+                aria-label={chip.label}
+                aria-pressed={chip.on}
+                onClick={(event) => {
+                  // As with the light chip: toggle, never fall through and open
+                  // the card underneath.
+                  event.stopPropagation();
+                  chip.onTap?.();
+                }}
+              >
+                {face}
+              </button>
+            ) : (
+              <span
+                key={chip.key}
+                className={`chip${chip.tone ? ` ${chip.tone}` : ''}`}
+                role="img"
+                aria-label={chip.label}
+              >
+                {face}
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>

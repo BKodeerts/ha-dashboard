@@ -129,9 +129,9 @@ area, device and entity registries once, resolves each entity to an area (direct
 | Temperature | `sensor` with `device_class: temperature` (prefers the one whose name matches the area) |
 | Humidity | `sensor` with `device_class: humidity` |
 | Light chip + per-lamp rows | every `light.*` in the area |
-| AC chip + climate row | `climate.*` in the area |
+| AC chip (a toggle) + climate row | `climate.*` in the area |
 | Radio chip + media row | `media_player.*` in the area |
-| Window chip | `binary_sensor` with `device_class` `window` / `door` / `garage_door` |
+| Window chip (only while open) | `binary_sensor` with `device_class` `window` / `door` / `garage_door` |
 
 **Adding a device in HA and assigning it to an area is the only step needed for it to appear here.**
 Hidden, disabled and config/diagnostic entities are skipped. Areas with nothing to show are dropped.
@@ -271,28 +271,39 @@ are painted from one source.
 
 ## Interaction notes
 
-- Tile body tap opens the room card; the **light chip stops propagation** and only toggles.
+- Tile body tap opens the room card; the **light and AC chips stop propagation** and only toggle.
+  The same holds for the keyboard: the tile ignores `Enter`/`Space` that started on a chip inside
+  it, so activating a chip does not also open the card on top of it.
 - Light chip: if any light in the room is on, turn them all off; else turn them all on.
+- **AC chip**: switches the unit off, or back on in `preferredHvacMode` — `cool` when the unit
+  offers it, else its first non-`off` mode. HA remembers no previous mode, so there is nothing
+  truer to return to; picking a specific one is the sheet's job.
 - **Per-lamp rows** drag horizontally to set brightness and tap to toggle. A pointer that never
   travelled more than 6 px is a tap. The drag state is set *before* `setPointerCapture`, and the
   capture is wrapped in `try`/`catch` — a failed capture must not kill the tap. Rows use
   `touch-action: pan-y` so a finger starting on a lamp can still scroll the sheet.
 - Non-dimmable lamps drag nowhere: tap only, `cursor: pointer`, and an `aan`/`uit` label.
-- The climate **mode button cycles** through the modes the unit reports (`hvac_modes`). It is the
-  only way to reach the four modes the design colours, so a plain on/off toggle would leave three of
-  them unreachable.
-- **State chips are read-only and always rendered** for a device the room has, active or not, so the
-  light chip beside them never moves under your thumb.
+- The room card's climate row is a **power button plus a mode dropdown**. The button toggles on/off
+  and wears the mode's hue; the `<select>` beside it lists the unit's own `hvac_modes` — `off`
+  included where the unit reports one, so its value is always the entity's real state and never a
+  guess. A mode the unit reports but the design does not colour (`auto`, `heat_cool`) is de-slugged
+  for the list rather than shown as the catch-all `Aan`. The dropdown is hidden when a unit reports
+  fewer than two modes.
+- **State chips are rendered for a device the room has**, active or not, so the light chip beside
+  them never moves under your thumb. The radio and window chips are read-only glyphs; the AC chip
+  is a control, and wears the light chip's 34 px shape to say so. The window chip is the exception — a shut
+  house is the normal state and says nothing, so it appears only while an opening is open. It is
+  last in the row, so it moves nothing when it comes and goes.
 - Writes are **optimistic** — the UI flips immediately, the incoming `state_changed` confirms it, and
   a failure reverts the flip and raises a toast. Unconfirmed overlays expire after 5 s.
 - The alarm pill opens an arm/disarm sheet with code entry (the prototype only cycled the state).
   The code field appears when the panel declares a `code_format`, and arming skips it when
   `code_arm_required` is false.
 - **Sheets never cover the tab bar**: the scrim sits at `z-index: 1` and the bar at `2`, and the
-  panel stops 96 px above the bottom. Switching tab, opening the gear, `Escape` or a scrim tap all
+  panel stops a bar's height above the bottom (`--bar-space`). Switching tab, opening the gear, `Escape` or a scrim tap all
   dismiss it; `prefers-reduced-motion` drops the transforms.
-- Hit targets are ≥ 44 px throughout, except the 34 px light chip and the 26 px read-only state
-  chips, which are not tappable.
+- Hit targets are ≥ 44 px throughout, except the two 34 px chips on a tile — light and AC. The
+  26 px state chips are read-only and not targets at all.
 - The last entity snapshot is cached in `localStorage`, so a cold start paints real values before the
   socket connects. A dropped socket shows a subdued banner, not an error screen.
 
@@ -325,8 +336,11 @@ Small, deliberate, and listed so they are easy to reverse:
   scroll past it. Horizontal drag still belongs to the row.
 - **The Netwerk row's entity id is what truncates**, not the whole meta line — a dead-battery list
   that ellipsises its battery percentage is hiding its own answer.
-- **The climate mode button cycles**; the handoff specifies the button's four colours but not how
-  the mode is chosen.
+- **The climate row is a power button and a mode dropdown**; the handoff specifies the button's four
+  colours but not how the mode is chosen. The hue moved onto the power button, so the mode is stated
+  once — as colour there, as a name in the dropdown.
+- **The AC chip on a tile is a control, not a read-out.** The handoff draws every state chip as
+  read-only; switching a unit off was worth a tap rather than a sheet.
 - **"Standaardwaarden herstellen" sits below the "Overig" rows** rather than being one of them, so
   the specified block stays as drawn while the escape hatch survives from v1.
 - **Surfaces and text follow Home Assistant's theme by default** — see "Following Home Assistant's
@@ -334,6 +348,15 @@ Small, deliberate, and listed so they are easy to reverse:
   wherever there is no HA theme to read.
 - The prototype's 44 px phone radius is dropped: the real app is full-bleed and uses safe-area
   insets.
+- **The top block is tighter than the handoff's and the tab bar sits lower.** The handoff draws a
+  390 × 844 artboard with no status bar; on a real phone its 52 px weather inset lands *below* the
+  notch inset, and the header block ate a third of the screen before the first room card. The
+  weather block now starts at `max(16px, safe-area-inset-top + 8px)`, the pill row at 12 px with
+  42 px pills, and the section head at 10 px — about 70 px back for the room grid. The bar's own
+  drop from the bottom edge goes from 22 px to `--bar-drop: 8px` on top of the home-indicator
+  inset, so it reads as anchored rather than floating. Everything that measures itself against the
+  bar (the sheet panel's `bottom` and `max-height`, the toasts) derives from `--bar-space` instead
+  of repeating the handoff's 96/104 px.
 
 ## Project layout
 
