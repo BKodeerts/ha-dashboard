@@ -123,10 +123,11 @@
    * `--bar-space` is everything the bar occupies at the bottom of the screen —
    * its height, the sliver of page under it, and the home-indicator inset. The
    * bar sits as low as the indicator allows; on a phone that has none it is
-   * 8px off the edge rather than floating a thumb's width above it.
+   * 16px off the edge — the same inset the bar carries on its left and right —
+   * rather than floating a thumb's width above it.
    */
   --bar-h: 64px;
-  --bar-drop: 8px;
+  --bar-drop: 16px;
   --bar-space: calc(var(--bar-h) + var(--bar-drop) + env(safe-area-inset-bottom));
   /* What every scroll area pads its bottom with: the bar's own space plus a
      row's worth of clearance, so the last row is reachable and not just
@@ -395,7 +396,7 @@ button {
   top: 0;
   left: 0;
   right: 0;
-  z-index: 3;
+  z-index: 1;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -865,8 +866,10 @@ button {
    scroll area pads its bottom by `--bar-clearance` so its last row still clears
    the bar.
 
-   z-index 2 puts it above the sheet scrim: the bar is always visible and
-   always tappable, which is the whole point of v2's sheet geometry.        */
+   z-index 3 puts it above the sheet scrim: the bar is always visible and
+   always tappable, which is the whole point of v2's sheet geometry. The
+   scrim itself sits above the top line (z-index 1) so the header dims with
+   the rest of the page instead of floating above the scrim untouched.    */
 
 .tabbar {
   /* Fixed to the viewport for the same reason as `.topline` — see the note
@@ -875,7 +878,7 @@ button {
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 2;
+  z-index: 3;
   padding: 0 16px calc(var(--bar-drop) + env(safe-area-inset-bottom));
 }
 
@@ -957,7 +960,7 @@ button {
 .sheet {
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 2;
   background: var(--scrim);
   animation: fadeIn 0.18s ease;
 }
@@ -2324,7 +2327,7 @@ button {
   left: var(--gutter);
   right: var(--gutter);
   bottom: calc(var(--bar-space) + 18px);
-  z-index: 3;
+  z-index: 4;
   display: flex;
   flex-direction: column;
   gap: 7px;
