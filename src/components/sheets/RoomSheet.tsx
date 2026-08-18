@@ -8,17 +8,18 @@ import {
   numericState,
 } from '../../ha/selectors';
 import {
-  cycleHvacMode,
   mediaPlayPause,
   mediaPlayPreset,
   mediaStep,
   setClimateTemperature,
+  setHvacMode,
   setLightBrightness,
+  toggleClimate,
   toggleLight,
 } from '../../ha/services';
 import type { Room, RoomClimate, RoomLight, RoomMedia } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
-import { HVAC_ICONS, HVAC_LABELS } from '../../ui/icons';
+import { HVAC_ICONS, hvacLabel } from '../../ui/icons';
 import { Sheet, SheetClose } from '../Sheet';
 
 /** A pointer that never travelled this far is a tap, not a drag. */
@@ -204,9 +205,23 @@ function LampRow({ light }: { light: RoomLight }) {
 
 /* ── climate ──────────────────────────────────────────────────────────────  */
 
+/**
+ * Power on the left, mode beside it, setpoint on the right. The button is the
+ * on/off — the same tap as the tile's AC chip — and the dropdown reaches the
+ * modes the unit actually reports, `off` among them where it reports one, so
+ * its value is always the unit's own state rather than a guess at it.
+ *
+ * The button wears the mode's hue and the dropdown says its name: between them
+ * the mode is stated once, in the place that can carry it. A power glyph on a
+ * button that also read `COOL` beside a dropdown reading `COOL` said it twice.
+ *
+ * The row wraps: on a phone the setpoint group drops to a second line rather
+ * than squeezing the three controls into 316px.
+ */
 function ClimateRow({ climate }: { climate: RoomClimate }) {
   const { entities, call } = useHass();
-  const { entityId, mode, target, min, max, step } = climate;
+  const { entityId, mode, modeId, modes, target, min, max, step } = climate;
+  const on = mode !== 'off';
 
   const bump = (direction: 1 | -1) => {
     if (target === undefined) return;
@@ -218,35 +233,56 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
     <div className="climate">
       <button
         type="button"
-        className={`climate__mode${mode === 'off' ? '' : ` climate__mode--${mode}`}`}
-        onClick={() => void call(cycleHvacMode(entityId, entities))}
-        aria-label={`Modus — nu ${HVAC_LABELS[mode]}`}
+        className={`climate__power${on ? ` climate__power--${mode}` : ''}`}
+        onClick={() => void call(toggleClimate(entityId, entities))}
+        aria-label={`Airco ${on ? 'uit' : 'aan'}`}
+        aria-pressed={on}
       >
-        <Icon name={HVAC_ICONS[mode]} size={16} />
-        {HVAC_LABELS[mode]}
+        <Icon name="power" size={18} />
       </button>
-      <div className="climate__spacer" />
-      <button
-        type="button"
-        className="stepper"
-        onClick={() => bump(-1)}
-        disabled={target === undefined}
-        aria-label="Kouder"
-      >
-        −
-      </button>
-      <div className="climate__target">
-        {target === undefined ? '—' : `${formatNumber(target, 1)}°`}
+
+      {modes.length > 1 && (
+        <div className="climate__pick">
+          <Icon name={HVAC_ICONS[mode]} size={15} className="climate__pick-icon" />
+          <select
+            className="climate__select"
+            value={modeId}
+            onChange={(event) => void call(setHvacMode(entityId, event.target.value))}
+            aria-label="Modus"
+          >
+            {modes.map((value) => (
+              <option key={value} value={value}>
+                {hvacLabel(value)}
+              </option>
+            ))}
+          </select>
+          <Icon name="chevronDown" size={16} className="climate__pick-chevron" />
+        </div>
+      )}
+
+      <div className="climate__steps">
+        <button
+          type="button"
+          className="stepper"
+          onClick={() => bump(-1)}
+          disabled={target === undefined}
+          aria-label="Kouder"
+        >
+          −
+        </button>
+        <div className="climate__target">
+          {target === undefined ? '—' : `${formatNumber(target, 1)}°`}
+        </div>
+        <button
+          type="button"
+          className="stepper"
+          onClick={() => bump(1)}
+          disabled={target === undefined}
+          aria-label="Warmer"
+        >
+          +
+        </button>
       </div>
-      <button
-        type="button"
-        className="stepper"
-        onClick={() => bump(1)}
-        disabled={target === undefined}
-        aria-label="Warmer"
-      >
-        +
-      </button>
     </div>
   );
 }

@@ -75,10 +75,8 @@ export function preferredHvacMode(states: HassEntities, entityId: string): strin
   return list.find((mode) => mode === 'cool') ?? list.find((mode) => mode !== 'off') ?? 'cool';
 }
 
-export function toggleClimate(entityId: string, states: HassEntities): ServiceCall {
-  const current = states[entityId]?.state;
-  const on = current !== undefined && current !== 'off';
-  const mode = on ? 'off' : preferredHvacMode(states, entityId);
+/** Straight to a mode — what the sheet's dropdown writes. */
+export function setHvacMode(entityId: string, mode: string): ServiceCall {
   return {
     domain: 'climate',
     service: 'set_hvac_mode',
@@ -89,26 +87,15 @@ export function toggleClimate(entityId: string, states: HassEntities): ServiceCa
 }
 
 /**
- * The room card's mode button steps through whatever the unit reports, in the
- * order it reports it. The design gives cool, heat, dry and fan a colour each,
- * and this button is the only way to reach them — a plain on/off toggle would
- * leave three of the four unreachable.
+ * The AC chip on a tile, and the power button in its sheet. Off is off for
+ * every unit; on is `preferredHvacMode`, since HA keeps no memory of the mode
+ * a unit was in before it was switched off. The dropdown in the sheet is how
+ * you reach the other modes.
  */
-export function cycleHvacMode(entityId: string, states: HassEntities): ServiceCall {
-  const modes = states[entityId]?.attributes?.hvac_modes;
-  const list = Array.isArray(modes) ? (modes as string[]) : [];
-  if (list.length === 0) return toggleClimate(entityId, states);
-
-  const current = states[entityId]?.state ?? 'off';
-  const index = list.indexOf(current);
-  const next = list[(index + 1) % list.length] ?? 'off';
-  return {
-    domain: 'climate',
-    service: 'set_hvac_mode',
-    data: { hvac_mode: next },
-    target: { entity_id: entityId },
-    optimistic: [{ entityId, state: next }],
-  };
+export function toggleClimate(entityId: string, states: HassEntities): ServiceCall {
+  const current = states[entityId]?.state;
+  const on = current !== undefined && current !== 'off';
+  return setHvacMode(entityId, on ? 'off' : preferredHvacMode(states, entityId));
 }
 
 export function setClimateTemperature(entityId: string, temperature: number): ServiceCall {

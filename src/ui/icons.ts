@@ -44,6 +44,8 @@ export const ICONS = {
   waterPercent:
     'M12,20A6,6 0 0,1 6,14C6,10 12,3.25 12,3.25C12,3.25 18,10 18,14A6,6 0 0,1 12,20M12,2C12,2 4,10 4,14A8,8 0 0,0 12,22A8,8 0 0,0 20,14C20,10 12,2 12,2M14.5,15A1.5,1.5 0 0,1 16,16.5A1.5,1.5 0 0,1 14.5,18A1.5,1.5 0 0,1 13,16.5A1.5,1.5 0 0,1 14.5,15M9.5,10A1.5,1.5 0 0,1 11,11.5A1.5,1.5 0 0,1 9.5,13A1.5,1.5 0 0,1 8,11.5A1.5,1.5 0 0,1 9.5,10M9,18L8,17L15,10L16,11L9,18Z',
   fan: 'M12,11A1,1 0 0,0 11,12A1,1 0 0,0 12,13A1,1 0 0,0 13,12A1,1 0 0,0 12,11M12.5,2C17,2 17.11,5.57 14.75,6.75C13.76,7.24 13.32,8.29 13.13,9.22C13.61,9.42 14.03,9.73 14.35,10.13C18.05,8.13 22.03,8.92 22.03,12.5C22.03,17 18.46,17.1 17.28,14.75C16.78,13.75 15.72,13.31 14.79,13.12C14.59,13.61 14.28,14.03 13.88,14.36C15.87,18.06 15.08,22.04 11.5,22.04C7,22.04 6.91,18.47 9.27,17.29C10.25,16.79 10.69,15.75 10.89,14.83C10.4,14.63 9.97,14.32 9.65,13.91C5.95,15.91 1.97,15.12 1.97,11.54C1.97,7 5.54,6.95 6.72,9.3C7.22,10.28 8.26,10.72 9.18,10.91C9.38,10.44 9.67,10 10.06,9.69C8.06,6 8.85,2 12.5,2Z',
+  power:
+    'M16.56,5.44L15.11,6.89C16.84,7.94 18,9.83 18,12A6,6 0 0,1 12,18A6,6 0 0,1 6,12C6,9.83 7.16,7.94 8.88,6.88L7.44,5.44C5.36,6.88 4,9.28 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12C20,9.28 18.64,6.88 16.56,5.44M13,3H11V13H13',
   play: 'M8,5.14V19.14L19,12.14L8,5.14Z',
   pause: 'M14,19H18V5H14M6,19H10V5H6V19Z',
   skipNext: 'M16,18H18V6H16M6,18L14.5,12L6,6V18Z',
@@ -90,6 +92,17 @@ export const HVAC_LABELS: Record<HvacMode, string> = {
   fan_only: 'Fan',
   other: 'Aan',
 };
+
+/**
+ * The label for a raw `hvac_mode`, for the sheet's dropdown. The design names
+ * five; anything else a unit reports (`auto`, `heat_cool`) is de-slugged rather
+ * than shown as the catch-all `Aan`, which would read the same for every one of
+ * them in the same list.
+ */
+export function hvacLabel(raw: string): string {
+  if (raw !== 'other' && raw in HVAC_LABELS) return HVAC_LABELS[raw as HvacMode];
+  return raw.charAt(0).toUpperCase() + raw.slice(1).replace(/_/g, ' ');
+}
 
 /**
  * HA weather conditions → glyph. One map, one swap: pointing these at Meteocons

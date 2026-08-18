@@ -522,8 +522,9 @@ button {
   text-transform: uppercase;
 }
 
-/* state chips — read-only, and rendered in a fixed slot whether or not the
-   device is active, so nothing shifts sideways as the house changes.       */
+/* state chips — rendered in a fixed slot whether or not the device is active,
+   so nothing shifts sideways as the house changes. Most are read-only; the AC
+   chip is a control and wears the light chip's size to say so.             */
 
 .chip {
   display: flex;
@@ -542,6 +543,18 @@ button {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.02em;
+}
+
+/* The one distinction the row makes: what you can press is the taller shape,
+   the same 34px as the light chip. The tones below are shared with the
+   read-only chips — an AC that is cooling looks the same either way. */
+.chip--tap {
+  height: 34px;
+  min-width: 34px;
+  padding: 0 9px;
+  gap: 5px;
+  border-radius: 10px;
+  user-select: none;
 }
 
 .chip--warn {
@@ -883,6 +896,7 @@ button {
 
 .climate {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 10px;
   background: var(--card);
@@ -891,51 +905,104 @@ button {
   padding: 8px 10px 8px 12px;
 }
 
-.climate__mode {
+.climate__power {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  width: 44px;
   height: 44px;
-  padding: 0 14px;
   border-radius: 12px;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   background: var(--control);
   color: var(--text-dim);
   flex: 0 0 auto;
 }
 
-/* The mode button carries the hue at full chroma — it is the loudest control
-   in the sheet, and the one that says what the unit is actually doing. */
-.climate__mode--cool {
+/* The power button carries the hue at full chroma — it is the loudest control
+   in the sheet, and between it and the dropdown beside it the mode is said
+   once: this is the colour of it, that is the name. Grey is off. */
+.climate__power--cool {
   background: var(--cool);
   color: #fff;
 }
 
-.climate__mode--heat {
+.climate__power--heat {
   background: var(--heat);
   color: #fff;
 }
 
-.climate__mode--dry {
+.climate__power--dry {
   background: var(--dry);
   color: #fff;
 }
 
-.climate__mode--fan_only {
+.climate__power--fan_only {
   background: var(--fan);
   color: #fff;
 }
 
-.climate__mode--other {
+.climate__power--other {
   background: var(--accent);
   color: var(--on-accent);
 }
 
-.climate__spacer {
-  flex: 1;
+/* The mode dropdown. A native <select> so the phone opens its own wheel — and
+   `color-scheme` on the host is what makes that wheel dark with the app. */
+.climate__pick {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 120px;
+  min-width: 110px;
+  color: var(--text-2);
+}
+
+.climate__select {
+  appearance: none;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  padding: 0 32px 0 34px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--control);
+  color: var(--text-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+/* The popup is painted by the OS, which does not read the app's tokens for
+   anything but the scheme — spell the two colours out. */
+.climate__select option {
+  background: var(--sheet);
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.climate__pick-icon,
+.climate__pick-chevron {
+  position: absolute;
+  pointer-events: none;
+}
+
+.climate__pick-icon {
+  left: 11px;
+}
+
+.climate__pick-chevron {
+  right: 9px;
+}
+
+/* Pushed right on a wide row, and the whole reason the row wraps on a narrow
+   one: three controls plus a reading do not fit beside the mode dropdown. */
+.climate__steps {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
 }
 
 .stepper {

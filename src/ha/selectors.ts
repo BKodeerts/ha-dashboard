@@ -105,12 +105,30 @@ export function hvacMode(state: string | undefined): HvacMode {
   return HVAC_MODES.has(state) ? (state as HvacMode) : 'other';
 }
 
+/**
+ * The modes the sheet's dropdown offers. `hvac_modes` is what the unit says it
+ * can do; the mode it is *in* is prepended when missing, so the dropdown can
+ * always show the truth — an integration that omits its own current mode would
+ * otherwise leave the control showing something the unit is not doing.
+ */
+function hvacModes(attributes: Record<string, unknown>, current: string): string[] {
+  const reported = Array.isArray(attributes.hvac_modes)
+    ? attributes.hvac_modes.filter((mode): mode is string => typeof mode === 'string')
+    : [];
+  return reported.includes(current) ? reported : [current, ...reported];
+}
+
 function buildClimate(entityId: string, states: HassEntities): RoomClimate {
   const entity = states[entityId];
   const attributes = entity?.attributes ?? {};
+  // A missing or unavailable unit reads as off, exactly as `hvacMode` paints it.
+  const raw = entity?.state;
+  const modeId = raw === undefined || UNAVAILABLE.has(raw) ? 'off' : raw;
   const climate: RoomClimate = {
     entityId,
     mode: hvacMode(entity?.state),
+    modeId,
+    modes: hvacModes(attributes, modeId),
     min: toNumber(attributes.min_temp) ?? 16,
     max: toNumber(attributes.max_temp) ?? 30,
     step: toNumber(attributes.target_temp_step) ?? 0.5,
