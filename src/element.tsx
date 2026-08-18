@@ -109,9 +109,12 @@ export class HaDashboardPanel extends HTMLElement {
    * hand off to WKWebView's native page-level bounce instead of stopping —
    * `overscroll-behavior: contain` doesn't reliably stop that hand-off in this
    * host. That drags everything in normal flow (the status pill, the section
-   * head) out from under the fixed header. This is the standard fix: block
-   * the browser's default pan for a touch unless it started inside one of our
-   * own scrollers and that scroller still has room to move in that direction.
+   * head) out from under the fixed header.
+   *
+   * This only guards that specific hand-off — a drag inside one of our own
+   * scrollers that is still trying to move past the edge it's already at. A
+   * touch that never lands in one of our scrollers is left alone: blocking it
+   * broke the HA app's own edge-swipe gesture for opening its side menu.
    */
   #onTouchStart = (event: TouchEvent): void => {
     const touch = event.touches.length === 1 ? event.touches[0] : undefined;
@@ -135,10 +138,7 @@ export class HaDashboardPanel extends HTMLElement {
             node.classList.contains('sheet__panel')),
       );
 
-    if (!scroller) {
-      event.preventDefault();
-      return;
-    }
+    if (!scroller) return;
 
     const atTop = scroller.scrollTop <= 0;
     const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
