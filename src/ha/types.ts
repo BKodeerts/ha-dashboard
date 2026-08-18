@@ -157,11 +157,6 @@ export interface Room {
   humidity?: number;
   lights: RoomLight[];
   lightsOn: boolean;
-  /**
-   * Mean brightness of the lamps that are on and dimmable, or `undefined` when
-   * the room has none — that is what makes the chip read `aan` instead of `62%`.
-   */
-  brightness?: number;
   climate?: RoomClimate;
   media?: RoomMedia;
   /**

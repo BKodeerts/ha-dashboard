@@ -496,35 +496,9 @@ button {
   margin-top: 2px;
 }
 
-/* light chip — the one control on the tile, and the one target under 44px */
-
-.chip-light {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  height: 34px;
-  padding: 0 10px;
-  border-radius: 10px;
-  user-select: none;
-  background: var(--control);
-  color: var(--text-2);
-}
-
-.chip-light--on {
-  background: var(--accent-chip);
-  color: var(--on-accent);
-}
-
-.chip-light__label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-/* state chips — rendered in a fixed slot whether or not the device is active,
-   so nothing shifts sideways as the house changes. Most are read-only; the AC
-   chip is a control and wears the light chip's size to say so.             */
+/* chips — rendered in a fixed slot whether or not the device is active, so
+   nothing shifts sideways as the house changes. Most are read-only glyphs;
+   the light and AC chips are controls and wear the taller size to say so. */
 
 .chip {
   display: flex;
@@ -545,9 +519,9 @@ button {
   letter-spacing: 0.02em;
 }
 
-/* The one distinction the row makes: what you can press is the taller shape,
-   the same 34px as the light chip. The tones below are shared with the
-   read-only chips — an AC that is cooling looks the same either way. */
+/* The one distinction the row makes: what you can press is the taller shape.
+   The tones below are shared with the read-only chips — an AC that is
+   cooling looks the same either way. */
 .chip--tap {
   height: 34px;
   min-width: 34px;
@@ -555,6 +529,13 @@ button {
   gap: 5px;
   border-radius: 10px;
   user-select: none;
+}
+
+/* The light chip wears the accent while the room's lights are on; off, it
+   falls back to the shared inactive chip treatment. */
+.chip--light {
+  background: var(--accent-chip);
+  color: var(--on-accent);
 }
 
 .chip--warn {
