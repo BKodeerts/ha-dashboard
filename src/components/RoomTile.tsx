@@ -113,7 +113,7 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
           {room.lights.length > 0 && (
             <button
               type="button"
-              className={`chip chip--tap${room.lightsOn ? ' chip--light' : ''}`}
+              className={`chip${room.lightsOn ? ' chip--light' : ''}`}
               aria-label={`Lichten ${room.name} ${room.lightsOn ? 'uit' : 'aan'}`}
               aria-pressed={room.lightsOn}
               onClick={(event) => {
@@ -138,7 +138,7 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
               <button
                 key={chip.key}
                 type="button"
-                className={`chip chip--tap${chip.tone ? ` ${chip.tone}` : ''}`}
+                className={`chip${chip.tone ? ` ${chip.tone}` : ''}`}
                 aria-label={chip.label}
                 aria-pressed={chip.on}
                 onClick={(event) => {
