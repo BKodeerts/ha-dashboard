@@ -16,9 +16,13 @@ interface StateChip {
 }
 
 /**
- * Read-only chips. Every device the room *has* gets a chip whether or not it is
+ * Read-only chips. A device the room *has* keeps its chip whether or not it is
  * doing anything, so the light chip beside them never shifts sideways as the
  * house changes state — a moving target is a mis-tap.
+ *
+ * The opening chip is the exception: a closed window is the normal state of a
+ * house and says nothing, so it only appears while something is open. It is
+ * last in the row, so appearing and disappearing moves no other chip.
  */
 function stateChips(room: Room): StateChip[] {
   const chips: StateChip[] = [];
@@ -51,12 +55,12 @@ function stateChips(room: Room): StateChip[] {
     });
   }
 
-  if (room.hasOpenings) {
+  if (room.openingOpen) {
     chips.push({
       key: 'window',
       icon: 'window',
-      tone: room.openingOpen ? 'chip--warn' : '',
-      label: room.openingOpen ? `${room.name} open` : `${room.name} dicht`,
+      tone: 'chip--warn',
+      label: `${room.name} open`,
     });
   }
 

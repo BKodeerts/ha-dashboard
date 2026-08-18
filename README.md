@@ -131,7 +131,7 @@ area, device and entity registries once, resolves each entity to an area (direct
 | Light chip + per-lamp rows | every `light.*` in the area |
 | AC chip + climate row | `climate.*` in the area |
 | Radio chip + media row | `media_player.*` in the area |
-| Window chip | `binary_sensor` with `device_class` `window` / `door` / `garage_door` |
+| Window chip (only while open) | `binary_sensor` with `device_class` `window` / `door` / `garage_door` |
 
 **Adding a device in HA and assigning it to an area is the only step needed for it to appear here.**
 Hidden, disabled and config/diagnostic entities are skipped. Areas with nothing to show are dropped.
@@ -282,14 +282,16 @@ are painted from one source.
   only way to reach the four modes the design colours, so a plain on/off toggle would leave three of
   them unreachable.
 - **State chips are read-only and always rendered** for a device the room has, active or not, so the
-  light chip beside them never moves under your thumb.
+  light chip beside them never moves under your thumb. The window chip is the exception — a shut
+  house is the normal state and says nothing, so it appears only while an opening is open. It is
+  last in the row, so it moves nothing when it comes and goes.
 - Writes are **optimistic** — the UI flips immediately, the incoming `state_changed` confirms it, and
   a failure reverts the flip and raises a toast. Unconfirmed overlays expire after 5 s.
 - The alarm pill opens an arm/disarm sheet with code entry (the prototype only cycled the state).
   The code field appears when the panel declares a `code_format`, and arming skips it when
   `code_arm_required` is false.
 - **Sheets never cover the tab bar**: the scrim sits at `z-index: 1` and the bar at `2`, and the
-  panel stops 96 px above the bottom. Switching tab, opening the gear, `Escape` or a scrim tap all
+  panel stops a bar's height above the bottom (`--bar-space`). Switching tab, opening the gear, `Escape` or a scrim tap all
   dismiss it; `prefers-reduced-motion` drops the transforms.
 - Hit targets are ≥ 44 px throughout, except the 34 px light chip and the 26 px read-only state
   chips, which are not tappable.

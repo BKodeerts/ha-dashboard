@@ -163,7 +163,6 @@ export function buildRooms(
       entities,
       lights,
       lightsOn: lights.some((light) => light.on),
-      hasOpenings: entities.openings.length > 0,
       openingOpen: entities.openings.some((id) => isOn(states[id])),
     };
     if (temperature !== undefined) room.temperature = temperature;

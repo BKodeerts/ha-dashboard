@@ -152,8 +152,11 @@ export interface Room {
   brightness?: number;
   climate?: RoomClimate;
   media?: RoomMedia;
-  /** The room has opening sensors at all — the chip keeps its slot either way. */
-  hasOpenings: boolean;
+  /**
+   * Any window, door or garage door in the room is open. There is no flag for
+   * *having* opening sensors: the tile draws the chip only while one is open,
+   * so a room with sensors and a room without look the same when shut.
+   */
   openingOpen: boolean;
 }
 
