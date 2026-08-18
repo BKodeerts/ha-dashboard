@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { PALETTES, THEMES, TINT_CYCLE, weatherEntities } from '../../config/config';
+import { MAX_TRACKED, PALETTES, THEMES, TINT_CYCLE, weatherEntities } from '../../config/config';
 import { useHass } from '../../ha/HassProvider';
-import { friendlyName } from '../../ha/selectors';
+import { friendlyName, type PersonInfo } from '../../ha/selectors';
 import type { Room } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
 
@@ -43,15 +43,39 @@ function MoreRow({
 }
 
 /**
- * The gear view. Three things live here that used to be scattered or missing:
- * who is holding the phone (the presence pill then shows the *other* person),
- * the room order, and the display odds and ends.
+ * The gear view. Four sections: who you are (read-only — the account says so),
+ * who you follow at the top of the home screen, the room order, and the display
+ * odds and ends.
  */
-export function SettingsView({ rooms, persons }: { rooms: Room[]; persons: string[] }) {
+export function SettingsView({
+  rooms,
+  persons,
+  me,
+}: {
+  rooms: Room[];
+  persons: string[];
+  me: PersonInfo;
+}) {
   const { entities, config, updateConfig, resetConfig } = useHass();
   const [panel, setPanel] = useState<'weer' | 'thema' | 'kleuren' | 'tints' | null>(null);
 
   const weathers = useMemo(() => weatherEntities(entities), [entities]);
+
+  const tracked = config.tracked;
+  const atCap = tracked.length >= MAX_TRACKED;
+
+  /**
+   * At the cap, a further tap does nothing rather than silently evicting
+   * somebody: which of the two would go is not a question a tap can answer.
+   * The note under the list changes to say so.
+   */
+  const toggleTracked = (entityId: string) => {
+    if (tracked.includes(entityId)) {
+      updateConfig({ tracked: tracked.filter((id) => id !== entityId) });
+    } else if (!atCap) {
+      updateConfig({ tracked: [...tracked, entityId] });
+    }
+  };
 
   const toggleFavourite = (roomId: string) => {
     const current = config.favouriteAreas;
@@ -89,28 +113,58 @@ export function SettingsView({ rooms, persons }: { rooms: Room[]; persons: strin
 
   return (
     <div className="view">
+      {/* Not a setting. A household of five people has five accounts, and
+          asking each of them to pick themselves out of a list is a setting that
+          can be wrong; `hass.user` cannot. */}
       <div className="settings__section">
         <div className="settings__label">Wie ben jij</div>
-        <div className="persons">
-          {persons.map((entityId) => (
-            <button
-              key={entityId}
-              type="button"
-              className={`person${config.me === entityId ? ' person--on' : ''}`}
-              aria-pressed={config.me === entityId}
-              onClick={() => updateConfig({ me: entityId })}
-            >
-              <span className="person__name">{friendlyName(entities, entityId)}</span>
-              <span className="person__id">{entityId}</span>
-            </button>
-          ))}
-          {persons.length === 0 && (
-            <div className="settings__note">geen person-entiteiten gevonden</div>
+        <div className="me">
+          <Icon name="person" size={19} className="me__icon" />
+          <div className="me__names">
+            <div className="me__name">{me.name}</div>
+            {me.entityId && <div className="me__id">{me.entityId}</div>}
+          </div>
+          <span className="me__badge">uit je account</span>
+        </div>
+        <div className="settings__note">
+          {me.entityId
+            ? 'hass.user gekoppeld aan person'
+            : 'geen person met dit user_id — vul user_id in bij de persoon'}
+        </div>
+      </div>
+
+      <div className="settings__section">
+        <div className="settings__label">Wie volg je bovenaan</div>
+        <div className="track">
+          {persons
+            .filter((entityId) => entityId !== me.entityId)
+            .map((entityId) => {
+              const on = tracked.includes(entityId);
+              const home = entities[entityId]?.state === 'home';
+              return (
+                <button
+                  key={entityId}
+                  type="button"
+                  className={`track__row${on ? ' track__row--on' : ''}`}
+                  aria-pressed={on}
+                  onClick={() => toggleTracked(entityId)}
+                >
+                  <span className="track__box">{on && <Icon name="check" size={13} />}</span>
+                  <span className="track__names">
+                    <span className="track__name">{friendlyName(entities, entityId)}</span>
+                    <span className="track__id">{entityId}</span>
+                  </span>
+                  <span className="track__state">{home ? 'thuis' : 'weg'}</span>
+                </button>
+              );
+            })}
+          {persons.filter((entityId) => entityId !== me.entityId).length === 0 && (
+            <div className="settings__note">geen andere person-entiteiten gevonden</div>
           )}
         </div>
-        {persons.length > 0 && (
-          <div className="settings__note">de pil bovenaan toont de ánder</div>
-        )}
+        <div className="settings__note">
+          {atCap ? 'maximum twee — zet er een uit' : 'maximaal twee chips bovenaan'}
+        </div>
       </div>
 
       <div className="settings__section">
@@ -193,12 +247,12 @@ export function SettingsView({ rooms, persons }: { rooms: Room[]; persons: strin
           open={panel === 'thema'}
           onTap={() => setPanel((current) => (current === 'thema' ? null : 'thema'))}
         >
-          <div className="alarm__modes">
+          <div className="segmented">
             {THEMES.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
-                className={`alarm__mode${config.theme === value ? ' alarm__mode--current' : ''}`}
+                className={`segmented__option${config.theme === value ? ' segmented__option--on' : ''}`}
                 aria-pressed={config.theme === value}
                 onClick={() => updateConfig({ theme: value })}
               >
@@ -214,12 +268,12 @@ export function SettingsView({ rooms, persons }: { rooms: Room[]; persons: strin
           open={panel === 'kleuren'}
           onTap={() => setPanel((current) => (current === 'kleuren' ? null : 'kleuren'))}
         >
-          <div className="alarm__modes">
+          <div className="segmented">
             {PALETTES.map(({ value, label }) => (
               <button
                 key={value}
                 type="button"
-                className={`alarm__mode${config.palette === value ? ' alarm__mode--current' : ''}`}
+                className={`segmented__option${config.palette === value ? ' segmented__option--on' : ''}`}
                 aria-pressed={config.palette === value}
                 onClick={() => updateConfig({ palette: value })}
               >

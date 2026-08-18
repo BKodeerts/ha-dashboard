@@ -6,79 +6,104 @@ import { Icon } from '../ui/Icon';
 import { HVAC_ICONS } from '../ui/icons';
 import type { IconName } from '../ui/icons';
 
-interface StateChip {
+interface StateGlyph {
   key: string;
   icon: IconName;
-  /** CSS modifier, or `''` for the inactive treatment. */
+  /** CSS modifier for the active colour, or `''` for the inactive grey. */
   tone: string;
+  /** Printed to the *left* of the glyph, in 10px mono. Only the AC has one. */
   note?: string;
   label: string;
-  /** Set on the chips that are controls; the rest render as read-only glyphs. */
+  /** Set on the glyphs that are controls; the rest render as read-only icons. */
   onTap?: () => void;
   /** Only meaningful alongside `onTap` — it is the button's `aria-pressed`. */
   on?: boolean;
 }
 
 /**
- * Read-only chips. A device the room *has* keeps its chip whether or not it is
- * doing anything, so the light chip beside them never shifts sideways as the
- * house changes state — a moving target is a mis-tap.
+ * The tile's icon column, in the v4 priority order: **light › radio › open
+ * window › AC**, three at a time.
  *
- * The opening chip is the exception: a closed window is the normal state of a
- * house and says nothing, so it only appears while something is open. It is
- * last in the row, so appearing and disappearing moves no other chip.
+ * Anything past the third lives in the room card. In a room with a radio *and*
+ * an open window that drops the AC glyph, so the setpoint is not on the tile
+ * there — accepted: the exceptions matter more at a glance than the setpoint.
  *
- * The AC chip is a control, like the light chip beside it: tapping it switches
- * the unit on or off. Which mode it comes back in is the sheet's business.
+ * Two of them are controls. The light glyph toggles the room's lights and the
+ * AC glyph switches the unit on or off; which mode it comes back in is the room
+ * card's business. Radio and window are read-only.
+ *
+ * The window glyph is the one that comes and goes: a closed window is the
+ * normal state of a house and says nothing, so it only appears while something
+ * is open. Everything above it in the order keeps its place, so the light glyph
+ * never moves under a thumb.
  */
-function stateChips(room: Room, onToggleClimate: (entityId: string) => void): StateChip[] {
-  const chips: StateChip[] = [];
+function stateGlyphs(
+  room: Room,
+  onToggleLights: () => void,
+  onToggleClimate: (entityId: string) => void,
+): StateGlyph[] {
+  const glyphs: StateGlyph[] = [];
 
-  if (room.climate) {
-    const { entityId, mode, target } = room.climate;
-    const on = mode !== 'off';
-    const chip: StateChip = {
-      key: 'climate',
-      icon: HVAC_ICONS[mode],
-      tone: on ? `chip--${mode}` : '',
-      // The action, as on the light chip — `aria-pressed` carries the state.
-      label: `Airco ${room.name} ${on ? 'uit' : 'aan'}`,
-      onTap: () => onToggleClimate(entityId),
-      on,
-    };
-    // The setpoint is the whole point of the chip — except in fan mode, where
-    // there is nothing to hold.
-    if (on && mode !== 'fan_only' && target !== undefined) {
-      chip.note = formatTemp(target);
-    }
-    chips.push(chip);
+  if (room.lights.length > 0) {
+    glyphs.push({
+      key: 'light',
+      icon: 'bulb',
+      tone: room.lightsOn ? 'glyph--light' : '',
+      // The action, not the state — `aria-pressed` carries the state.
+      label: `Lichten ${room.name} ${room.lightsOn ? 'uit' : 'aan'}`,
+      onTap: onToggleLights,
+      on: room.lightsOn,
+    });
   }
 
   if (room.media) {
-    chips.push({
+    glyphs.push({
       key: 'media',
       icon: 'radio',
-      tone: room.media.playing ? 'chip--warn' : '',
+      tone: room.media.playing ? 'glyph--warn' : '',
       label: room.media.playing ? `Radio ${room.name} speelt` : `Radio ${room.name} uit`,
     });
   }
 
   if (room.openingOpen) {
-    chips.push({
+    glyphs.push({
       key: 'window',
       icon: 'window',
-      tone: 'chip--warn',
+      tone: 'glyph--warn',
       label: `${room.name} open`,
     });
   }
 
-  return chips;
+  if (room.climate) {
+    const { entityId, mode, target } = room.climate;
+    const on = mode !== 'off';
+    const glyph: StateGlyph = {
+      key: 'climate',
+      icon: HVAC_ICONS[mode],
+      tone: on ? `glyph--${mode}` : '',
+      label: `Airco ${room.name} ${on ? 'uit' : 'aan'}`,
+      onTap: () => onToggleClimate(entityId),
+      on,
+    };
+    // The setpoint is the whole point of the glyph — except in fan mode, where
+    // there is nothing to hold.
+    if (on && mode !== 'fan_only' && target !== undefined) {
+      glyph.note = formatTemp(target);
+    }
+    glyphs.push(glyph);
+  }
+
+  return glyphs.slice(0, 3);
 }
 
 export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
   const { entities, call } = useHass();
 
-  const chips = stateChips(room, (entityId) => void call(toggleClimate(entityId, entities)));
+  const glyphs = stateGlyphs(
+    room,
+    () => void call(toggleRoomLights(room.entities.lights, entities)),
+    (entityId) => void call(toggleClimate(entityId, entities)),
+  );
 
   return (
     <div className="tile">
@@ -90,10 +115,10 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
         tabIndex={0}
         onClick={onOpen}
         onKeyDown={(event) => {
-          // The chips are buttons inside this one. Enter on a chip already
-          // toggled its device; letting the key bubble on would open the card
-          // on top of it — the keyboard's version of the fall-through the
-          // chips' `stopPropagation` prevents for taps.
+          // The glyph controls are buttons inside this one. Enter on one of
+          // them already toggled its device; letting the key bubble on would
+          // open the card on top of it — the keyboard's version of the
+          // fall-through the glyphs' `stopPropagation` prevents for taps.
           if (event.target !== event.currentTarget) return;
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -102,61 +127,47 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
         }}
         aria-label={`${room.name}, ${formatTemp(room.temperature)}`}
       >
-        <div className="tile__name">{room.name}</div>
-
-        <div className="tile__reading">
-          <span className="tile__temp">{formatTemp(room.temperature)}</span>
-          <span className="tile__hum">{formatHumidity(room.humidity)}</span>
+        <div className="tile__names">
+          <div className="tile__name">{room.name}</div>
+          <div className="tile__reading">
+            <span className="tile__temp">{formatTemp(room.temperature)}</span>
+            <span className="tile__hum">{formatHumidity(room.humidity)}</span>
+          </div>
         </div>
 
-        <div className="tile__chips">
-          {room.lights.length > 0 && (
-            <button
-              type="button"
-              className={`chip${room.lightsOn ? ' chip--light' : ''}`}
-              aria-label={`Lichten ${room.name} ${room.lightsOn ? 'uit' : 'aan'}`}
-              aria-pressed={room.lightsOn}
-              onClick={(event) => {
-                // The chip toggles; it must never fall through and open the card.
-                event.stopPropagation();
-                void call(toggleRoomLights(room.entities.lights, entities));
-              }}
-            >
-              <Icon name="bulb" size={15} />
-            </button>
-          )}
-
-          {chips.map((chip) => {
+        {/* A vertical stack against the tile's right edge. Right edges stay
+            flush whether or not a glyph carries a note, because the note is
+            laid out to the left of the icon rather than around it. */}
+        <div className="tile__glyphs">
+          {glyphs.map((glyph) => {
             const face = (
               <>
-                <Icon name={chip.icon} size={15} />
-                {chip.note && <span className="chip__note">{chip.note}</span>}
+                {glyph.note && <span className="glyph__note">{glyph.note}</span>}
+                <Icon name={glyph.icon} size={16} />
               </>
             );
+            const className = `glyph${glyph.tone ? ` ${glyph.tone}` : ''}`;
 
-            return chip.onTap ? (
+            return glyph.onTap ? (
               <button
-                key={chip.key}
+                key={glyph.key}
                 type="button"
-                className={`chip${chip.tone ? ` ${chip.tone}` : ''}`}
-                aria-label={chip.label}
-                aria-pressed={chip.on}
+                // The 8px of padding is not decoration: a bare 16px glyph inside
+                // a tile body that is itself a tap target turns every near-miss
+                // into an opened room card.
+                className={`${className} glyph--control`}
+                aria-label={glyph.label}
+                aria-pressed={glyph.on}
                 onClick={(event) => {
-                  // As with the light chip: toggle, never fall through and open
-                  // the card underneath.
+                  // Toggle, and never fall through to the card underneath.
                   event.stopPropagation();
-                  chip.onTap?.();
+                  glyph.onTap?.();
                 }}
               >
                 {face}
               </button>
             ) : (
-              <span
-                key={chip.key}
-                className={`chip${chip.tone ? ` ${chip.tone}` : ''}`}
-                role="img"
-                aria-label={chip.label}
-              >
+              <span key={glyph.key} className={className} role="img" aria-label={glyph.label}>
                 {face}
               </span>
             );

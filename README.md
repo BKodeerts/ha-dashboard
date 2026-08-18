@@ -1,16 +1,17 @@
 # ha-dashboard
 
-A custom mobile-first Home Assistant frontend, built to the **v3** design handoff in
-[`design_handoff_ha_dashboard_v3/`](design_handoff_ha_dashboard_v3/) (section `3b` — "Tegel opent de
+A custom mobile-first Home Assistant frontend, built to the **v4** design handoff in
+[`design_handoff_ha_dashboard_v4/`](design_handoff_ha_dashboard_v4/) (section `3b` — "Tegel opent de
 kamer, lichtchip schakelt").
 
-It answers three questions at a glance — is the alarm set, is anything open, where is the other
-person — and puts the lights one tap from the home screen. Everything a tile cannot hold lives in
-the room card: per-lamp brightness, the AC, the radio, and the room's own 24 h temperature line.
+It answers three questions at a glance — is the alarm set, is anything open, who is home — and puts
+the lights one tap from the home screen. Everything a tile cannot hold lives in the room card:
+per-lamp brightness, the AC, the radio, and the room's own 24 h temperature line.
 
-Four tabs, each a real view: **Home**, **Energie**, **Netwerk**, **Auto**. The bottom bar is always
-visible and always tappable — sheets stop 96 px above it. Heavy data views (the energy dashboard,
-the car cards) stay Home Assistant's own Lovelace cards, embedded in the shell.
+Four tabs, each a real view: **Home**, **Energie**, **Netwerk**, **Auto**. The bottom bar is
+absolutely pinned to the bottom of the screen — no amount of content scrolls it away — and sheets
+stop above it. Heavy data views (the energy dashboard, the car cards) stay Home Assistant's own
+Lovelace cards, embedded in the shell.
 
 ### What changed in v2
 
@@ -36,6 +37,21 @@ v2 spec stands.
 | Presence was the third pill | Presence is a fixed chip at the top right, so the two exception pills always fit on one line |
 | Climate: power button, mode dropdown and a −/+ pair (~100 px) | One 54 px row — drag sets the setpoint, tap switches the unit, the glyph opens a mode picker |
 | Mode reached through a dropdown | A floating five-way picker that sends exactly one command per pick and never cycles |
+
+### What changed in v4
+
+v4 gives the alarm and presence the treatment v3 gave the climate row, and makes favourites mean
+something. Everything else in the v2/v3 spec stands.
+
+| v3 | v4 |
+| --- | --- |
+| Alarm was a word in the pill row, armed from a sheet | An icon-only chip beside the person chips, with a floating state picker — one tap, one command |
+| Alarm state written out (`Alarm uit`) | A shield glyph and a 6 px dot carry the state; `arming` pulses through the exit delay, `pending` and `triggered` flash red |
+| The picker's modes were the three the design drew | Read off the panel's own `supported_features`, so a device without `arm_night` shows one chip fewer |
+| One person chip; "who am I" was a setting | The people you *follow*, up to two — and who you are comes from `hass.user`, not from a list you can get wrong |
+| Favourites only sorted the grid | Favourites **are** the grid; the rest unfold from one disclosure row |
+| Tile chips: 26 px plates in a row under the reading | Bare 16 px glyphs in a column at the tile's right edge, fixed priority, three at a time |
+| Tab bar sat in the flex column | Absolutely pinned to the bottom of the frame; every scroll area pads to clear it |
 
 ```
 npm install
@@ -140,10 +156,15 @@ area, device and entity registries once, resolves each entity to an area (direct
 | --- | --- |
 | Temperature | `sensor` with `device_class: temperature` (prefers the one whose name matches the area) |
 | Humidity | `sensor` with `device_class: humidity` |
-| Light chip + per-lamp rows | every `light.*` in the area |
-| AC chip (a toggle) + climate row | `climate.*` in the area |
-| Radio chip + media row | `media_player.*` in the area |
-| Window chip (only while open) | `binary_sensor` with `device_class` `window` / `door` / `garage_door` |
+| Light glyph (a toggle) + per-lamp rows | every `light.*` in the area |
+| AC glyph (a toggle) + climate row | `climate.*` in the area |
+| Radio glyph + media row | `media_player.*` in the area |
+| Window glyph (only while open) | `binary_sensor` with `device_class` `window` / `door` / `garage_door` |
+
+The tile shows **three glyphs at most**, in a fixed priority: light › radio › open window › AC.
+Anything past the third is only in the room card — in a room with a radio *and* an open window that
+drops the AC glyph, and with it the setpoint, which is the trade the design makes on purpose: the
+exceptions matter more at a glance than the temperature the unit is holding.
 
 **Adding a device in HA and assigning it to an area is the only step needed for it to appear here.**
 Hidden, disabled and config/diagnostic entities are skipped. Areas with nothing to show are dropped.
@@ -151,7 +172,47 @@ The app re-reads the registries when HA reports a registry change, so no reload 
 
 A lamp counts as **dimmable** when its `supported_color_modes` lists anything other than `onoff`
 (or, for older integrations, when it reports a `brightness` attribute). Non-dimmable lamps get a
-tap-only row and the room's light chip reads `aan` rather than a percentage.
+tap-only row in the room card, never a fill they could be left in the middle of.
+
+**Favourites are the grid's filter.** The home screen shows favourite rooms only; the rest are one
+tap below, behind a disclosure row that resets to collapsed on every load. With no favourites set at
+all it shows every room rather than an empty grid.
+
+### Who you are, and who you follow
+
+The dashboard reads **who is holding the phone off the Home Assistant account**, not off a setting:
+it takes `hass.user` (or `auth/current_user` in standalone mode) and matches it to the `person`
+entity whose `user_id` attribute is that account's id. A household of five people has five accounts,
+and asking each of them to pick themselves out of a list is a setting that can be wrong.
+
+The chips at the top right are the people you chose to *follow* — **at most two**, and the cap is a
+layout constraint rather than a taste: a third chip takes exactly the space the weather's hi/lo range
+needs, and that range is what the v3 header was reshaped to buy. One followed person shows their
+name; two drop to glyph and dot. The logged-in user is never one of them.
+
+### The alarm
+
+The alarm sits beside the person chips as an icon-only chip. Tapping it opens a floating picker;
+**only a pick sends a command** — nothing cycles, because an arm or disarm is a round trip a panel
+has to acknowledge and a half-applied one is worse than none.
+
+Which options the picker offers comes from the device: the `alarm_control_panel`'s
+`supported_features` bitmask (`ARM_HOME` 1, `ARM_AWAY` 2, `ARM_NIGHT` 4, `ARM_VACATION` 32,
+`ARM_CUSTOM_BYPASS` 16), with `Uit` always available. A panel that publishes nothing falls back to
+`Weg` and `Uit`. If the panel declares a `code_format`, the picker asks for the code in place rather
+than firing a call it knows will be rejected — always for disarming, and for arming when
+`code_arm_required` is set.
+
+Arming is **never painted optimistically as armed**. HA reports `arming` while the exit delay runs,
+and that is what the chip shows — with its dot pulsing — until the panel reports the armed state
+itself. A rejected call (wrong code, open zone) drops back to the previous state with a toast.
+
+A `triggered` panel flashes red, and is the loudest thing on the screen. So does `pending` — HA's
+*entry* delay, where the panel has been tripped and is counting down while it waits for a code.
+That one reads red from the start rather than amber: by the time it would turn red on its own, the
+countdown it was warning about is over. No arm option reads as active through either — neither is a
+state the user asked for — so the picker's only useful answer is `Uit`, which asks for the code and
+disarms.
 
 One WebSocket subscription (`subscribeEntities`) feeds the whole home screen. The room card's
 temperature line adds one `history/history_during_period` call per temperature sensor (~28 points,
@@ -176,8 +237,9 @@ Everything user-specific is client-side — a JSON blob in `localStorage` under
 `ha-dashboard.config.v2`, layered over `panel_custom`'s `config:` block, layered over the defaults.
 No YAML edit is needed to change a favourite or a colour.
 
-The **gear next to "Kamers"** opens the settings view: who you are, room order and favourites, and
-the display odds and ends (weather, light/dark, colours, per-room tints).
+The **gear next to "Kamers"** opens the settings view: who you are (read-only — it comes from your
+account), who you follow at the top of the home screen, room order and favourites, and the display
+odds and ends (weather, light/dark, colours, per-room tints).
 
 Everything that is left blank is derived from the state machine on first run:
 
@@ -188,7 +250,7 @@ Everything that is left blank is derived from the state machine on first run:
 | `roomOrder` | `string[]` | area registry order (favourites always sort first) |
 | `theme` | `'auto' \| 'light' \| 'dark'` | `auto` — follows Home Assistant's own light/dark setting |
 | `palette` | `'ha' \| 'design'` | `ha` — surfaces and text come from HA's active theme, see below |
-| `me` | `string` | first `person.*` — the person chip then shows *the other one* |
+| `tracked` | `string[]` | every `person.*` except your own account's, capped at two |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | a `device_class: power` sensor matched by name |
@@ -203,7 +265,7 @@ Example, set from the browser console:
 ```js
 localStorage.setItem('ha-dashboard.config.v2', JSON.stringify({
   favouriteAreas: ['living', 'bureau', 'slaapkamer', 'clara', 'oliver'],
-  me: 'person.bart',
+  tracked: ['person.leen', 'person.nora'],
   power: { solar: 'sensor.zonnepanelen_vermogen', consumption: 'sensor.verbruik_vermogen' },
   car: { name: 'Kona electric', battery: 'sensor.kona_battery', range: 'sensor.kona_range' },
   mediaPresets: {
@@ -221,9 +283,13 @@ localStorage.setItem('ha-dashboard.config.v2', JSON.stringify({
 ```
 
 v1's `accent`, `personEntity`, `lovelace.netwerk` and `lovelace.roomHistory` are gone: the accent is
-fixed at amber, the person entity is derived from `me`, Netwerk is no longer a card page, and the
-room card draws its own history line. The storage key changed with them, so a v1 install starts
-from the derived defaults rather than half-reading an old shape.
+fixed at amber, Netwerk is no longer a card page, and the room card draws its own history line. The
+storage key changed with them, so a v1 install starts from the derived defaults rather than
+half-reading an old shape.
+
+**v4 drops `me`.** It is stripped on read rather than migrated — it was a *guess* the user made
+about themselves, and the account is the answer — so an existing install keeps its favourites, order
+and tints and simply stops storing who you are. The storage key is unchanged for the same reason.
 
 ## Following Home Assistant's theme
 
@@ -356,8 +422,25 @@ Small, deliberate, and listed so they are easy to reverse:
 - **The mode picker offers what the unit reports.** The handoff draws five fixed options; a mode the
   unit does not list is dropped rather than offered as a command it would reject, and any extra mode
   it does list (`auto`, `heat_cool`) is appended before `Uit` instead of being unreachable.
-- **The AC chip on a tile is a control, not a read-out.** The handoff draws every state chip as
-  read-only; switching a unit off was worth a tap rather than a sheet.
+- **Both floating pickers can wrap.** The handoff draws them as one row of `white-space: nowrap`
+  options, which is what they are at the sizes it draws. Because the alarm's options come from the
+  panel rather than from the design, a device advertising every arm mode would run off the screen
+  edge, so both pickers carry a `max-width` and may fold to a second line. The alarm picker also
+  needs `width: max-content`: its containing block is the 36 px chip, and an absolutely positioned
+  auto-width box is shrink-to-fit against *that*, which folds the options one per line.
+- **`triggered` and `pending` get their own treatment, and flash.** The handoff gives the pulse to `arming` alone
+  and says no other state animates — but that rule is about states of *rest*, and a tripped alarm
+  reading as a still chip is a tripped alarm nobody notices. It flashes between two solid reds at
+  ~1.1 Hz (well under the three-per-second photosensitivity threshold), both of which clear 4.5:1
+  against the white shield riding on them, so the glyph is readable at either end of the blink
+  rather than half the time. Under `prefers-reduced-motion` it holds the bright end instead of
+  dropping the treatment: less movement is not a request for less information. It keeps the filled
+  shield, because the icon set has no "breached" glyph and inventing one is worse than letting the
+  colour say it.
+- **The gear button is 44 px**, as the handoff specifies and the "44 px minimum" rule requires. It
+  had drifted to 40 px.
+- The section head keeps the tighter **10 px** top padding it was given after v2 rather than the
+  handoff's 20 px — see the safe-area note below.
 - **"Standaardwaarden herstellen" sits below the "Overig" rows** rather than being one of them, so
   the specified block stays as drawn while the escape hatch survives from v1.
 - **Surfaces and text follow Home Assistant's theme by default** — see "Following Home Assistant's
@@ -371,11 +454,14 @@ Small, deliberate, and listed so they are easy to reverse:
   from the bottom edge goes from 22 px to `--bar-drop: 8px` on top of the home-indicator inset, so
   it reads as anchored rather than floating, and the section head keeps the tighter 10 px it was
   given after v2. Everything that measures itself against the bar (the sheet panel's `bottom` and
-  `max-height`, the toasts) derives from `--bar-space` instead of repeating the handoff's
-  96/104 px.
-- **The room tile's light chip is icon-only at 26 px**, as asked for after v2; the v3 handoff still
-  draws the 34 px chip with a brightness label, unchanged from v2. Reverting is a change to
-  `.chip` in `src/ui/styles.css` and the chip's label in `RoomTile.tsx`.
+  `max-height`, the toasts, and every scroll area's bottom padding) derives from `--bar-space`
+  instead of repeating the handoff's 96/102/104 px — so the v4 scroll padding is
+  `--bar-space + 16px`, which is the handoff's 102 px measured against a 22 px bar drop.
+- **The tab bar is inverted**, not the handoff's `#fbfaf7` on the page: its ground is the page's ink
+  and its ink the page, so it stays a solid block against whatever scrolls under it. That was a
+  deliberate change after v3 (`Invert the tab bar so it contrasts with the page`) and v4 repeats the
+  v3 wording without commenting on it, so it stands. Its tones are the *other* scheme's, because
+  they have to carry on that flipped ground.
 
 ## Project layout
 
@@ -389,18 +475,20 @@ src/
     backend.ts       panel and standalone connections, snapshot cache
     mock.ts          a stand-in Home Assistant, same interface as the live socket
     registry.ts      area/device/entity registries → per-area device buckets
-    selectors.ts     rooms, lamps, climate, openings, alarm, presence, weather, power; formatting
+    selectors.ts     rooms, lamps, climate, openings, alarm, people, weather, power; formatting
     stale.ts         the Netwerk list: entities grouped by device, silent over 24 h
     services.ts      every write, each with its optimistic patch
     history.ts       sparkline fetch, downsample, polyline points
     HassProvider.tsx the one subscription, the optimistic overlay, config resolution
   components/
-    TopLine          the weather line and the person chip
-    StatusPills      alarm / openings
-    RoomGrid, RoomTile
-    TabBar           four tabs, with the energy-flow and stale indicators
+    TopLine          the weather line, the alarm chip and the person chips
+    AlarmChip        icon-only alarm state + its floating picker
+    StatusPills      the openings pill
+    RoomGrid         favourites, and the fold that holds the rest
+    RoomTile         reading + the priority glyph column
+    TabBar           four tabs, pinned, with the energy-flow and stale indicators
     Sheet            scrim + panel chrome, sitting below the tab bar
-    sheets/          room card, weather, alarm, openings, presence
+    sheets/          room card, weather, openings, person
     views/           Energie, Netwerk, Auto, Settings
   config/config.ts   client-side config, defaults and derivation
   ui/                icons, tokens + layout CSS, self-hosted fonts

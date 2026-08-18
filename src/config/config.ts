@@ -24,10 +24,17 @@ export interface DashboardConfig {
    */
   palette: PaletteSetting;
   /**
-   * Which `person.*` entity is the user holding the phone. The presence pill
-   * deliberately shows *the other one* — you already know where you are.
+   * The `person.*` entities whose chips sit at the top right, **at most two**.
+   * The cap is a layout constraint, not a taste: a third chip takes the space
+   * the weather's hi/lo range needs, and that range is what the v3 header was
+   * reshaped to buy.
+   *
+   * Who *you* are is not stored — v4 reads it off the logged-in Home Assistant
+   * account (see `currentPerson` in `ha/selectors.ts`). A household of five
+   * people has five accounts; asking each of them to pick themselves out of a
+   * list is a setting that can be wrong.
    */
-  me?: string;
+  tracked: string[];
   /** Entity overrides. Left empty, each is auto-detected from the state machine. */
   alarmEntity?: string;
   weatherEntity?: string;
@@ -85,7 +92,12 @@ export const PALETTES: { value: PaletteSetting; label: string }[] = [
   { value: 'design', label: 'Ontwerp' },
 ];
 
-/** v2 renumbers the stored shape: accent and personEntity are gone. */
+/**
+ * v2 renumbered the stored shape: accent and personEntity are gone. v4 drops
+ * `me` and adds `tracked`, which is a migration rather than a new shape — see
+ * `loadStoredConfig`, which strips `me` on the way in so an existing install
+ * keeps its favourites, order and tints.
+ */
 const STORAGE_KEY = 'ha-dashboard.config.v2';
 
 /**
@@ -116,6 +128,7 @@ export const TINT_CYCLE = [
 
 export const DEFAULT_CONFIG: DashboardConfig = {
   favouriteAreas: [],
+  tracked: [],
   areaTint: {},
   roomOrder: [],
   theme: 'auto',
@@ -152,7 +165,12 @@ export function loadStoredConfig(): Partial<DashboardConfig> | undefined {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return undefined;
     const parsed: unknown = JSON.parse(raw);
-    return isRecord(parsed) ? (parsed as Partial<DashboardConfig>) : undefined;
+    if (!isRecord(parsed)) return undefined;
+    // v4 reads the user off the account. A stored `me` from v3 is dropped here
+    // rather than migrated: it was a *guess* the user made about themselves,
+    // and `hass.user` is the answer.
+    const { me: _dropped, ...rest } = parsed as Partial<DashboardConfig> & { me?: string };
+    return rest;
   } catch {
     return undefined;
   }
@@ -214,6 +232,12 @@ function derivePower(
   return next;
 }
 
+/**
+ * How many person chips the header holds. Two, and it is not a preference: a
+ * third chip costs the weather's hi/lo range the space it needs.
+ */
+export const MAX_TRACKED = 2;
+
 /** Every `person.*` entity, sorted so the settings buttons keep a stable order. */
 export const personEntities = (states: HassEntities): string[] =>
   Object.keys(states)
@@ -236,6 +260,8 @@ export function withDerivedDefaults(
   areas: AreaRegistryEntry[],
   areaEntities: Map<string, string[]>,
   states: HassEntities,
+  /** The `person.*` entity the logged-in account resolves to, when it does. */
+  mePerson?: string,
 ): DashboardConfig {
   const areaTint = { ...config.areaTint };
   areas.forEach((area, index) => {
@@ -263,18 +289,25 @@ export function withDerivedDefaults(
 
   const alarmEntity = config.alarmEntity ?? firstEntityOfDomain(states, 'alarm_control_panel');
   const weatherEntity = config.weatherEntity ?? firstEntityOfDomain(states, 'weather');
-  // Until the user says who they are in settings, assume the first person — the
-  // pill then shows the second, which is the useful half of the pair.
-  const me = config.me ?? personEntities(states)[0];
+
+  // Nobody has said who to follow yet: follow everybody else, up to the cap.
+  // An empty header is a worse first run than a reasonable guess, and the guess
+  // is one tap to change under "Wie volg je bovenaan".
+  const tracked =
+    config.tracked.length > 0
+      ? config.tracked.slice(0, MAX_TRACKED)
+      : personEntities(states)
+          .filter((id) => id !== mePerson)
+          .slice(0, MAX_TRACKED);
 
   const next: DashboardConfig = {
     ...config,
     areaTint,
     favouriteAreas,
+    tracked,
     power: derivePower(config.power, states),
   };
   if (alarmEntity) next.alarmEntity = alarmEntity;
   if (weatherEntity) next.weatherEntity = weatherEntity;
-  if (me) next.me = me;
   return next;
 }

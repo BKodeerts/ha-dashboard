@@ -1,7 +1,9 @@
-import { personEntities, type DashboardConfig } from '../config/config';
+import { MAX_TRACKED, personEntities, type DashboardConfig } from '../config/config';
 import { bucketEntities } from './registry';
+import type { AlarmAction } from './services';
 import type {
   AlarmState,
+  CurrentUser,
   HassEntities,
   HassEntity,
   HvacMode,
@@ -251,12 +253,112 @@ export function collectOpenings(
   return { open, total };
 }
 
+/* ── alarm ────────────────────────────────────────────────────────────────
+   v4 moved the alarm out of the pill row and onto an icon-only chip beside the
+   person chips, with its own state picker. Nothing here cycles: the chip opens
+   the picker, and only a pick sends a command.                             */
+
+/**
+ * `AlarmEntityFeature`, as Home Assistant publishes it on the panel's
+ * `supported_features` bitmask. Which options the picker offers comes from the
+ * device, not from the design — a panel without `ARM_NIGHT` shows one chip
+ * fewer rather than a command it would reject.
+ */
+export const ALARM_FEATURE = {
+  ARM_HOME: 1,
+  ARM_AWAY: 2,
+  ARM_NIGHT: 4,
+  TRIGGER: 8,
+  ARM_CUSTOM_BYPASS: 16,
+  ARM_VACATION: 32,
+} as const;
+
+/**
+ * The treatments the chip has. Everything HA can report collapses onto one of
+ * them: the glyph, the dot and the ground are all the chip has to say the state
+ * with.
+ *
+ * Four of them are *states of rest* the user chose. `triggered` is not — it is
+ * the alarm going off, and it is the only one that is neither a destination nor
+ * a transition on the way to one.
+ */
+export type AlarmTone = 'disarmed' | 'arming' | 'away' | 'night' | 'triggered';
+
+/** The tones a picker option can wear — the ones a user can actually ask for. */
+export type AlarmModeTone = 'disarmed' | 'away' | 'night';
+
+export interface AlarmMode {
+  /** The service to call, minus its `alarm_` prefix. */
+  action: AlarmAction;
+  /** Picker label — 10px mono, so it is clipped short. */
+  label: string;
+  /** The tone whose full-chroma colour the option wears while it is active. */
+  tone: AlarmModeTone;
+  /** The states that make this option the current one. */
+  states: string[];
+}
+
+/** Every arm mode, in picker order. Filtered by the panel's own bitmask below. */
+const ALARM_MODES: (AlarmMode & { feature: number })[] = [
+  { action: 'arm_away', label: 'Weg', tone: 'away', states: ['armed_away'], feature: ALARM_FEATURE.ARM_AWAY },
+  { action: 'arm_night', label: 'Nacht', tone: 'night', states: ['armed_night'], feature: ALARM_FEATURE.ARM_NIGHT },
+  { action: 'arm_home', label: 'Thuis', tone: 'night', states: ['armed_home'], feature: ALARM_FEATURE.ARM_HOME },
+  {
+    action: 'arm_vacation',
+    label: 'Vakantie',
+    tone: 'away',
+    states: ['armed_vacation'],
+    feature: ALARM_FEATURE.ARM_VACATION,
+  },
+  {
+    action: 'arm_custom_bypass',
+    label: 'Bypass',
+    tone: 'away',
+    states: ['armed_custom_bypass'],
+    feature: ALARM_FEATURE.ARM_CUSTOM_BYPASS,
+  },
+];
+
+/** `Uit` is always available — a panel that cannot be disarmed is not a panel. */
+const DISARM: AlarmMode = {
+  action: 'disarm',
+  label: 'Uit',
+  tone: 'disarmed',
+  states: ['disarmed'],
+};
+
+const ALARM_TONES: Record<string, AlarmTone> = {
+  disarmed: 'disarmed',
+  unavailable: 'disarmed',
+  unknown: 'disarmed',
+  arming: 'arming',
+  // The *entry* delay: the panel has been tripped and is counting down to
+  // trigger while it waits for a code. It is on its way to `triggered`, not to
+  // an armed state, so it reads red from the start rather than amber — by the
+  // time it turns red on its own, the countdown it was warning about is over.
+  pending: 'triggered',
+  armed_away: 'away',
+  armed_vacation: 'away',
+  armed_custom_bypass: 'away',
+  // Its own treatment, and the loudest thing on the screen: the alarm is going
+  // off. The handoff gives the pulsing dot to `arming` alone and says no other
+  // state animates, but that rule was written about states of rest — a tripped
+  // alarm reading as a still chip is the one place the restraint is wrong.
+  triggered: 'triggered',
+  armed_home: 'night',
+  armed_night: 'night',
+};
+
 export interface AlarmInfo {
   entityId?: string;
   state: AlarmState;
-  /** Attention state — the pill lights up amber. */
-  attention: boolean;
+  /** Which of the four chip treatments to paint. */
+  tone: AlarmTone;
+  /** `arming` only — the dot pulses through the panel's *exit* delay. */
+  pulsing: boolean;
   label: string;
+  /** The options the picker offers, in order, `Uit` last. */
+  modes: AlarmMode[];
   codeFormat?: string;
   codeArmRequired: boolean;
 }
@@ -264,11 +366,12 @@ export interface AlarmInfo {
 const ALARM_LABELS: Record<string, string> = {
   disarmed: 'Alarm uit',
   armed_home: 'Alarm thuis',
-  armed_away: 'Alarm afwezig',
+  armed_away: 'Alarm weg',
   armed_night: 'Alarm nacht',
   armed_vacation: 'Alarm vakantie',
-  arming: 'Wapenen…',
-  pending: 'Pending…',
+  armed_custom_bypass: 'Alarm bypass',
+  arming: 'Alarm wapenen',
+  pending: 'Alarm telt af',
   triggered: 'Alarm!',
   unavailable: 'Alarm ?',
 };
@@ -278,11 +381,20 @@ export function alarmInfo(states: HassEntities, config: DashboardConfig): AlarmI
   const state = (entityId ? states[entityId]?.state : undefined) ?? 'unavailable';
   const attributes = entityId ? states[entityId]?.attributes : undefined;
   const codeFormat = attributes?.code_format;
+  const features = toNumber(attributes?.supported_features) ?? 0;
+
+  // A panel that publishes nothing is not a panel that supports nothing: fall
+  // back to the two modes every alarm has rather than offering only `Uit`.
+  const advertised = ALARM_MODES.filter(({ feature }) =>
+    features === 0 ? feature === ALARM_FEATURE.ARM_AWAY : (features & feature) !== 0,
+  );
 
   const info: AlarmInfo = {
     state: state as AlarmState,
-    attention: state === 'disarmed' || state === 'arming' || state === 'pending' || state === 'triggered',
+    tone: ALARM_TONES[state] ?? 'disarmed',
+    pulsing: state === 'arming',
     label: ALARM_LABELS[state] ?? 'Alarm ?',
+    modes: [...advertised.map(({ feature: _feature, ...mode }) => mode), DISARM],
     codeArmRequired: attributes?.code_arm_required !== false,
   };
   if (entityId) info.entityId = entityId;
@@ -290,7 +402,11 @@ export function alarmInfo(states: HassEntities, config: DashboardConfig): AlarmI
   return info;
 }
 
-export interface PresenceInfo {
+/* ── presence ─────────────────────────────────────────────────────────────
+   v4 makes presence a *list*: the header shows the people the user chose to
+   follow, and who the user is comes from the account rather than a setting. */
+
+export interface PersonInfo {
   entityId?: string;
   name: string;
   home: boolean;
@@ -298,19 +414,44 @@ export interface PresenceInfo {
 }
 
 /**
- * The pill shows whoever the user did *not* pick as themselves in settings —
- * telling you that you are home is not news. With only one person configured it
- * falls back to that one.
+ * Who is holding the phone, derived rather than asked for: the `person` entity
+ * whose `user_id` attribute is the logged-in account's id.
+ *
+ * With no match — a household account, a user with no person — the account's
+ * own name stands in and there is no entity id to print. That is still better
+ * than a setting: this one cannot be *wrong*, only incomplete.
  */
-export function presenceInfo(states: HassEntities, config: DashboardConfig): PresenceInfo {
-  const persons = personEntities(states);
-  const entityId = persons.find((id) => id !== config.me) ?? persons[0];
-  const state = entityId ? states[entityId] : undefined;
-  const name = entityId ? friendlyName(states, entityId) : 'Niemand';
-  const home = state?.state === 'home';
-  const info: PresenceInfo = { name, home, label: `${name} ${home ? 'thuis' : 'weg'}` };
+export function currentPerson(states: HassEntities, user: CurrentUser | null): PersonInfo {
+  const entityId = user
+    ? personEntities(states).find((id) => states[id]?.attributes?.user_id === user.id)
+    : undefined;
+  const name = entityId ? friendlyName(states, entityId) : (user?.name ?? 'Onbekend');
+  const home = entityId ? states[entityId]?.state === 'home' : false;
+  const info: PersonInfo = { name, home, label: `${name} ${home ? 'thuis' : 'weg'}` };
   if (entityId) info.entityId = entityId;
   return info;
+}
+
+/**
+ * The chips at the top right: the followed people, in the order they were
+ * chosen, capped at two.
+ *
+ * The logged-in user is never one of them — telling you where you are is not
+ * news, and it is the whole reason the cap can be two.
+ */
+export function trackedPeople(
+  states: HassEntities,
+  config: DashboardConfig,
+  me: PersonInfo,
+): PersonInfo[] {
+  return config.tracked
+    .filter((id) => id !== me.entityId && states[id] !== undefined)
+    .slice(0, MAX_TRACKED)
+    .map((entityId) => {
+      const home = states[entityId]?.state === 'home';
+      const name = friendlyName(states, entityId);
+      return { entityId, name, home, label: `${name} ${home ? 'thuis' : 'weg'}` };
+    });
 }
 
 export interface WeatherInfo {

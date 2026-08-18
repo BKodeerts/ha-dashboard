@@ -18,8 +18,16 @@ import {
 } from '../config/config';
 import { writeSnapshot } from './backend';
 import { fetchRegistries, resolveAreaEntities } from './registry';
+import { currentPerson } from './selectors';
 import { execute, type ServiceCall } from './services';
-import type { ConnectionStatus, HaBackend, HassEntities, HomeAssistant, Registries } from './types';
+import type {
+  ConnectionStatus,
+  CurrentUser,
+  HaBackend,
+  HassEntities,
+  HomeAssistant,
+  Registries,
+} from './types';
 
 interface Overlay {
   state?: string;
@@ -43,6 +51,12 @@ interface HassContextValue {
   entities: HassEntities;
   registries: Registries | null;
   areaEntities: Map<string, string[]>;
+  /**
+   * The logged-in Home Assistant account. v4 derives "who am I" from this
+   * instead of asking for it in settings; `null` until it resolves, and
+   * permanently `null` on a connection that will not say.
+   */
+  user: CurrentUser | null;
   config: DashboardConfig;
   updateConfig(patch: Partial<DashboardConfig>): void;
   resetConfig(): void;
@@ -111,6 +125,7 @@ export function HassProvider({
   const [stored, setStored] = useState<Partial<DashboardConfig>>(() => loadStoredConfig() ?? {});
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [live, setLive] = useState(false);
+  const [user, setUser] = useState<CurrentUser | null>(() => backend.hass?.user ?? null);
 
   const entitiesRef = useRef(rawEntities);
   entitiesRef.current = rawEntities;
@@ -128,6 +143,31 @@ export function HassProvider({
   }, [backend]);
 
   useEffect(() => backend.subscribeStatus(setStatus), [backend]);
+
+  /* ── who is holding the phone ────────────────────────────────────────────
+     Panel mode already has it on `hass`; standalone asks the socket. Either
+     way it is read once — an account does not change under a running app. */
+  useEffect(() => {
+    const fromPanel = backend.hass?.user;
+    if (fromPanel) {
+      setUser(fromPanel);
+      return;
+    }
+    let cancelled = false;
+    backend
+      .sendMessagePromise<CurrentUser | null>({ type: 'auth/current_user' })
+      .then((current) => {
+        // A backend that does not answer this resolves `undefined`, which is a
+        // household without a name rather than an error worth a banner.
+        if (!cancelled && current?.id) setUser(current);
+      })
+      .catch(() => {
+        /* no account to read — settings says so, the header simply has no you */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [backend]);
 
   /* Snapshot the last known states so the next cold start paints real values. */
   useEffect(() => {
@@ -182,9 +222,12 @@ export function HassProvider({
   const config = useMemo(() => {
     const merged = mergeConfig(mergeConfig(DEFAULT_CONFIG, yamlConfig), stored);
     if (!registries) return merged;
-    return withDerivedDefaults(merged, registries.areas, areaEntities, entitiesRef.current);
+    // Who to follow defaults to "everyone but me", so the account has to be
+    // resolved before the blanks are filled — hence `user` in the deps.
+    const me = currentPerson(entitiesRef.current, user).entityId;
+    return withDerivedDefaults(merged, registries.areas, areaEntities, entitiesRef.current, me);
     // `live` is in the deps so derivation reruns once real states have landed.
-  }, [yamlConfig, stored, registries, areaEntities, live]);
+  }, [yamlConfig, stored, registries, areaEntities, live, user]);
 
   const updateConfig = useCallback((patch: Partial<DashboardConfig>) => {
     setStored((current) => {
@@ -257,6 +300,7 @@ export function HassProvider({
       entities,
       registries,
       areaEntities,
+      user,
       config,
       updateConfig,
       resetConfig,
@@ -271,6 +315,7 @@ export function HassProvider({
       entities,
       registries,
       areaEntities,
+      user,
       config,
       updateConfig,
       resetConfig,

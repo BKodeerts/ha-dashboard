@@ -36,12 +36,24 @@ export interface Registries {
 }
 
 /**
+ * The logged-in Home Assistant account. Panel mode gets it on `hass.user`;
+ * standalone asks the socket for it (`auth/current_user`).
+ */
+export interface CurrentUser {
+  id: string;
+  name: string;
+  is_admin?: boolean;
+}
+
+/**
  * The `hass` object HA hands to a `panel_custom` element. Only the members the
  * dashboard uses are typed; it carries far more.
  */
 export interface HomeAssistant {
   states: HassEntities;
   connection: Connection;
+  /** v4 derives "who am I" from this instead of asking in settings. */
+  user?: CurrentUser;
   language: string;
   locale?: { language: string };
   /** `themes.darkMode` is how the HA frontend reports the scheme it is painting. */
