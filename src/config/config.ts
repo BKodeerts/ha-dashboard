@@ -15,6 +15,15 @@ export interface DashboardConfig {
   /** Colour scheme. `auto` follows Home Assistant's own light/dark setting. */
   theme: ThemeSetting;
   /**
+   * Where the surfaces and text colours come from. `ha` reads them off Home
+   * Assistant's active theme, so the dashboard matches the frontend around it;
+   * `design` keeps the v2 handoff's palette regardless of the theme.
+   *
+   * Outside a panel there is no HA theme to read, and `ha` paints the handoff
+   * palette anyway — see the `[data-palette='ha']` block in styles.css.
+   */
+  palette: PaletteSetting;
+  /**
    * Which `person.*` entity is the user holding the phone. The presence pill
    * deliberately shows *the other one* — you already know where you are.
    */
@@ -69,6 +78,13 @@ export const THEMES: { value: ThemeSetting; label: string }[] = [
   { value: 'dark', label: 'Donker' },
 ];
 
+export type PaletteSetting = 'ha' | 'design';
+
+export const PALETTES: { value: PaletteSetting; label: string }[] = [
+  { value: 'ha', label: 'Home Assistant' },
+  { value: 'design', label: 'Ontwerp' },
+];
+
 /** v2 renumbers the stored shape: accent and personEntity are gone. */
 const STORAGE_KEY = 'ha-dashboard.config.v2';
 
@@ -103,6 +119,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   areaTint: {},
   roomOrder: [],
   theme: 'auto',
+  palette: 'ha',
   power: { loads: [], scale: 2000 },
   car: {},
   mediaPresets: {},

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { THEMES, TINT_CYCLE } from '../../config/config';
+import { PALETTES, THEMES, TINT_CYCLE } from '../../config/config';
 import { useHass } from '../../ha/HassProvider';
 import { friendlyName } from '../../ha/selectors';
 import type { Room } from '../../ha/types';
@@ -57,7 +57,7 @@ export function SettingsView({
   onOpenWeather(): void;
 }) {
   const { entities, config, updateConfig, resetConfig } = useHass();
-  const [panel, setPanel] = useState<'thema' | 'tints' | null>(null);
+  const [panel, setPanel] = useState<'thema' | 'kleuren' | 'tints' | null>(null);
 
   const toggleFavourite = (roomId: string) => {
     const current = config.favouriteAreas;
@@ -88,6 +88,7 @@ export function SettingsView({
   };
 
   const themeLabel = THEMES.find((theme) => theme.value === config.theme)?.label ?? '';
+  const paletteLabel = PALETTES.find(({ value }) => value === config.palette)?.label ?? '';
 
   return (
     <div className="view">
@@ -181,6 +182,31 @@ export function SettingsView({
                 {label}
               </button>
             ))}
+          </div>
+        </MoreRow>
+
+        <MoreRow
+          name="Kleuren"
+          meta={paletteLabel}
+          open={panel === 'kleuren'}
+          onTap={() => setPanel((current) => (current === 'kleuren' ? null : 'kleuren'))}
+        >
+          <div className="alarm__modes">
+            {PALETTES.map(({ value, label }) => (
+              <button
+                key={value}
+                type="button"
+                className={`alarm__mode${config.palette === value ? ' alarm__mode--current' : ''}`}
+                aria-pressed={config.palette === value}
+                onClick={() => updateConfig({ palette: value })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="settings__note">
+            vlakken en tekst volgen het thema van Home Assistant; accent, tints en
+            letters blijven van het ontwerp
           </div>
         </MoreRow>
 

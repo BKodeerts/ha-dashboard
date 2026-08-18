@@ -165,7 +165,7 @@ Everything user-specific is client-side — a JSON blob in `localStorage` under
 No YAML edit is needed to change a favourite or a colour.
 
 The **gear next to "Kamers"** opens the settings view: who you are, room order and favourites, and
-the display odds and ends (weather, theme, per-room tints).
+the display odds and ends (weather, light/dark, colours, per-room tints).
 
 Everything that is left blank is derived from the state machine on first run:
 
@@ -175,6 +175,7 @@ Everything that is left blank is derived from the state machine on first run:
 | `areaTint` | `Record<areaId, string>` | the v2 handoff's nine tints by area name, then a cycling palette |
 | `roomOrder` | `string[]` | area registry order (favourites always sort first) |
 | `theme` | `'auto' \| 'light' \| 'dark'` | `auto` — follows Home Assistant's own light/dark setting |
+| `palette` | `'ha' \| 'design'` | `ha` — surfaces and text come from HA's active theme, see below |
 | `me` | `string` | first `person.*` — the presence pill then shows *the other one* |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
@@ -212,6 +213,41 @@ fixed at amber, the person entity is derived from `me`, Netwerk is no longer a c
 room card draws its own history line. The storage key changed with them, so a v1 install starts
 from the derived defaults rather than half-reading an old shape.
 
+## Following Home Assistant's theme
+
+Home Assistant publishes its active theme as custom properties on `document.documentElement`, and
+custom properties are one of the few things that cross a shadow boundary. So although no rule of
+ours escapes the shadow root and no rule of HA's reaches our elements, the *values* of HA's theme
+are readable in here — which is the seam `palette: 'ha'` (the default) uses.
+
+What it takes: the page, card, sheet, control, chip, border and divider surfaces, and the text
+colours. Nothing else. The amber accent, the hvac hues, the alarm and presence colours, the per-room
+tints, Space Grotesk and IBM Plex Mono, and every radius and spacing value stay the handoff's — they
+carry meaning HA has no token for, and they are what makes this dashboard look like itself. Set
+`palette: 'design'` (Overig → Kleuren) to pin the neutrals back to the handoff too.
+
+| Token | Taken from |
+| --- | --- |
+| `--page` | `--primary-background-color` |
+| `--card`, `--sheet` | `--ha-card-background`, else `--card-background-color` |
+| `--control`, `--chip-off` | `--secondary-background-color` |
+| `--control-alt` | `--ha-color-fill-neutral-normal-hover`, else `--secondary-background-color` |
+| `--border`, `--divider` | `--divider-color` |
+| `--text`, `--text-body` | `--primary-text-color` |
+| `--text-2`, `--text-muted`, `--text-dim` | `--secondary-text-color` |
+| `--text-faint` | `--disabled-text-color` |
+
+Two details make this safe to leave on:
+
+- **No dark variant is needed.** HA's variables already flip with its dark mode, and this app's
+  `data-theme` is derived from that same `themes.darkMode`, so both halves of the palette turn over
+  together.
+- **Absent variables fall back, per token.** Each mapping is a bare `var()` with no fallback of its
+  own, so where a variable does not exist — the standalone and mock builds, or an HA old enough not
+  to publish it — the alias computes to nothing and the token's handoff value paints instead. That
+  is why `palette: 'ha'` looks exactly like `palette: 'design'` outside a panel, and why a theme
+  that only sets the classic variables loses no more than a hover shade.
+
 ## What stays Lovelace
 
 These are embedded rather than rebuilt — they are where HA's own cards are worth more than a
@@ -229,8 +265,9 @@ made it slow and unreadable on a phone; v2 draws a plain polyline in the room's 
 Netwerk is a computed list, not a card page.
 
 Mounting uses `hui-card` when it is defined, falling back to `window.loadCardHelpers()`. Cards
-inherit HA's theme through the shadow boundary (custom properties cross it), so aligning your HA
-theme to these tokens makes the embeds blend in.
+inherit HA's theme through the shadow boundary (custom properties cross it) — and with the default
+`palette: 'ha'` the shell around them reads that same theme, so an embed and the sheet holding it
+are painted from one source.
 
 ## Interaction notes
 
@@ -290,8 +327,11 @@ Small, deliberate, and listed so they are easy to reverse:
   that ellipsises its battery percentage is hiding its own answer.
 - **The climate mode button cycles**; the handoff specifies the button's four colours but not how
   the mode is chosen.
-- **"Standaardwaarden herstellen" sits below the three "Overig" rows** rather than being a fourth
-  one, so the specified three-row block stays as drawn while the escape hatch survives from v1.
+- **"Standaardwaarden herstellen" sits below the "Overig" rows** rather than being one of them, so
+  the specified block stays as drawn while the escape hatch survives from v1.
+- **Surfaces and text follow Home Assistant's theme by default** — see "Following Home Assistant's
+  theme". The handoff's own palette is one tap away under Overig → Kleuren, and is what paints
+  wherever there is no HA theme to read.
 - The prototype's 44 px phone radius is dropped: the real app is full-bleed and uses safe-area
   insets.
 

@@ -59,7 +59,7 @@ export function App() {
 
   const rootRef = useRef<HTMLDivElement>(null);
   const scheme = useScheme(config.theme, backend);
-  useThemeAttribute(rootRef, scheme);
+  useThemeAttribute(rootRef, scheme, config.palette);
 
   const rooms = useMemo(
     () => (registries ? buildRooms(registries, areaEntities, entities, config) : []),
@@ -99,7 +99,7 @@ export function App() {
   // One root element in both states, so the theme ref never goes missing.
   if (!registries) {
     return (
-      <div className="app" ref={rootRef} data-theme={scheme}>
+      <div className="app" ref={rootRef} data-theme={scheme} data-palette={config.palette}>
         <div className="centered">
           {status === 'disconnected' ? 'Verbinding verbroken' : 'Verbinden met Home Assistant…'}
         </div>
@@ -108,7 +108,7 @@ export function App() {
   }
 
   return (
-    <div className="app" ref={rootRef} data-theme={scheme}>
+    <div className="app" ref={rootRef} data-theme={scheme} data-palette={config.palette}>
       {status !== 'connected' && (
         <div className="banner">
           {status === 'disconnected' ? 'Verbinding verbroken — opnieuw proberen…' : 'Verbinden…'}

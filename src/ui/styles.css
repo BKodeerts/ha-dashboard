@@ -6,26 +6,31 @@
  * The light values are the handoff's, verbatim — see
  * design_handoff_ha_dashboard_v2/README.md. The dark set mirrors them role for
  * role, so no rule below knows which scheme it is painting.
+ *
+ * Surfaces and text can instead be taken from Home Assistant's own theme — see
+ * the `[data-palette='ha']` block below. Every one of those tokens is therefore
+ * written as `var(--from-ha-…, <handoff value>)`: the handoff value is what
+ * paints unless that alias carries something.
  */
 
 :host {
   /* surfaces */
-  --page: #f0eeea;
-  --card: #fbfaf7;
-  --sheet: #f6f4f0;
-  --control: #eae7e0;
-  --control-alt: #e6e3dc;
-  --chip-off: #e4e1da;
-  --border: #e2dfd8;
-  --divider: #d8d4cc;
+  --page: var(--from-ha-page, #f0eeea);
+  --card: var(--from-ha-card, #fbfaf7);
+  --sheet: var(--from-ha-sheet, #f6f4f0);
+  --control: var(--from-ha-control, #eae7e0);
+  --control-alt: var(--from-ha-control-alt, #e6e3dc);
+  --chip-off: var(--from-ha-chip-off, #e4e1da);
+  --border: var(--from-ha-border, #e2dfd8);
+  --divider: var(--from-ha-divider, #d8d4cc);
 
   /* text */
-  --text: #111318;
-  --text-body: #3b3934;
-  --text-2: #57544e;
-  --text-muted: #8a877f;
-  --text-faint: #a8a49c;
-  --text-dim: #7d7a72;
+  --text: var(--from-ha-text, #111318);
+  --text-body: var(--from-ha-text-body, #3b3934);
+  --text-2: var(--from-ha-text-2, #57544e);
+  --text-muted: var(--from-ha-text-muted, #8a877f);
+  --text-faint: var(--from-ha-text-faint, #a8a49c);
+  --text-dim: var(--from-ha-text-dim, #7d7a72);
   --on-accent: #241a00;
 
   /* accent — lights, and every "needs attention" state */
@@ -94,21 +99,21 @@
  */
 :host([data-theme='dark']),
 .app[data-theme='dark'] {
-  --page: #111318;
-  --card: #181b21;
-  --sheet: #1b1e24;
-  --control: #23262d;
-  --control-alt: #2a2e36;
-  --chip-off: #22252c;
-  --border: #252931;
-  --divider: #2e323b;
+  --page: var(--from-ha-page, #111318);
+  --card: var(--from-ha-card, #181b21);
+  --sheet: var(--from-ha-sheet, #1b1e24);
+  --control: var(--from-ha-control, #23262d);
+  --control-alt: var(--from-ha-control-alt, #2a2e36);
+  --chip-off: var(--from-ha-chip-off, #22252c);
+  --border: var(--from-ha-border, #252931);
+  --divider: var(--from-ha-divider, #2e323b);
 
-  --text: #f0eeea;
-  --text-body: #d6d2ca;
-  --text-2: #b6b2aa;
-  --text-muted: #8a877f;
-  --text-faint: #6e6b64;
-  --text-dim: #7d7a72;
+  --text: var(--from-ha-text, #f0eeea);
+  --text-body: var(--from-ha-text-body, #d6d2ca);
+  --text-2: var(--from-ha-text-2, #b6b2aa);
+  --text-muted: var(--from-ha-text-muted, #8a877f);
+  --text-faint: var(--from-ha-text-faint, #6e6b64);
+  --text-dim: var(--from-ha-text-dim, #7d7a72);
 
   /* The washes need more alpha to register on a dark ground, and the readable
      halves of each pair are lifted rather than darkened. */
@@ -129,6 +134,57 @@
   --scrim: rgba(6, 7, 10, 0.5);
 
   color-scheme: dark;
+}
+
+/*
+ * ── follow Home Assistant's theme ─────────────────────────────────────────
+ *
+ * Home Assistant sets its theme as custom properties on `document.documentElement`
+ * (see `applyThemesOnElement` in the frontend). Custom properties inherit *through*
+ * shadow boundaries, so those values are readable in here even though no rule of
+ * ours escapes and no rule of theirs reaches our elements — which makes this the
+ * one seam where the dashboard can match whatever theme the rest of HA is wearing.
+ *
+ * Only surfaces and text are taken. The accent, the hvac hues, the room tints and
+ * the type stay the handoff's: they carry meaning HA has no token for, and they
+ * are what makes this dashboard look like itself.
+ *
+ * No dark variant is needed. HA's own variables already flip with its dark mode,
+ * and `data-theme` is derived from that same `themes.darkMode` — so the two halves
+ * of the palette change together.
+ *
+ * Each mapping is a bare `var()` with no fallback *on purpose*. Where Home
+ * Assistant is absent — the standalone and mock builds, or an HA old enough not to
+ * publish the token — the substitution fails, the alias computes to nothing at all,
+ * and the `var(--from-ha-…, <handoff value>)` above falls through to the design's
+ * own colour. Adding a fallback here would defeat that.
+ */
+:host([data-palette='ha']),
+.app[data-palette='ha'] {
+  --from-ha-page: var(--primary-background-color);
+  --from-ha-card: var(--ha-card-background, var(--card-background-color));
+  --from-ha-sheet: var(--ha-card-background, var(--card-background-color));
+  --from-ha-control: var(--secondary-background-color);
+  /* The one step up from `control` — the active tab, a hover. HA's `-hover` fill
+     moves the right way in both schemes (darker on light, lighter on dark); older
+     themes without it flatten to `control`, which costs a hover state, not a
+     reading. */
+  --from-ha-control-alt: var(
+    --ha-color-fill-neutral-normal-hover,
+    var(--secondary-background-color)
+  );
+  --from-ha-chip-off: var(--secondary-background-color);
+  --from-ha-border: var(--divider-color);
+  --from-ha-divider: var(--divider-color);
+
+  /* HA publishes three text levels against the handoff's six; the extra steps
+     collapse onto the nearest one rather than inventing a shade. */
+  --from-ha-text: var(--primary-text-color);
+  --from-ha-text-body: var(--primary-text-color);
+  --from-ha-text-2: var(--secondary-text-color);
+  --from-ha-text-muted: var(--secondary-text-color);
+  --from-ha-text-faint: var(--disabled-text-color);
+  --from-ha-text-dim: var(--secondary-text-color);
 }
 
 /*
