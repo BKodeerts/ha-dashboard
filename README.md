@@ -1,7 +1,7 @@
 # ha-dashboard
 
-A custom mobile-first Home Assistant frontend, built to the **v2** design handoff in
-[`design_handoff_ha_dashboard_v2/`](design_handoff_ha_dashboard_v2/) (section `3b` — "Tegel opent de
+A custom mobile-first Home Assistant frontend, built to the **v3** design handoff in
+[`design_handoff_ha_dashboard_v3/`](design_handoff_ha_dashboard_v3/) (section `3b` — "Tegel opent de
 kamer, lichtchip schakelt").
 
 It answers three questions at a glance — is the alarm set, is anything open, where is the other
@@ -24,6 +24,18 @@ the car cards) stay Home Assistant's own Lovelace cards, embedded in the shell.
 | State written as text ("AC uit") | Coloured state icons, read at a glance |
 | Favourites/others fold | All rooms in one scroll, favourites first, order user-defined |
 | Settings hidden behind a text link | Gear button next to "Kamers" |
+
+### What changed in v3
+
+v3 compresses the top of the home screen and rebuilds the climate control. Everything else in the
+v2 spec stands.
+
+| v2 | v3 |
+| --- | --- |
+| Centred weather stack + three wrapping pills (~210 px before the rooms) | One weather line + a person chip on the right, then one pill row (~110 px) |
+| Presence was the third pill | Presence is a fixed chip at the top right, so the two exception pills always fit on one line |
+| Climate: power button, mode dropdown and a −/+ pair (~100 px) | One 54 px row — drag sets the setpoint, tap switches the unit, the glyph opens a mode picker |
+| Mode reached through a dropdown | A floating five-way picker that sends exactly one command per pick and never cycles |
 
 ```
 npm install
@@ -172,11 +184,11 @@ Everything that is left blank is derived from the state machine on first run:
 | Key | Type | Default when unset |
 | --- | --- | --- |
 | `favouriteAreas` | `string[]` | first five areas that have a light, climate or media player |
-| `areaTint` | `Record<areaId, string>` | the v2 handoff's nine tints by area name, then a cycling palette |
+| `areaTint` | `Record<areaId, string>` | the handoff's nine tints by area name, then a cycling palette |
 | `roomOrder` | `string[]` | area registry order (favourites always sort first) |
 | `theme` | `'auto' \| 'light' \| 'dark'` | `auto` — follows Home Assistant's own light/dark setting |
 | `palette` | `'ha' \| 'design'` | `ha` — surfaces and text come from HA's active theme, see below |
-| `me` | `string` | first `person.*` — the presence pill then shows *the other one* |
+| `me` | `string` | first `person.*` — the person chip then shows *the other one* |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | a `device_class: power` sensor matched by name |
@@ -336,9 +348,14 @@ Small, deliberate, and listed so they are easy to reverse:
   scroll past it. Horizontal drag still belongs to the row.
 - **The Netwerk row's entity id is what truncates**, not the whole meta line — a dead-battery list
   that ellipsises its battery percentage is hiding its own answer.
-- **The climate row is a power button and a mode dropdown**; the handoff specifies the button's four
-  colours but not how the mode is chosen. The hue moved onto the power button, so the mode is stated
-  once — as colour there, as a name in the dropdown.
+- **The climate row runs on the unit's own temperature range**, not a hardcoded 16–30. The fill and
+  the drag read `min_temp`/`max_temp` (which are 16 and 30 on this hardware, so it draws as
+  specified) and round to the unit's `target_temp_step`, so a drag can never send a value the unit
+  rejects. The row also uses `touch-action: pan-y` rather than the specified `none`, for the same
+  reason the lamp rows do.
+- **The mode picker offers what the unit reports.** The handoff draws five fixed options; a mode the
+  unit does not list is dropped rather than offered as a command it would reject, and any extra mode
+  it does list (`auto`, `heat_cool`) is appended before `Uit` instead of being unreachable.
 - **The AC chip on a tile is a control, not a read-out.** The handoff draws every state chip as
   read-only; switching a unit off was worth a tap rather than a sheet.
 - **"Standaardwaarden herstellen" sits below the "Overig" rows** rather than being one of them, so
@@ -348,15 +365,17 @@ Small, deliberate, and listed so they are easy to reverse:
   wherever there is no HA theme to read.
 - The prototype's 44 px phone radius is dropped: the real app is full-bleed and uses safe-area
   insets.
-- **The top block is tighter than the handoff's and the tab bar sits lower.** The handoff draws a
-  390 × 844 artboard with no status bar; on a real phone its 52 px weather inset lands *below* the
-  notch inset, and the header block ate a third of the screen before the first room card. The
-  weather block now starts at `max(16px, safe-area-inset-top + 8px)`, the pill row at 12 px with
-  42 px pills, and the section head at 10 px — about 70 px back for the room grid. The bar's own
-  drop from the bottom edge goes from 22 px to `--bar-drop: 8px` on top of the home-indicator
-  inset, so it reads as anchored rather than floating. Everything that measures itself against the
-  bar (the sheet panel's `bottom` and `max-height`, the toasts) derives from `--bar-space` instead
-  of repeating the handoff's 96/104 px.
+- **The top inset and the tab bar's drop follow the device, not the artboard.** The handoff draws a
+  390 × 844 artboard with no status bar, so its 44 px top padding lands *below* the notch inset on a
+  real phone; the top line starts at `max(16px, safe-area-inset-top + 8px)` instead. The bar's drop
+  from the bottom edge goes from 22 px to `--bar-drop: 8px` on top of the home-indicator inset, so
+  it reads as anchored rather than floating, and the section head keeps the tighter 10 px it was
+  given after v2. Everything that measures itself against the bar (the sheet panel's `bottom` and
+  `max-height`, the toasts) derives from `--bar-space` instead of repeating the handoff's
+  96/104 px.
+- **The room tile's light chip is icon-only at 26 px**, as asked for after v2; the v3 handoff still
+  draws the 34 px chip with a brightness label, unchanged from v2. Reverting is a change to
+  `.chip` in `src/ui/styles.css` and the chip's label in `RoomTile.tsx`.
 
 ## Project layout
 
@@ -376,8 +395,8 @@ src/
     history.ts       sparkline fetch, downsample, polyline points
     HassProvider.tsx the one subscription, the optimistic overlay, config resolution
   components/
-    WeatherBlock     the centred weather header
-    StatusPills      alarm / openings / presence
+    TopLine          the weather line and the person chip
+    StatusPills      alarm / openings
     RoomGrid, RoomTile
     TabBar           four tabs, with the energy-flow and stale indicators
     Sheet            scrim + panel chrome, sitting below the tab bar

@@ -5,25 +5,112 @@ import {
   formatHumidity,
   formatNumber,
   formatTemp,
+  hvacMode,
   numericState,
 } from '../../ha/selectors';
 import {
   mediaPlayPause,
   mediaPlayPreset,
   mediaStep,
+  preferredHvacMode,
   setClimateTemperature,
   setHvacMode,
   setLightBrightness,
   toggleClimate,
   toggleLight,
 } from '../../ha/services';
-import type { Room, RoomClimate, RoomLight, RoomMedia } from '../../ha/types';
+import type { HvacMode, Room, RoomClimate, RoomLight, RoomMedia } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
-import { HVAC_ICONS, hvacLabel } from '../../ui/icons';
+import { HVAC_ICONS, HVAC_ROW_LABELS, hvacLabel } from '../../ui/icons';
 import { Sheet, SheetClose } from '../Sheet';
 
 /** A pointer that never travelled this far is a tap, not a drag. */
 const TAP_SLOP_PX = 6;
+
+/**
+ * The gesture the lamp rows and the climate row share: drag horizontally to set
+ * a level, tap to toggle. `value` is the confirmed level in percent; while a
+ * drag is in flight the returned `percent` is the finger's instead, so the fill
+ * tracks it rather than waiting on the round trip.
+ *
+ * `draggable` false makes the row tap-only — a lamp that merely switches must
+ * never show a fill it can be left in the middle of.
+ */
+function useDragRow({
+  value,
+  draggable,
+  onCommit,
+  onTap,
+}: {
+  value: number;
+  draggable: boolean;
+  onCommit(percent: number): void;
+  onTap(): void;
+}) {
+  const rowRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ pointerId: number; startX: number; moved: boolean } | null>(null);
+  const [preview, setPreview] = useState<number | null>(null);
+
+  // Drop the local preview once the real value lands — but never mid-drag, or
+  // an unrelated state update would yank the fill out from under the finger.
+  useEffect(() => {
+    if (drag.current === null) setPreview(null);
+  }, [value]);
+
+  const percentAt = useCallback((clientX: number): number => {
+    const rect = rowRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return 0;
+    return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+  }, []);
+
+  const handlers = {
+    onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+      // State first: if the capture below throws, the tap must still work.
+      drag.current = { pointerId: event.pointerId, startX: event.clientX, moved: false };
+      try {
+        event.currentTarget.setPointerCapture(event.pointerId);
+      } catch {
+        /* capture is a nicety — the row still tracks without it */
+      }
+    },
+
+    onPointerMove(event: React.PointerEvent<HTMLDivElement>) {
+      const state = drag.current;
+      if (!state || state.pointerId !== event.pointerId) return;
+      if (!state.moved && Math.abs(event.clientX - state.startX) <= TAP_SLOP_PX) return;
+      state.moved = true;
+      if (draggable) setPreview(percentAt(event.clientX));
+    },
+
+    onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+      const state = drag.current;
+      drag.current = null;
+      if (!state || state.pointerId !== event.pointerId) return;
+
+      if (!state.moved) {
+        setPreview(null);
+        onTap();
+        return;
+      }
+      if (!draggable) {
+        setPreview(null);
+        return;
+      }
+      // One call, on release — a drag that wrote per frame would put a cloud
+      // round trip behind every pixel.
+      const percent = percentAt(event.clientX);
+      setPreview(percent);
+      onCommit(percent);
+    },
+
+    onPointerCancel() {
+      drag.current = null;
+      setPreview(null);
+    },
+  };
+
+  return { rowRef, percent: preview ?? value, dragging: preview !== null, handlers };
+}
 
 /* ── 24 h temperature line ────────────────────────────────────────────────
    A plain polyline in the room's tint. v1 embedded a Lovelace `history-graph`
@@ -102,66 +189,16 @@ function HistoryLine({ room }: { room: Room }) {
 
 function LampRow({ light }: { light: RoomLight }) {
   const { entities, call } = useHass();
-  const rowRef = useRef<HTMLDivElement>(null);
-  const drag = useRef<{ pointerId: number; startX: number; moved: boolean } | null>(null);
-  const [preview, setPreview] = useState<number | null>(null);
-
-  // Drop the local preview once the real value lands — but never mid-drag, or
-  // an unrelated state update would yank the fill out from under the finger.
-  useEffect(() => {
-    if (drag.current === null) setPreview(null);
-  }, [light.on, light.brightness]);
-
-  const percentAt = useCallback((clientX: number): number => {
-    const rect = rowRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0) return 0;
-    return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-  }, []);
 
   const commit = (percent: number) => void call(setLightBrightness(light.entityId, percent));
   const toggle = () => void call(toggleLight(light.entityId, entities));
 
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    // State first: if the capture below throws, the tap must still work.
-    drag.current = { pointerId: event.pointerId, startX: event.clientX, moved: false };
-    try {
-      event.currentTarget.setPointerCapture(event.pointerId);
-    } catch {
-      /* capture is a nicety — the row still tracks without it */
-    }
-  };
-
-  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    const state = drag.current;
-    if (!state || state.pointerId !== event.pointerId) return;
-    if (!state.moved && Math.abs(event.clientX - state.startX) <= TAP_SLOP_PX) return;
-    state.moved = true;
-    if (light.dimmable) setPreview(percentAt(event.clientX));
-  };
-
-  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    const state = drag.current;
-    drag.current = null;
-    if (!state || state.pointerId !== event.pointerId) return;
-
-    if (!state.moved) {
-      setPreview(null);
-      toggle();
-      return;
-    }
-    if (light.dimmable) {
-      const percent = percentAt(event.clientX);
-      setPreview(percent);
-      commit(percent);
-    } else {
-      setPreview(null);
-    }
-  };
-
-  const onPointerCancel = () => {
-    drag.current = null;
-    setPreview(null);
-  };
+  const { rowRef, percent, handlers } = useDragRow({
+    value: light.brightness,
+    draggable: light.dimmable,
+    onCommit: commit,
+    onTap: toggle,
+  });
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -176,8 +213,7 @@ function LampRow({ light }: { light: RoomLight }) {
     }
   };
 
-  const shown = preview ?? light.brightness;
-  const value = light.on ? (light.dimmable ? `${Math.round(shown)}%` : 'aan') : 'uit';
+  const value = light.on ? (light.dimmable ? `${Math.round(percent)}%` : 'aan') : 'uit';
 
   return (
     <div
@@ -187,13 +223,10 @@ function LampRow({ light }: { light: RoomLight }) {
       tabIndex={0}
       aria-label={`${light.name} ${value}`}
       aria-pressed={light.on}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
-      onPointerCancel={onPointerCancel}
       onKeyDown={onKeyDown}
+      {...handlers}
     >
-      <div className="lamp__fill" style={{ width: `${shown}%` }} />
+      <div className="lamp__fill" style={{ width: `${percent}%` }} />
       <div className="lamp__row">
         <span className="lamp__name">{light.name}</span>
         <span className="lamp__kind">{light.dimmable ? 'dimbaar' : 'aan/uit'}</span>
@@ -205,84 +238,156 @@ function LampRow({ light }: { light: RoomLight }) {
 
 /* ── climate ──────────────────────────────────────────────────────────────  */
 
+/** The order the mode picker offers, ahead of anything else the unit reports. */
+const PICKER_MODES = ['cool', 'heat', 'dry', 'fan_only'];
+
 /**
- * Power on the left, mode beside it, setpoint on the right. The button is the
- * on/off — the same tap as the tile's AC chip — and the dropdown reaches the
- * modes the unit actually reports, `off` among them where it reports one, so
- * its value is always the unit's own state rather than a guess at it.
+ * The picker's options: the design's four, filtered to what this unit says it
+ * can do, then anything else it reports (`auto`, `heat_cool`), and `Uit` last.
+ * Offering a mode the unit does not have would send a command it rejects.
+ */
+function pickerModes(modes: string[]): string[] {
+  const has = new Set(modes);
+  return [
+    ...PICKER_MODES.filter((mode) => has.has(mode)),
+    ...modes.filter((mode) => mode !== 'off' && !PICKER_MODES.includes(mode)),
+    'off',
+  ];
+}
+
+/**
+ * One row for the whole unit: the fill is the setpoint on the unit's own
+ * temperature track, dragging it sets the temperature, tapping the row switches
+ * the unit, and the glyph opens the mode picker.
  *
- * The button wears the mode's hue and the dropdown says its name: between them
- * the mode is stated once, in the place that can carry it. A power glyph on a
- * button that also read `COOL` beside a dropdown reading `COOL` said it twice.
- *
- * The row wraps: on a phone the setpoint group drops to a second line rather
- * than squeezing the three controls into 316px.
+ * Nothing here cycles. Every mode change on this system is a cloud round trip,
+ * so the only three things that send a command are a pick in the picker, a tap,
+ * and the release of a drag.
  */
 function ClimateRow({ climate }: { climate: RoomClimate }) {
   const { entities, call } = useHass();
   const { entityId, mode, modeId, modes, target, min, max, step } = climate;
+  const [pickerOpen, setPickerOpen] = useState(false);
   const on = mode !== 'off';
 
-  const bump = (direction: 1 | -1) => {
-    if (target === undefined) return;
-    const next = Math.min(max, Math.max(min, target + direction * step));
+  // A unit that reports a degenerate range would divide by zero below.
+  const span = max > min ? max - min : 14;
+  const toPercent = (celsius: number) => ((celsius - min) / span) * 100;
+  const toCelsius = (percent: number) => {
+    const raw = min + (percent / 100) * span;
+    return Math.min(max, Math.max(min, Math.round(raw / step) * step));
+  };
+
+  const commit = (percent: number) => {
+    const next = toCelsius(percent);
+    void (async () => {
+      // A drag on a unit that is off means "run at this" — switch it on first.
+      if (!on) await call(setHvacMode(entityId, preferredHvacMode(entities, entityId)));
+      await call(setClimateTemperature(entityId, next));
+    })();
+  };
+
+  const toggle = () => void call(toggleClimate(entityId, entities));
+
+  const { rowRef, percent, dragging, handlers } = useDragRow({
+    // Off has no setpoint to show, so the track reads empty until it is on.
+    value: on && target !== undefined ? Math.max(0, Math.min(100, toPercent(target))) : 0,
+    draggable: true,
+    onCommit: commit,
+    onTap: toggle,
+  });
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggle();
+      return;
+    }
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    event.preventDefault();
+    const from = target ?? min;
+    const next = Math.min(max, Math.max(min, from + (event.key === 'ArrowRight' ? step : -step)));
     if (next !== target) void call(setClimateTemperature(entityId, next));
   };
 
+  // While the unit is off, a drag previews the mode it is about to come back in.
+  const fillMode: HvacMode = on ? mode : hvacMode(preferredHvacMode(entities, entityId));
+  const shownTarget = dragging ? toCelsius(percent) : target;
+
+  // The glyph sits on top of the drag surface, so it has to stop the pointer
+  // stream as well as the click: stopping `click` alone leaves the row's own
+  // handlers firing underneath, and every mode tap would also toggle power.
+  const swallow = (event: React.PointerEvent<HTMLButtonElement>) => event.stopPropagation();
+
   return (
     <div className="climate">
-      <button
-        type="button"
-        className={`climate__power${on ? ` climate__power--${mode}` : ''}`}
-        onClick={() => void call(toggleClimate(entityId, entities))}
-        aria-label={`Airco ${on ? 'uit' : 'aan'}`}
+      <div
+        ref={rowRef}
+        className="climate__row"
+        role="button"
+        tabIndex={0}
+        aria-label={`Airco ${on ? HVAC_ROW_LABELS[mode].toLowerCase() : 'uit'}${
+          target === undefined ? '' : `, ${formatTemp(target, 1)}`
+        }`}
         aria-pressed={on}
+        onKeyDown={onKeyDown}
+        {...handlers}
       >
-        <Icon name="power" size={18} />
-      </button>
-
-      {modes.length > 1 && (
-        <div className="climate__pick">
-          <Icon name={HVAC_ICONS[mode]} size={15} className="climate__pick-icon" />
-          <select
-            className="climate__select"
-            value={modeId}
-            onChange={(event) => void call(setHvacMode(entityId, event.target.value))}
-            aria-label="Modus"
+        <div
+          className={`climate__fill climate__fill--${fillMode}`}
+          style={{ width: `${percent}%` }}
+        />
+        <div className="climate__body">
+          <button
+            type="button"
+            className={`climate__glyph${on ? ` climate__glyph--${mode}` : ''}`}
+            aria-label="Modus kiezen"
+            aria-expanded={pickerOpen}
+            onClick={(event) => {
+              event.stopPropagation();
+              setPickerOpen((open) => !open);
+            }}
+            onPointerDown={swallow}
+            onPointerMove={swallow}
+            onPointerUp={swallow}
           >
-            {modes.map((value) => (
-              <option key={value} value={value}>
+            <Icon name={HVAC_ICONS[mode]} size={18} />
+          </button>
+
+          <span className="climate__mode">{HVAC_ROW_LABELS[mode]}</span>
+          <span className="climate__hint">
+            {on ? `sleep ${formatNumber(min)}–${formatNumber(max)}°` : 'tik = aan'}
+          </span>
+          <span className="climate__target">
+            {shownTarget === undefined ? '—' : formatTemp(shownTarget, 1)}
+          </span>
+        </div>
+      </div>
+
+      {pickerOpen && (
+        <div className="modes" role="group" aria-label="Modus">
+          {pickerModes(modes).map((value) => {
+            const active = value === 'off' ? !on : value === modeId;
+            return (
+              <button
+                key={value}
+                type="button"
+                className={`modes__option modes__option--${hvacMode(value)}${
+                  active ? ' modes__option--on' : ''
+                }`}
+                aria-pressed={active}
+                onClick={() => {
+                  setPickerOpen(false);
+                  // Picking what it is already doing is not worth a round trip.
+                  if (!active) void call(setHvacMode(entityId, value));
+                }}
+              >
                 {hvacLabel(value)}
-              </option>
-            ))}
-          </select>
-          <Icon name="chevronDown" size={16} className="climate__pick-chevron" />
+              </button>
+            );
+          })}
         </div>
       )}
-
-      <div className="climate__steps">
-        <button
-          type="button"
-          className="stepper"
-          onClick={() => bump(-1)}
-          disabled={target === undefined}
-          aria-label="Kouder"
-        >
-          −
-        </button>
-        <div className="climate__target">
-          {target === undefined ? '—' : `${formatNumber(target, 1)}°`}
-        </div>
-        <button
-          type="button"
-          className="stepper"
-          onClick={() => bump(1)}
-          disabled={target === undefined}
-          aria-label="Warmer"
-        >
-          +
-        </button>
-      </div>
     </div>
   );
 }

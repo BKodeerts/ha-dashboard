@@ -4,7 +4,7 @@ import { RoomGrid } from '../components/RoomGrid';
 import { StatusPills } from '../components/StatusPills';
 import { TabBar, type Tab } from '../components/TabBar';
 import { Toasts } from '../components/Toasts';
-import { WeatherBlock } from '../components/WeatherBlock';
+import { TopLine } from '../components/TopLine';
 import { AlarmSheet } from '../components/sheets/AlarmSheet';
 import { OpeningsSheet } from '../components/sheets/OpeningsSheet';
 import { PresenceSheet } from '../components/sheets/PresenceSheet';
@@ -116,19 +116,19 @@ export function App() {
       )}
 
       <div className="app__main">
-        <WeatherBlock
+        <TopLine
           weather={weather}
           forecast={forecast}
-          onOpen={() => setSheet({ kind: 'weather' })}
+          presence={presence}
+          onOpenWeather={() => setSheet({ kind: 'weather' })}
+          onOpenPresence={() => setSheet({ kind: 'presence' })}
         />
 
         <StatusPills
           alarm={alarm}
           openings={openings}
-          presence={presence}
           onOpenAlarm={() => setSheet({ kind: 'alarm' })}
           onOpenOpenings={() => setSheet({ kind: 'openings' })}
-          onOpenPresence={() => setSheet({ kind: 'presence' })}
         />
 
         {tab === 'home' ? (

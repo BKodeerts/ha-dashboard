@@ -1,39 +1,31 @@
-import type { AlarmInfo, OpeningsSummary, PresenceInfo } from '../ha/selectors';
+import type { AlarmInfo, OpeningsSummary } from '../ha/selectors';
 import { Icon } from '../ui/Icon';
 
 /**
- * The three answers the home screen owes at a glance: is the alarm set, is
- * anything open, and where is the other person. All three are always rendered —
- * v1 hid the openings pill when the house was closed, which meant the row
- * changed shape and the remaining pills moved under your thumb. `Alles dicht`
- * costs one pill and keeps every target where it was.
+ * The two exceptions the home screen owes at a glance: is the alarm set, and is
+ * anything open. Presence used to be a third pill here; it is a standing state
+ * rather than an exception, so it moved up to the top line — which is what lets
+ * this row promise one line.
  *
- * From two openings upward the label collapses to a count, so the row survives
- * thirteen simultaneous openings without wrapping into the room grid.
+ * Both labels are bounded on purpose. v2 named the opening (`Living raam 2`)
+ * whenever there was exactly one, and a long room-plus-sensor name wrapped the
+ * row into two lines, pushing the room grid below the fold; a count cannot.
+ * Which room is open is one tap away, in the sheet this pill opens.
  */
 export function StatusPills({
   alarm,
   openings,
-  presence,
   onOpenAlarm,
   onOpenOpenings,
-  onOpenPresence,
 }: {
   alarm: AlarmInfo;
   openings: OpeningsSummary;
-  presence: PresenceInfo;
   onOpenAlarm(): void;
   onOpenOpenings(): void;
-  onOpenPresence(): void;
 }) {
   const openCount = openings.open.length;
-  const first = openings.open[0];
   const openLabel =
-    openCount === 0
-      ? 'Alles dicht'
-      : openCount === 1 && first
-        ? `${first.room} ${first.name.toLowerCase()}`.trim()
-        : `${openCount} open`;
+    openCount === 0 ? 'Alles dicht' : openCount === 1 ? '1 raam open' : `${openCount} ramen open`;
 
   return (
     <div className="pills">
@@ -43,8 +35,12 @@ export function StatusPills({
           className={`pill${alarm.attention ? ' pill--warn' : ''}`}
           onClick={onOpenAlarm}
         >
-          <Icon name={alarm.state === 'disarmed' ? 'shieldOff' : 'shieldHome'} size={18} />
-          {alarm.label}
+          <Icon
+            name={alarm.state === 'disarmed' ? 'shieldOff' : 'shieldHome'}
+            size={17}
+            className="pill__icon"
+          />
+          <span className="pill__label">{alarm.label}</span>
         </button>
       )}
 
@@ -53,20 +49,9 @@ export function StatusPills({
         className={`pill${openCount > 0 ? ' pill--warn' : ''}`}
         onClick={onOpenOpenings}
       >
-        <Icon name="window" size={18} />
-        {openLabel}
+        <Icon name="window" size={17} className="pill__icon" />
+        <span className="pill__label">{openLabel}</span>
       </button>
-
-      {presence.entityId && (
-        <button
-          type="button"
-          className={`pill${presence.home ? ' pill--presence' : ''}`}
-          onClick={onOpenPresence}
-        >
-          <Icon name="person" size={18} />
-          {presence.label}
-        </button>
-      )}
     </div>
   );
 }

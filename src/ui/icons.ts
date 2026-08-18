@@ -84,20 +84,30 @@ export const HVAC_ICONS: Record<HvacMode, IconName> = {
   other: 'ac',
 };
 
+/** The mode picker's options — clipped short, because they sit in a 10px row. */
 export const HVAC_LABELS: Record<HvacMode, string> = {
   off: 'Uit',
-  cool: 'Cool',
-  heat: 'Heat',
-  dry: 'Dry',
-  fan_only: 'Fan',
+  cool: 'Koel',
+  heat: 'Warm',
+  dry: 'Droog',
+  fan_only: 'Vent',
+  other: 'Aan',
+};
+
+/** The climate row's own line, where there is room for the verb. */
+export const HVAC_ROW_LABELS: Record<HvacMode, string> = {
+  off: 'AC uit',
+  cool: 'Koelen',
+  heat: 'Warmen',
+  dry: 'Drogen',
+  fan_only: 'Ventileren',
   other: 'Aan',
 };
 
 /**
- * The label for a raw `hvac_mode`, for the sheet's dropdown. The design names
- * five; anything else a unit reports (`auto`, `heat_cool`) is de-slugged rather
- * than shown as the catch-all `Aan`, which would read the same for every one of
- * them in the same list.
+ * The label for a raw `hvac_mode`. The design names five; anything else a unit
+ * reports (`auto`, `heat_cool`) is de-slugged rather than shown as the catch-all
+ * `Aan`, which would read the same for every one of them in the same picker.
  */
 export function hvacLabel(raw: string): string {
   if (raw !== 'other' && raw in HVAC_LABELS) return HVAC_LABELS[raw as HvacMode];
