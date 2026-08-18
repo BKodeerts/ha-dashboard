@@ -77,6 +77,18 @@
   /* spacing */
   --gutter: 20px;
 
+  /*
+   * Tab-bar geometry, as tokens because three other things measure themselves
+   * against the bar: the sheet panel, the toasts, and the bar's own inset.
+   * `--bar-space` is everything the bar occupies at the bottom of the screen —
+   * its height, the sliver of page under it, and the home-indicator inset. The
+   * bar sits as low as the indicator allows; on a phone that has none it is
+   * 8px off the edge rather than floating a thumb's width above it.
+   */
+  --bar-h: 64px;
+  --bar-drop: 8px;
+  --bar-space: calc(var(--bar-h) + var(--bar-drop) + env(safe-area-inset-bottom));
+
   /* motion */
   --ease-sheet: cubic-bezier(0.2, 0.9, 0.2, 1);
 
@@ -298,7 +310,7 @@ button {
   align-items: center;
   gap: 4px;
   width: 100%;
-  padding: max(52px, calc(env(safe-area-inset-top) + 16px)) var(--gutter) 0;
+  padding: max(16px, calc(env(safe-area-inset-top) + 8px)) var(--gutter) 0;
 }
 
 .weather__row {
@@ -332,16 +344,16 @@ button {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 18px var(--gutter) 0;
+  padding: 12px var(--gutter) 0;
 }
 
 .pill {
   display: flex;
   align-items: center;
   gap: 9px;
-  height: 46px;
-  padding: 0 16px;
-  border-radius: 23px;
+  height: 42px;
+  padding: 0 15px;
+  border-radius: 21px;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -367,7 +379,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 14px 8px var(--gutter);
+  padding: 10px 14px 4px var(--gutter);
 }
 
 .section-head__title {
@@ -382,8 +394,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   color: var(--text-faint);
   transition: background 0.15s ease, color 0.15s ease;
@@ -565,14 +577,14 @@ button {
   position: relative;
   z-index: 2;
   flex: 0 0 auto;
-  padding: 0 16px calc(22px + env(safe-area-inset-bottom));
+  padding: 0 16px calc(var(--bar-drop) + env(safe-area-inset-bottom));
 }
 
 .tabbar__inner {
   display: flex;
   align-items: center;
   gap: 4px;
-  height: 64px;
+  height: var(--bar-h);
   padding: 0 6px;
   border-radius: 22px;
   background: var(--bar-bg);
@@ -641,7 +653,7 @@ button {
 }
 
 /* ── sheets ────────────────────────────────────────────────────────────────
-   The panel stops 96px above the bottom so the tab bar stays clear of it.  */
+   The panel stops a bar's height above the bottom so the tab bar stays clear. */
 
 .sheet {
   position: absolute;
@@ -662,8 +674,8 @@ button {
   position: absolute;
   left: 8px;
   right: 8px;
-  bottom: calc(96px + env(safe-area-inset-bottom));
-  max-height: calc(100% - 104px - env(safe-area-inset-bottom));
+  bottom: calc(var(--bar-space) + 10px);
+  max-height: calc(100% - var(--bar-space) - 18px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1708,7 +1720,7 @@ button {
   position: absolute;
   left: var(--gutter);
   right: var(--gutter);
-  bottom: calc(104px + env(safe-area-inset-bottom));
+  bottom: calc(var(--bar-space) + 18px);
   z-index: 3;
   display: flex;
   flex-direction: column;

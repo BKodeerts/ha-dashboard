@@ -334,6 +334,15 @@ Small, deliberate, and listed so they are easy to reverse:
   wherever there is no HA theme to read.
 - The prototype's 44 px phone radius is dropped: the real app is full-bleed and uses safe-area
   insets.
+- **The top block is tighter than the handoff's and the tab bar sits lower.** The handoff draws a
+  390 × 844 artboard with no status bar; on a real phone its 52 px weather inset lands *below* the
+  notch inset, and the header block ate a third of the screen before the first room card. The
+  weather block now starts at `max(16px, safe-area-inset-top + 8px)`, the pill row at 12 px with
+  42 px pills, and the section head at 10 px — about 70 px back for the room grid. The bar's own
+  drop from the bottom edge goes from 22 px to `--bar-drop: 8px` on top of the home-indicator
+  inset, so it reads as anchored rather than floating. Everything that measures itself against the
+  bar (the sheet panel's `bottom` and `max-height`, the toasts) derives from `--bar-space` instead
+  of repeating the handoff's 96/104 px.
 
 ## Project layout
 
