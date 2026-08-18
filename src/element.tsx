@@ -45,6 +45,9 @@ export class HaDashboardPanel extends HTMLElement {
   #darkMode: boolean | undefined;
   #darkModeListeners = new Set<(dark: boolean | undefined) => void>();
   #lastTouchY: number | null = null;
+  #touchStartX: number | null = null;
+  #touchStartY: number | null = null;
+  #touchAxis: 'x' | 'y' | null = null;
 
   /* ── properties HA's panel_custom sets ─────────────────────────────────── */
 
@@ -112,18 +115,35 @@ export class HaDashboardPanel extends HTMLElement {
    * head) out from under the fixed header. This is the standard fix: block
    * the browser's default pan for a touch unless it started inside one of our
    * own scrollers and that scroller still has room to move in that direction.
+   *
+   * The companion app also opens its sidebar menu via a native left-edge
+   * swipe, which relies on the WebView seeing that gesture's touchmove go
+   * un-prevented. So the axis is locked from the first few pixels of travel:
+   * once a drag reads as horizontal, it's left alone for the rest of the
+   * gesture and only a vertical drag is ever considered for the bounce fix.
    */
   #onTouchStart = (event: TouchEvent): void => {
     const touch = event.touches.length === 1 ? event.touches[0] : undefined;
     this.#lastTouchY = touch?.clientY ?? null;
+    this.#touchStartX = touch?.clientX ?? null;
+    this.#touchStartY = touch?.clientY ?? null;
+    this.#touchAxis = null;
   };
 
   #onTouchMove = (event: TouchEvent): void => {
     const touch = event.touches.length === 1 ? event.touches[0] : undefined;
-    if (!touch || this.#lastTouchY === null) return;
+    if (!touch || this.#lastTouchY === null || this.#touchStartX === null || this.#touchStartY === null) return;
     const y = touch.clientY;
     const draggingDown = y > this.#lastTouchY;
     this.#lastTouchY = y;
+
+    if (this.#touchAxis === null) {
+      const dx = touch.clientX - this.#touchStartX;
+      const dy = y - this.#touchStartY;
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+      this.#touchAxis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+    }
+    if (this.#touchAxis === 'x') return;
 
     const scroller = event
       .composedPath()
@@ -149,6 +169,9 @@ export class HaDashboardPanel extends HTMLElement {
 
   #onTouchEnd = (): void => {
     this.#lastTouchY = null;
+    this.#touchStartX = null;
+    this.#touchStartY = null;
+    this.#touchAxis = null;
   };
 
   #mode(): Mode {
