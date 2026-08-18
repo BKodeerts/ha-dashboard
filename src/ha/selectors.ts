@@ -169,7 +169,6 @@ export function buildRooms(
     const humidity = entities.humidity ? numericState(states[entities.humidity]) : undefined;
 
     const lights = entities.lights.map((id) => buildLight(id, area.name, states));
-    const lit = lights.filter((light) => light.on && light.dimmable);
     const climateId = entities.climate[0];
     const mediaId = entities.mediaPlayers[0];
 
@@ -185,11 +184,6 @@ export function buildRooms(
     };
     if (temperature !== undefined) room.temperature = temperature;
     if (humidity !== undefined) room.humidity = humidity;
-    if (lit.length > 0) {
-      room.brightness = Math.round(
-        lit.reduce((sum, light) => sum + light.brightness, 0) / lit.length,
-      );
-    }
     if (climateId) room.climate = buildClimate(climateId, states);
     if (mediaId) room.media = buildMedia(mediaId, states);
     return room;

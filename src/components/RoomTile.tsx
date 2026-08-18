@@ -80,12 +80,6 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
 
   const chips = stateChips(room, (entityId) => void call(toggleClimate(entityId, entities)));
 
-  const lightLabel = !room.lightsOn
-    ? 'uit'
-    : room.brightness === undefined
-      ? 'aan'
-      : `${room.brightness}%`;
-
   return (
     <div className="tile">
       <span className="tile__spine" style={{ background: room.tint }} />
@@ -119,7 +113,7 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
           {room.lights.length > 0 && (
             <button
               type="button"
-              className={`chip-light${room.lightsOn ? ' chip-light--on' : ''}`}
+              className={`chip chip--tap${room.lightsOn ? ' chip--light' : ''}`}
               aria-label={`Lichten ${room.name} ${room.lightsOn ? 'uit' : 'aan'}`}
               aria-pressed={room.lightsOn}
               onClick={(event) => {
@@ -128,8 +122,7 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
                 void call(toggleRoomLights(room.entities.lights, entities));
               }}
             >
-              <Icon name="bulb" size={16} />
-              <span className="chip-light__label">{lightLabel}</span>
+              <Icon name="bulb" size={15} />
             </button>
           )}
 
