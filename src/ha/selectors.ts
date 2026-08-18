@@ -566,6 +566,12 @@ export function formatDate(date: Date): string {
     .toUpperCase();
 }
 
+/** The header's date line — spelled out, unlike the short form above. Case is
+    left to the caller's CSS (`text-transform: uppercase`), same as every
+    other mono label. */
+export const formatFullDate = (date: Date): string =>
+  date.toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long' });
+
 /** Shown wherever a reading is missing. */
 export const NO_READING = '—';
 

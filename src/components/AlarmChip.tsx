@@ -125,7 +125,7 @@ export function AlarmChip({
     <div className="alarm-chip" ref={wrapRef}>
       <button
         type="button"
-        className={`alarm-chip__face alarm-chip__face--${alarm.tone}`}
+        className={`header__btn alarm-chip__face alarm-chip__face--${alarm.tone}`}
         aria-label={alarm.label}
         aria-expanded={open}
         onClick={() => (open ? close() : onOpenChange(true))}

@@ -127,51 +127,52 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
         }}
         aria-label={`${room.name}, ${formatTemp(room.temperature)}`}
       >
-        <div className="tile__names">
-          <div className="tile__name">{room.name}</div>
+        <div className="tile__name">{room.name}</div>
+
+        <div className="tile__bottom">
           <div className="tile__reading">
             <span className="tile__temp">{formatTemp(room.temperature)}</span>
             <span className="tile__hum">{formatHumidity(room.humidity)}</span>
           </div>
-        </div>
 
-        {/* A vertical stack against the tile's right edge. Right edges stay
-            flush whether or not a glyph carries a note, because the note is
-            laid out to the left of the icon rather than around it. */}
-        <div className="tile__glyphs">
-          {glyphs.map((glyph) => {
-            const face = (
-              <>
-                {glyph.note && <span className="glyph__note">{glyph.note}</span>}
-                <Icon name={glyph.icon} size={16} />
-              </>
-            );
-            const className = `glyph${glyph.tone ? ` ${glyph.tone}` : ''}`;
+          {/* A horizontal row against the tile's bottom-right corner — v5
+              lets the tile breathe vertically, so the glyphs sit beside the
+              reading instead of stacked above it. */}
+          <div className="tile__glyphs">
+            {glyphs.map((glyph) => {
+              const face = (
+                <>
+                  {glyph.note && <span className="glyph__note">{glyph.note}</span>}
+                  <Icon name={glyph.icon} size={16} />
+                </>
+              );
+              const className = `glyph${glyph.tone ? ` ${glyph.tone}` : ''}`;
 
-            return glyph.onTap ? (
-              <button
-                key={glyph.key}
-                type="button"
-                // The 8px of padding is not decoration: a bare 16px glyph inside
-                // a tile body that is itself a tap target turns every near-miss
-                // into an opened room card.
-                className={`${className} glyph--control`}
-                aria-label={glyph.label}
-                aria-pressed={glyph.on}
-                onClick={(event) => {
-                  // Toggle, and never fall through to the card underneath.
-                  event.stopPropagation();
-                  glyph.onTap?.();
-                }}
-              >
-                {face}
-              </button>
-            ) : (
-              <span key={glyph.key} className={className} role="img" aria-label={glyph.label}>
-                {face}
-              </span>
-            );
-          })}
+              return glyph.onTap ? (
+                <button
+                  key={glyph.key}
+                  type="button"
+                  // The 8px of padding is not decoration: a bare 16px glyph inside
+                  // a tile body that is itself a tap target turns every near-miss
+                  // into an opened room card.
+                  className={`${className} glyph--control`}
+                  aria-label={glyph.label}
+                  aria-pressed={glyph.on}
+                  onClick={(event) => {
+                    // Toggle, and never fall through to the card underneath.
+                    event.stopPropagation();
+                    glyph.onTap?.();
+                  }}
+                >
+                  {face}
+                </button>
+              ) : (
+                <span key={glyph.key} className={className} role="img" aria-label={glyph.label}>
+                  {face}
+                </span>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
