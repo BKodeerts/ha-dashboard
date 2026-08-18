@@ -40,7 +40,10 @@ export function RoomGrid({
   const shown = noFavourites || showOther ? [...favourites, ...others] : favourites;
 
   return (
-    <div className={`room-grid-area${showOther ? ' room-grid-area--open' : ''}`}>
+    // `scroll` carries no styles of its own — it's the hook `element.tsx`'s
+    // touch handler looks for before letting a drag through as a scroll
+    // rather than blocking it (see the note on `#onTouchMove`).
+    <div className={`room-grid-area scroll${showOther ? ' room-grid-area--open' : ''}`}>
       <div className="room-grid">
         {shown.map((room) => (
           <RoomTile key={room.id} room={room} onOpen={() => onOpenRoom(room.id)} />
