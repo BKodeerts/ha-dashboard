@@ -497,8 +497,8 @@ button {
 }
 
 /* chips — rendered in a fixed slot whether or not the device is active, so
-   nothing shifts sideways as the house changes. Most are read-only glyphs;
-   the light and AC chips are controls and wear the taller size to say so. */
+   nothing shifts sideways as the house changes. One size for the whole row,
+   controls included, so it reads as a line of icons rather than a mix. */
 
 .chip {
   display: flex;
@@ -509,6 +509,7 @@ button {
   min-width: 26px;
   padding: 0 6px;
   border-radius: 8px;
+  user-select: none;
   background: var(--chip-off);
   color: var(--text-dim);
 }
@@ -519,20 +520,11 @@ button {
   letter-spacing: 0.02em;
 }
 
-/* The one distinction the row makes: what you can press is the taller shape.
-   The tones below are shared with the read-only chips — an AC that is
-   cooling looks the same either way. */
-.chip--tap {
-  height: 34px;
-  min-width: 34px;
-  padding: 0 9px;
-  gap: 5px;
-  border-radius: 10px;
-  user-select: none;
-}
+/* Tones are shared between the controls and the read-only chips — an AC
+   that is cooling looks the same either way.
 
-/* The light chip wears the accent while the room's lights are on; off, it
-   falls back to the shared inactive chip treatment. */
+   The light chip wears the accent while the room's lights are on; off, it
+   falls back to the shared inactive treatment.                            */
 .chip--light {
   background: var(--accent-chip);
   color: var(--on-accent);
