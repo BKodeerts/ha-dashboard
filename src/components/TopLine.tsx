@@ -1,25 +1,26 @@
-import { formatNumber, formatTemp, isNumber, type AlarmInfo, type PersonInfo, type WeatherInfo } from '../ha/selectors';
+import type { OpeningsSummary } from '../ha/selectors';
+import { formatFullDate, formatNumber, formatTemp, isNumber, type AlarmInfo, type PersonInfo, type WeatherInfo } from '../ha/selectors';
 import type { ForecastDay } from '../ha/types';
+import type { Tab } from './TabBar';
 import { Icon } from '../ui/Icon';
-import { weatherIcon } from '../ui/icons';
+import { weatherIcon, WEATHER_LABELS } from '../ui/icons';
 import { AlarmChip } from './AlarmChip';
 
 /**
- * The first line of the home screen: the weather on the left, then the alarm
- * and whoever the user follows on the right.
+ * The header, v5 ("Adem"). It persists across every tab — home and Stroom
+ * both read the date, the weather and the three round buttons as
+ * screen-level, not home-only — and it is the one part of the screen that
+ * never scrolls: everything below it (the room grid, the power tab's body)
+ * fills whatever height is left.
  *
- * v3 halved the header by making presence a chip up here instead of a third
- * wrapping pill. v4 puts the alarm beside it for the same reason, which leaves
- * the pill row below with a single job — what is open.
- *
- * **The weather block does not shrink and the range does not clip.** It is the
- * reason the header was reshaped in the first place, so the slack lives in a
- * spacer between it and the chips: the chips give way, not the range. That is
- * also why two followed people is a cap rather than a preference — a third chip
- * would take exactly the space `23° / 17°` needs.
- *
- * The condition *word* lives in the weather sheet: at this size the icon beside
- * the reading says it, and the space buys today's range.
+ * Three rows, each free to breathe where v4 packed them into one:
+ * 1. Date, then three 36px round buttons — settings, alarm, account. The
+ *    alarm keeps its v4 picker; the account button opens the first tracked
+ *    person's sheet, the same destination the old presence chips opened.
+ * 2. The weather block on its own — the reading stays the tap target for
+ *    the weather sheet, now with room to be the size it always deserved.
+ * 3. The section label, plus the open-windows chip when — and only when —
+ *    something in the house is open. Hidden entirely on the power tab.
  */
 export function TopLine({
   weather,
@@ -30,6 +31,10 @@ export function TopLine({
   people,
   onOpenWeather,
   onOpenPerson,
+  onOpenSettings,
+  tab,
+  openings,
+  onOpenOpenings,
 }: {
   weather: WeatherInfo;
   forecast: ForecastDay[];
@@ -39,6 +44,10 @@ export function TopLine({
   people: PersonInfo[];
   onOpenWeather(): void;
   onOpenPerson(entityId: string): void;
+  onOpenSettings(): void;
+  tab: Tab;
+  openings: OpeningsSummary;
+  onOpenOpenings(): void;
 }) {
   const today = forecast[0];
   const range = isNumber(today?.temperature)
@@ -47,37 +56,70 @@ export function TopLine({
       }`
     : undefined;
 
-  // One chip keeps its name; two drop to glyph and dot, which is what lets both
-  // sit beside the alarm without touching the weather range.
-  const solo = people.length === 1;
+  const account = people[0];
+  const openCount = openings.open.length;
+
+  const onHome = tab === 'home';
+  // The section row is shared screen furniture, but its label only means
+  // something on the two tabs this revision covers — Netwerk, Auto and
+  // Instellingen print their own titles further down and leave this row
+  // blank rather than borrowing a label that isn't theirs.
+  const sectionLabel = onHome ? 'Kamers' : tab === 'energie' ? 'Nu' : undefined;
+  const chipVisible = onHome && openCount > 0;
 
   return (
-    <div className="topline">
-      <button type="button" className="weather" onClick={onOpenWeather} aria-label="Weer">
-        <Icon name={weatherIcon(weather.condition)} size={24} />
-        <span className="weather__temp">{formatTemp(weather.temperature, 1)}</span>
-        {range && <span className="weather__meta">{range}</span>}
+    <div className="header">
+      <div className="header__top">
+        <span className="header__date mono">{formatFullDate(new Date())}</span>
+
+        <div className="header__buttons">
+          <button
+            type="button"
+            className="header__btn"
+            onClick={onOpenSettings}
+            aria-label="Instellingen"
+          >
+            <Icon name="cog" size={17} />
+          </button>
+
+          <AlarmChip alarm={alarm} open={alarmPickerOpen} onOpenChange={onAlarmPickerChange} />
+
+          <button
+            type="button"
+            className="header__btn"
+            onClick={() => account?.entityId && onOpenPerson(account.entityId)}
+            aria-label={account?.label ?? 'Aanwezigheid'}
+          >
+            <Icon name="person" size={17} />
+          </button>
+        </div>
+      </div>
+
+      <button type="button" className="header__weather" onClick={onOpenWeather} aria-label="Weer">
+        <div className="header__weather-readings">
+          <span className="header__temp">{formatTemp(weather.temperature, 1)}</span>
+          {(range || weather.condition) && (
+            <span className="header__weather-meta mono">
+              {[range, weather.condition && WEATHER_LABELS[weather.condition]]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
+        </div>
+        <Icon name={weatherIcon(weather.condition)} size={96} className="header__weather-icon" />
       </button>
 
-      <span className="topline__slack" />
+      <div className="header__section">
+        {sectionLabel && <span className="header__section-label mono">{sectionLabel}</span>}
 
-      <AlarmChip alarm={alarm} open={alarmPickerOpen} onOpenChange={onAlarmPickerChange} />
-
-      {people.map((person) => (
-        <button
-          key={person.entityId}
-          type="button"
-          className={`presence${person.home ? ' presence--home' : ''}${
-            solo ? ' presence--named' : ''
-          }`}
-          onClick={() => person.entityId && onOpenPerson(person.entityId)}
-          aria-label={person.label}
-        >
-          <Icon name="person" size={16} />
-          {solo && person.name}
-          <span className="presence__dot" />
-        </button>
-      ))}
+        {chipVisible && (
+          <button type="button" className="window-chip" onClick={onOpenOpenings}>
+            <Icon name="window" size={17} className="window-chip__icon" />
+            {openCount === 1 ? '1 raam open' : `${openCount} ramen open`}
+            <Icon name="chevronRight" size={15} className="window-chip__chevron" />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { personEntities } from '../config/config';
 import { RoomGrid } from '../components/RoomGrid';
-import { StatusPills } from '../components/StatusPills';
 import { TabBar, type Tab } from '../components/TabBar';
 import { Toasts } from '../components/Toasts';
 import { TopLine } from '../components/TopLine';
@@ -25,7 +24,6 @@ import {
   weatherInfo,
 } from '../ha/selectors';
 import { collectStale } from '../ha/stale';
-import { Icon } from '../ui/Icon';
 import { useScheme, useThemeAttribute } from '../ui/theme';
 
 /**
@@ -143,36 +141,19 @@ export function App() {
           people={people}
           onOpenWeather={() => setSheet({ kind: 'weather' })}
           onOpenPerson={(id) => setSheet({ kind: 'person', id })}
-        />
-
-        <StatusPills
+          onOpenSettings={() => selectTab('meer')}
+          tab={tab}
           openings={openings}
           onOpenOpenings={() => setSheet({ kind: 'openings' })}
         />
 
         {tab === 'home' ? (
-          <>
-            <div className="section-head">
-              <span className="section-head__title">Kamers</span>
-              <button
-                type="button"
-                className="section-head__gear"
-                onClick={() => selectTab('meer')}
-                aria-label="Instellingen"
-              >
-                <Icon name="cog" size={19} />
-              </button>
-            </div>
-
-            <div className="scroll">
-              <RoomGrid
-                rooms={rooms}
-                showOther={showOther}
-                onToggleOther={() => setShowOther((open) => !open)}
-                onOpenRoom={openRoom}
-              />
-            </div>
-          </>
+          <RoomGrid
+            rooms={rooms}
+            showOther={showOther}
+            onToggleOther={() => setShowOther((open) => !open)}
+            onOpenRoom={openRoom}
+          />
         ) : tab === 'energie' ? (
           <EnergyView power={power} />
         ) : tab === 'netwerk' ? (
