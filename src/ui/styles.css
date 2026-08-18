@@ -674,7 +674,6 @@ button {
   /* No scroll chaining to the document: a rubber-band bounce at the ends of the
      list drags the whole page under the fixed bars. */
   overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
 .room-grid {
