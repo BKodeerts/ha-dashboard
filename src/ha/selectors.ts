@@ -332,7 +332,11 @@ const ALARM_TONES: Record<string, AlarmTone> = {
   unavailable: 'disarmed',
   unknown: 'disarmed',
   arming: 'arming',
-  pending: 'arming',
+  // The *entry* delay: the panel has been tripped and is counting down to
+  // trigger while it waits for a code. It is on its way to `triggered`, not to
+  // an armed state, so it reads red from the start rather than amber — by the
+  // time it turns red on its own, the countdown it was warning about is over.
+  pending: 'triggered',
   armed_away: 'away',
   armed_vacation: 'away',
   armed_custom_bypass: 'away',
@@ -350,7 +354,7 @@ export interface AlarmInfo {
   state: AlarmState;
   /** Which of the four chip treatments to paint. */
   tone: AlarmTone;
-  /** `arming` only — the dot pulses through the panel's exit delay. */
+  /** `arming` only — the dot pulses through the panel's *exit* delay. */
   pulsing: boolean;
   label: string;
   /** The options the picker offers, in order, `Uit` last. */
@@ -367,7 +371,7 @@ const ALARM_LABELS: Record<string, string> = {
   armed_vacation: 'Alarm vakantie',
   armed_custom_bypass: 'Alarm bypass',
   arming: 'Alarm wapenen',
-  pending: 'Alarm wapenen',
+  pending: 'Alarm telt af',
   triggered: 'Alarm!',
   unavailable: 'Alarm ?',
 };
@@ -388,7 +392,7 @@ export function alarmInfo(states: HassEntities, config: DashboardConfig): AlarmI
   const info: AlarmInfo = {
     state: state as AlarmState,
     tone: ALARM_TONES[state] ?? 'disarmed',
-    pulsing: state === 'arming' || state === 'pending',
+    pulsing: state === 'arming',
     label: ALARM_LABELS[state] ?? 'Alarm ?',
     modes: [...advertised.map(({ feature: _feature, ...mode }) => mode), DISARM],
     codeArmRequired: attributes?.code_arm_required !== false,

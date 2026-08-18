@@ -32,8 +32,9 @@ const TONE_ICONS: Record<AlarmInfo['tone'], IconName> = {
  * The state is carried by the glyph and a 6px dot, with no word at all. During
  * `arming` — HA's own report while the exit delay runs — the dot pulses, and the
  * chip leaves that state when the panel says so, not on a timer of ours. A
- * `triggered` panel flashes red instead, which is the one state that overrides
- * the design's "nothing else animates".
+ * `triggered` panel flashes red instead, as does `pending` (the entry delay,
+ * which is a countdown to exactly that): between them they are the one state
+ * that overrides the design's "nothing else animates".
  */
 export function AlarmChip({
   alarm,

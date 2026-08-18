@@ -46,7 +46,7 @@ something. Everything else in the v2/v3 spec stands.
 | v3 | v4 |
 | --- | --- |
 | Alarm was a word in the pill row, armed from a sheet | An icon-only chip beside the person chips, with a floating state picker — one tap, one command |
-| Alarm state written out (`Alarm uit`) | A shield glyph and a 6 px dot carry the state; `arming` pulses through the exit delay and `triggered` flashes red |
+| Alarm state written out (`Alarm uit`) | A shield glyph and a 6 px dot carry the state; `arming` pulses through the exit delay, `pending` and `triggered` flash red |
 | The picker's modes were the three the design drew | Read off the panel's own `supported_features`, so a device without `arm_night` shows one chip fewer |
 | One person chip; "who am I" was a setting | The people you *follow*, up to two — and who you are comes from `hass.user`, not from a list you can get wrong |
 | Favourites only sorted the grid | Favourites **are** the grid; the rest unfold from one disclosure row |
@@ -207,9 +207,12 @@ Arming is **never painted optimistically as armed**. HA reports `arming` while t
 and that is what the chip shows — with its dot pulsing — until the panel reports the armed state
 itself. A rejected call (wrong code, open zone) drops back to the previous state with a toast.
 
-A `triggered` panel flashes red, and is the loudest thing on the screen. No arm option reads as
-active while it is going off — none of them is the state the panel is in — so the picker's only
-useful answer is `Uit`, which asks for the code and disarms.
+A `triggered` panel flashes red, and is the loudest thing on the screen. So does `pending` — HA's
+*entry* delay, where the panel has been tripped and is counting down while it waits for a code.
+That one reads red from the start rather than amber: by the time it would turn red on its own, the
+countdown it was warning about is over. No arm option reads as active through either — neither is a
+state the user asked for — so the picker's only useful answer is `Uit`, which asks for the code and
+disarms.
 
 One WebSocket subscription (`subscribeEntities`) feeds the whole home screen. The room card's
 temperature line adds one `history/history_during_period` call per temperature sensor (~28 points,
@@ -425,7 +428,7 @@ Small, deliberate, and listed so they are easy to reverse:
   edge, so both pickers carry a `max-width` and may fold to a second line. The alarm picker also
   needs `width: max-content`: its containing block is the 36 px chip, and an absolutely positioned
   auto-width box is shrink-to-fit against *that*, which folds the options one per line.
-- **`triggered` gets its own treatment, and flashes.** The handoff gives the pulse to `arming` alone
+- **`triggered` and `pending` get their own treatment, and flash.** The handoff gives the pulse to `arming` alone
   and says no other state animates — but that rule is about states of *rest*, and a tripped alarm
   reading as a still chip is a tripped alarm nobody notices. It flashes between two solid reds at
   ~1.1 Hz (well under the three-per-second photosensitivity threshold), both of which clear 4.5:1
