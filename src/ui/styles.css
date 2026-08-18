@@ -98,9 +98,6 @@
   /* The windows chip: an outline only, colour carried by the icon alone. */
   --alert-outline: oklch(0.84 0.05 45);
   --alert-icon: oklch(0.66 0.15 45);
-  /* The header's weather glyph — decorative at 96px, so it stays low-contrast
-     on purpose rather than reusing a token a user is meant to actually read. */
-  --weather-decor: #c9c5bc;
   --export: oklch(0.44 0.11 150);
   --import: oklch(0.42 0.12 250);
   --scrim: rgba(17, 19, 24, 0.28);
@@ -146,15 +143,15 @@
      visible. */
   --bar-clearance: calc(var(--bar-space) + 16px);
   /*
-   * The header's own height, v5: three fixed rows, stacked. `.app__main` pads
-   * by this so everything under the fixed header clears it — the room grid
-   * (or the power tab's body) below reads the leftover space, not this one.
-   *   row 1 — top padding + the 36px round buttons
-   *   row 2 — 30px gap + the 96px weather glyph, the row's tallest child
-   *   row 3 — 38px gap + the 44px-tall section row (label, windows chip)
+   * The header's own height, v5 turn 5: three fixed rows, stacked. `.app__main`
+   * pads by this so everything under the fixed header clears it — the room
+   * grid (or the power tab's body) below reads the leftover space, not this one.
+   *   row 1 — top padding + the 36px round buttons, the row's tallest child
+   *   row 2 — 20px gap + the 34px person chip, the row's tallest child
+   *   row 3 — 34px gap + the 44px-tall section row (label, windows chip)
    */
   --header-top-pad: max(52px, calc(env(safe-area-inset-top) + 20px));
-  --header-space: calc(var(--header-top-pad) + 36px + 30px + 96px + 38px + 44px);
+  --header-space: calc(var(--header-top-pad) + 36px + 20px + 34px + 34px + 44px);
 
   /* motion */
   --ease-sheet: cubic-bezier(0.2, 0.9, 0.2, 1);
@@ -242,7 +239,6 @@
 
   --alert-outline: oklch(0.4 0.05 45 / 0.6);
   --alert-icon: oklch(0.75 0.13 45);
-  --weather-decor: #3a3d44;
 
   /* Bar ground is light here, so its tones are the light scheme's. */
   --bar-export: oklch(0.44 0.11 150);
@@ -396,10 +392,11 @@ button {
 }
 
 /* ── header ────────────────────────────────────────────────────────────────
-   v5 ("Adem"): three rows — date + three round buttons, the weather block on
-   its own, then the section label and the windows chip. It replaces v4's
-   single packed row (weather + alarm + presence) plus the exception-pill row
-   and the section head below it; the room grid gets the height back.       */
+   v5 ("Adem"), turn 5: three rows — date + two round buttons, weather sharing
+   a row with the one tracked person's chip, then the section label and the
+   windows chip. It replaces v4's single packed row (weather + alarm +
+   presence) plus the exception-pill row and the section head below it; the
+   room grid gets the height back.                                          */
 
 .header {
   /*
@@ -427,14 +424,13 @@ button {
 
 .header__top {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
+  align-items: center;
+  gap: 8px;
   padding: var(--header-top-pad) var(--gutter-v5) 0;
 }
 
 .header__date {
   flex: 1 1 auto;
-  padding-top: 10px;
   font-size: 11px;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -448,9 +444,9 @@ button {
   gap: 8px;
 }
 
-/* The gear, the alarm and the account button — one shape, one size. The
-   alarm's state colours (below) and the picker it hangs off it are the only
-   things that make it different from its neighbours. */
+/* The gear and the alarm — one shape, one size. The alarm's state colours
+   (below) and the picker it hangs off it are the only things that make it
+   different from its neighbour. */
 .header__btn {
   position: relative;
   flex: 0 0 auto;
@@ -470,48 +466,47 @@ button {
 }
 
 /*
- * The weather is the tap target for its sheet. v4 kept it to a single line
- * beside the alarm and presence chips; v5 gives it the row to itself and the
- * glyph the size the reading always deserved.
+ * Weather + person, sharing a row. The weather deliberately lost v5's hero
+ * treatment — it is reference information, not the reason the screen exists —
+ * and the person chip is pushed to the far edge with `margin-left: auto`.
  */
+.header__weather-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 20px var(--gutter-v5) 0;
+}
+
 .header__weather {
   display: flex;
-  align-items: flex-end;
-  gap: 16px;
-  padding: 30px var(--gutter-v5) 0;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
   text-align: left;
   color: var(--text);
 }
 
-.header__weather-readings {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* Muted, same as any other inactive glyph — the reading beside it is what a
+   user actually reads. */
+.header__weather-icon {
+  flex: 0 0 auto;
+  color: var(--glyph-idle);
 }
 
 .header__temp {
-  font-size: 56px;
+  flex: 0 0 auto;
+  font-size: 22px;
   font-weight: 400;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.03em;
   line-height: 1;
 }
 
-.header__weather-meta {
+.header__range {
+  flex: 0 0 auto;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-/* Decorative at this size: low-contrast on purpose, so it never competes with
-   the temperature beside it. The negative margin optically aligns it to the
-   card's right edge and the temperature's own baseline. */
-.header__weather-icon {
-  flex: 0 0 auto;
-  margin: 0 -6px -8px 0;
-  color: var(--weather-decor);
+  color: var(--text-faint);
 }
 
 .header__section {
@@ -519,7 +514,7 @@ button {
   align-items: center;
   gap: 12px;
   min-height: 44px;
-  padding: 38px var(--gutter-v5) 0;
+  padding: 34px var(--gutter-v5) 0;
 }
 
 .header__section-label {
@@ -560,8 +555,44 @@ button {
   color: var(--text-faint);
 }
 
+/* ── person chip ───────────────────────────────────────────────────────────
+   The header's one tracked person: zone plus distance away from home, zone
+   only when home ("Thuis", "Werk 14 km"). Pushed to the row's far edge. */
+
+.person-chip {
+  flex: 0 0 auto;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 12px 0 3px;
+  border-radius: 17px;
+  background: var(--control-alt);
+  color: var(--text-body);
+}
+
+.person-chip__avatar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  background: var(--page);
+  color: var(--text-2);
+}
+
+.person-chip__zone {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
 /* ── alarm chip ────────────────────────────────────────────────────────────
-   One of the header's three round buttons. The glyph and a corner dot carry
+   One of the header's two round buttons. The glyph and a corner dot carry
    all four states; the word is gone from the header entirely.
 
    Its wrapper is the positioning context for the picker, so the popover hangs

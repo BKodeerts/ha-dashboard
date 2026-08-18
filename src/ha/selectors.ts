@@ -411,6 +411,57 @@ export interface PersonInfo {
   name: string;
   home: boolean;
   label: string;
+  /** What the header's person chip prints: "Thuis" at home, otherwise the
+      zone the person is in plus, when it can be computed, the distance from
+      home — "Werk 14 km". */
+  zoneLabel: string;
+}
+
+const EARTH_RADIUS_KM = 6371;
+
+/** Great-circle distance between two points, in km. */
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * How far a person's own coordinates are from `zone.home`. HA does not
+ * publish this itself — the person and the home zone each carry a plain
+ * `latitude`/`longitude`, so the distance is the one thing computed rather
+ * than read straight off an attribute.
+ */
+function personDistanceKm(states: HassEntities, entityId: string): number | undefined {
+  const attrs = states[entityId]?.attributes;
+  const lat = toNumber(attrs?.latitude);
+  const lon = toNumber(attrs?.longitude);
+  const homeAttrs = states['zone.home']?.attributes;
+  const homeLat = toNumber(homeAttrs?.latitude);
+  const homeLon = toNumber(homeAttrs?.longitude);
+  if (lat === undefined || lon === undefined || homeLat === undefined || homeLon === undefined) {
+    return undefined;
+  }
+  return haversineKm(lat, lon, homeLat, homeLon);
+}
+
+/**
+ * The header's person chip copy. A person entity's state is `home`,
+ * `not_home`, or the name of whichever zone it is currently inside — so a
+ * defined zone becomes the label directly, with the distance appended when
+ * it can be computed.
+ */
+function personZoneLabel(states: HassEntities, entityId: string, home: boolean): string {
+  if (home) return 'Thuis';
+  const state = states[entityId]?.state;
+  const zone = state && state !== 'not_home' && !UNAVAILABLE.has(state) ? state : undefined;
+  const distanceKm = personDistanceKm(states, entityId);
+  const suffix = isNumber(distanceKm) ? ` ${formatNumber(distanceKm)} km` : '';
+  return `${zone ?? 'Weg'}${suffix}`;
 }
 
 /**
@@ -427,7 +478,12 @@ export function currentPerson(states: HassEntities, user: CurrentUser | null): P
     : undefined;
   const name = entityId ? friendlyName(states, entityId) : (user?.name ?? 'Onbekend');
   const home = entityId ? states[entityId]?.state === 'home' : false;
-  const info: PersonInfo = { name, home, label: `${name} ${home ? 'thuis' : 'weg'}` };
+  const info: PersonInfo = {
+    name,
+    home,
+    label: `${name} ${home ? 'thuis' : 'weg'}`,
+    zoneLabel: entityId ? personZoneLabel(states, entityId, home) : 'Thuis',
+  };
   if (entityId) info.entityId = entityId;
   return info;
 }
@@ -450,7 +506,13 @@ export function trackedPeople(
     .map((entityId) => {
       const home = states[entityId]?.state === 'home';
       const name = friendlyName(states, entityId);
-      return { entityId, name, home, label: `${name} ${home ? 'thuis' : 'weg'}` };
+      return {
+        entityId,
+        name,
+        home,
+        label: `${name} ${home ? 'thuis' : 'weg'}`,
+        zoneLabel: personZoneLabel(states, entityId, home),
+      };
     });
 }
 
