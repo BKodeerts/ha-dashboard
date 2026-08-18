@@ -521,7 +521,47 @@ function mockHistory(entityId: string, points: number, endsAt: number): { s: str
   }));
 }
 
+/**
+ * Stand-in for HA's frontend stores (`frontend.user_data_*` and
+ * `frontend.system_data`). Backed by localStorage rather than a plain object so
+ * that `npm run dev` remembers settings across a reload the way the real server
+ * does — the dashboard's own cache is only a cache, and would be overwritten by
+ * whatever this answered.
+ */
+function mockStore(name: string): {
+  get(key: string): unknown;
+  set(key: string, value: unknown): void;
+} {
+  const storageKey = `ha-dashboard.mock.${name}`;
+  const read = (): Record<string, unknown> => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const parsed: unknown = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : {};
+    } catch {
+      return {};
+    }
+  };
+  return {
+    get: (key) => read()[key] ?? null,
+    set(key, value) {
+      const data = read();
+      data[key] = value;
+      try {
+        localStorage.setItem(storageKey, JSON.stringify(data));
+      } catch {
+        /* ignore */
+      }
+    },
+  };
+}
+
 export function mockBackend(): HaBackend {
+  const userStore = mockStore(`user_data_${MOCK_USER.id}`);
+  const systemStore = mockStore('system_data');
+
   const globals: MockGlobals = {
     alarm: 'disarmed',
     person: 'not_home',
@@ -626,6 +666,18 @@ export function mockBackend(): HaBackend {
       switch (message.type) {
         case 'auth/current_user':
           return MOCK_USER as unknown as T;
+        // The frontend stores the dashboard's config lives in. `MOCK_USER` is an
+        // admin, so the household path is reachable with no HA in reach either.
+        case 'frontend/get_user_data':
+          return { value: userStore.get(String(message.key)) } as unknown as T;
+        case 'frontend/set_user_data':
+          userStore.set(String(message.key), message.value);
+          return undefined as unknown as T;
+        case 'frontend/get_system_data':
+          return { value: systemStore.get(String(message.key)) } as unknown as T;
+        case 'frontend/set_system_data':
+          systemStore.set(String(message.key), message.value);
+          return undefined as unknown as T;
         case 'config/area_registry/list':
           return registries.areas as unknown as T;
         case 'config/device_registry/list':

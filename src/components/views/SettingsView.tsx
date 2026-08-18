@@ -56,8 +56,44 @@ export function SettingsView({
   persons: string[];
   me: PersonInfo;
 }) {
-  const { entities, config, updateConfig, resetConfig } = useHass();
-  const [panel, setPanel] = useState<'weer' | 'thema' | 'kleuren' | 'tints' | null>(null);
+  const {
+    entities,
+    config,
+    updateConfig,
+    resetConfig,
+    publishHousehold,
+    householdAvailable,
+    user,
+    notify,
+  } = useHass();
+  const [panel, setPanel] = useState<
+    'weer' | 'thema' | 'kleuren' | 'tints' | 'opslag' | null
+  >(null);
+  /** Publishing overwrites everyone's defaults, so it takes a second tap. */
+  const [confirmPublish, setConfirmPublish] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+
+  /* Only an admin may write HA's system store — a non-admin's attempt is
+     rejected by the server, so the button is not offered rather than offered
+     and then failing. */
+  const canPublish = householdAvailable && user?.is_admin === true;
+
+  const publish = async () => {
+    if (!confirmPublish) {
+      setConfirmPublish(true);
+      return;
+    }
+    setConfirmPublish(false);
+    setPublishing(true);
+    try {
+      await publishHousehold();
+      notify('opgeslagen als standaard voor het huishouden');
+    } catch (error) {
+      notify(`publiceren mislukt — ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setPublishing(false);
+    }
+  };
 
   const weathers = useMemo(() => weatherEntities(entities), [entities]);
 
@@ -310,11 +346,49 @@ export function SettingsView({
             </div>
           ))}
         </MoreRow>
+
+        <MoreRow
+          name="Instellingen"
+          meta={user ? 'in Home Assistant' : 'niet gekoppeld'}
+          open={panel === 'opslag'}
+          onTap={() => {
+            setConfirmPublish(false);
+            setPanel((current) => (current === 'opslag' ? null : 'opslag'));
+          }}
+        >
+          <div className="settings__note">
+            {user
+              ? `bewaard bij je Home Assistant-account (${user.name}), niet in deze browser —` +
+                ' hetzelfde dashboard op elk toestel, en wie mee inlogt op dit scherm heeft zijn eigen'
+              : 'geen account gevonden — instellingen blijven lokaal tot de verbinding er is'}
+          </div>
+          {canPublish && (
+            <>
+              <button
+                type="button"
+                className="stale__foot"
+                disabled={publishing}
+                onClick={() => void publish()}
+              >
+                {confirmPublish
+                  ? 'zeker? overschrijft de standaard voor iedereen'
+                  : 'instellen als standaard voor het huishouden'}
+              </button>
+              <div className="settings__note">
+                jouw keuzes worden de basis voor elk account dat nog niets zelf koos; je eigen laag
+                wordt daarna leeggemaakt, zodat je die standaard blijft volgen
+              </div>
+            </>
+          )}
+        </MoreRow>
       </div>
 
       <button type="button" className="stale__foot" onClick={resetConfig}>
         standaardwaarden herstellen
       </button>
+      <div className="settings__note">
+        wist enkel jouw laag — je valt terug op de standaard van het huishouden
+      </div>
     </div>
   );
 }

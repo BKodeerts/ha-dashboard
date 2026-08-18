@@ -10,13 +10,30 @@ import {
 } from 'react';
 import {
   DEFAULT_CONFIG,
-  loadStoredConfig,
   mergeConfig,
-  storeConfig,
+  mergeLayers,
   withDerivedDefaults,
+  type ConfigLayer,
   type DashboardConfig,
 } from '../config/config';
 import { writeSnapshot } from './backend';
+import {
+  createConfigPush,
+  EMPTY_LAYERS,
+  lastUserId,
+  markLegacyMigrated,
+  readCache,
+  readHousehold,
+  readLegacyConfig,
+  readPersonal,
+  subscribeHousehold,
+  subscribePersonal,
+  writeCache,
+  writeHousehold,
+  writePersonal,
+  type ConfigLayers,
+  type ConfigPush,
+} from './configStore';
 import { fetchRegistries, resolveAreaEntities } from './registry';
 import { currentPerson } from './selectors';
 import { execute, type ServiceCall } from './services';
@@ -40,6 +57,9 @@ interface Overlay {
 /** How long an unconfirmed optimistic value survives before the truth wins. */
 const OVERLAY_TTL_MS = 5000;
 
+const describe = (error: unknown): string =>
+  error instanceof Error ? error.message : String(error);
+
 export interface Toast {
   id: number;
   message: string;
@@ -58,8 +78,16 @@ interface HassContextValue {
    */
   user: CurrentUser | null;
   config: DashboardConfig;
-  updateConfig(patch: Partial<DashboardConfig>): void;
+  updateConfig(patch: ConfigLayer): void;
+  /** Clears *your* layer, dropping you back to the household defaults. */
   resetConfig(): void;
+  /**
+   * Folds your layer into the household one, so every account inherits it.
+   * Admin-only, and only on an HA new enough to have a system store — see
+   * `householdAvailable`, which the settings view gates the button on.
+   */
+  publishHousehold(): Promise<void>;
+  householdAvailable: boolean;
   status: ConnectionStatus;
   ready: boolean;
   call(serviceCall: ServiceCall | null): Promise<void>;
@@ -115,20 +143,39 @@ export function HassProvider({
 }: {
   backend: HaBackend;
   initialEntities?: HassEntities;
-  yamlConfig?: Partial<DashboardConfig>;
+  yamlConfig?: ConfigLayer;
   children: ReactNode;
 }) {
   const [rawEntities, setRawEntities] = useState<HassEntities>(initialEntities ?? {});
   const [overlays, setOverlays] = useState<Record<string, Overlay>>({});
   const [registries, setRegistries] = useState<Registries | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
-  const [stored, setStored] = useState<Partial<DashboardConfig>>(() => loadStoredConfig() ?? {});
+  /* Seeded from the local cache so the first paint is already the right
+     dashboard. Panel mode knows the account synchronously; standalone has
+     nobody to ask yet and falls back to whoever used this browser last, which
+     the socket corrects a moment later. */
+  const [layers, setLayers] = useState<ConfigLayers>(
+    () => readCache(backend.hass?.user?.id ?? lastUserId()) ?? EMPTY_LAYERS,
+  );
+  const [householdAvailable, setHouseholdAvailable] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [live, setLive] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(() => backend.hass?.user ?? null);
 
   const entitiesRef = useRef(rawEntities);
   entitiesRef.current = rawEntities;
+
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
+
+  /** Coalesces bursts of settings taps into one write. Created with the socket. */
+  const pushRef = useRef<ConfigPush | null>(null);
+
+  const notify = useCallback((message: string) => {
+    const id = Date.now() + Math.random();
+    setToasts((current) => [...current, { id, message }]);
+    setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4000);
+  }, []);
 
   /* ── the one subscription that feeds the whole home screen ──────────────── */
   useEffect(() => {
@@ -168,6 +215,87 @@ export function HassProvider({
       cancelled = true;
     };
   }, [backend]);
+
+  /* ── config, from Home Assistant ──────────────────────────────────────────
+     Both stores are scoped by the *connection*, so neither read needs to wait
+     for `auth/current_user` — only the local cache is keyed by account, and
+     that is a separate effect below. */
+  useEffect(() => {
+    let cancelled = false;
+    const push = createConfigPush(
+      (config) => writePersonal(backend, config),
+      (error) => notify(`instellingen bewaren mislukt — ${describe(error)}`),
+    );
+    pushRef.current = push;
+
+    /* A subscription event that is merely our own write coming back, or one
+       that arrives while a change of ours is still queued, would undo what the
+       user just did. */
+    const accept = (apply: (config: ConfigLayer) => void) => (config: ConfigLayer | undefined) => {
+      if (cancelled || push.isPending() || push.isEcho(config)) return;
+      apply(config ?? {});
+    };
+    const applyPersonal = (personal: ConfigLayer) =>
+      setLayers((current) => ({ ...current, personal }));
+    const applyHousehold = (household: ConfigLayer) =>
+      setLayers((current) => ({ ...current, household }));
+
+    const unsubscribers: (() => void)[] = [];
+    const track = (unsubscribe: () => void) => {
+      if (cancelled) unsubscribe();
+      else unsubscribers.push(unsubscribe);
+    };
+
+    void (async () => {
+      const household = await readHousehold(backend);
+      if (cancelled) return;
+      // `ok: false` is an HA older than the system store, not a failure. The
+      // YAML block is the household layer there, and publishing is hidden.
+      setHouseholdAvailable(household.ok);
+      if (household.ok) applyHousehold(household.config ?? {});
+
+      const personal = await readPersonal(backend);
+      if (cancelled) return;
+      if (personal.ok) {
+        if (personal.config) {
+          applyPersonal(personal.config);
+        } else {
+          /* Nothing on the server yet. An install upgrading from v4 has its
+             settings in the old browser-local blob, so they move up here
+             rather than being lost — once, after which the blob is retired. */
+          const legacy = readLegacyConfig();
+          if (legacy) {
+            try {
+              await writePersonal(backend, legacy);
+              markLegacyMigrated();
+            } catch {
+              /* keep the blob; the next load tries again */
+            }
+            if (!cancelled) applyPersonal(legacy);
+          } else {
+            applyPersonal({});
+          }
+        }
+      }
+
+      if (household.ok) track(await subscribeHousehold(backend, accept(applyHousehold)));
+      track(await subscribePersonal(backend, accept(applyPersonal)));
+    })();
+
+    return () => {
+      cancelled = true;
+      push.dispose();
+      pushRef.current = null;
+      for (const unsubscribe of unsubscribers) unsubscribe();
+    };
+  }, [backend, notify]);
+
+  /* Mirror whatever the server said into this account's cache, for the next
+     cold start. Keyed by account, so a shared tablet never paints one person's
+     dashboard for another. */
+  useEffect(() => {
+    writeCache(user?.id, layers);
+  }, [user?.id, layers]);
 
   /* Snapshot the last known states so the next cold start paints real values. */
   useEffect(() => {
@@ -218,35 +346,56 @@ export function HassProvider({
 
   const entities = useMemo(() => applyOverlays(rawEntities, overlays), [rawEntities, overlays]);
 
-  /* ── config: defaults ← panel YAML ← localStorage, then blanks derived ───── */
+  /* ── config: defaults ← panel YAML ← household ← account, then blanks derived ── */
   const config = useMemo(() => {
-    const merged = mergeConfig(mergeConfig(DEFAULT_CONFIG, yamlConfig), stored);
+    const merged = mergeConfig(
+      mergeConfig(mergeConfig(DEFAULT_CONFIG, yamlConfig), layers.household),
+      layers.personal,
+    );
     if (!registries) return merged;
     // Who to follow defaults to "everyone but me", so the account has to be
     // resolved before the blanks are filled — hence `user` in the deps.
     const me = currentPerson(entitiesRef.current, user).entityId;
     return withDerivedDefaults(merged, registries.areas, areaEntities, entitiesRef.current, me);
     // `live` is in the deps so derivation reruns once real states have landed.
-  }, [yamlConfig, stored, registries, areaEntities, live, user]);
+  }, [yamlConfig, layers, registries, areaEntities, live, user]);
 
-  const updateConfig = useCallback((patch: Partial<DashboardConfig>) => {
-    setStored((current) => {
-      const next = mergeConfig(mergeConfig(DEFAULT_CONFIG, current), patch);
-      storeConfig(next);
-      return next;
+  /**
+   * Optimistic: the UI flips now and the server catches up. Only what was
+   * actually set lands in your layer — merging the defaults in would shadow the
+   * household's choices with values nobody made.
+   */
+  const updateConfig = useCallback((patch: ConfigLayer) => {
+    setLayers((current) => {
+      const personal = mergeLayers(current.personal, patch);
+      pushRef.current?.queue(personal);
+      return { ...current, personal };
     });
   }, []);
 
+  /** Clears your layer only, so you fall back to household → YAML → defaults. */
   const resetConfig = useCallback(() => {
-    setStored({});
-    storeConfig({});
-  }, []);
+    pushRef.current?.cancel();
+    setLayers((current) => ({ ...current, personal: {} }));
+    writePersonal(backend, null).catch((error: unknown) => {
+      notify(`herstellen mislukt — ${describe(error)}`);
+    });
+  }, [backend, notify]);
 
-  const notify = useCallback((message: string) => {
-    const id = Date.now() + Math.random();
-    setToasts((current) => [...current, { id, message }]);
-    setTimeout(() => setToasts((current) => current.filter((toast) => toast.id !== id)), 4000);
-  }, []);
+  const publishHousehold = useCallback(async () => {
+    // The stored layers, deliberately not the derived config: freezing today's
+    // auto-detected alarm and power sensors into the household layer would stop
+    // every other account from detecting its own.
+    const { household, personal } = layersRef.current;
+    const merged = mergeLayers(household, personal);
+    pushRef.current?.cancel();
+    await writeHousehold(backend, merged);
+    // Clearing your own layer afterwards means you inherit what you just
+    // published, rather than shadowing it with an identical copy that would
+    // ignore every later household change.
+    await writePersonal(backend, null);
+    setLayers({ household: merged, personal: {} });
+  }, [backend]);
 
   /* ── writes: flip locally, then reconcile (or revert with a toast) ───────── */
   const call = useCallback(
@@ -277,8 +426,7 @@ export function HassProvider({
           for (const patch of optimistic) delete next[patch.entityId];
           return next;
         });
-        const detail = error instanceof Error ? error.message : String(error);
-        notify(`${serviceCall.domain}.${serviceCall.service} mislukt — ${detail}`);
+        notify(`${serviceCall.domain}.${serviceCall.service} mislukt — ${describe(error)}`);
       }
     },
     [backend, notify],
@@ -304,6 +452,8 @@ export function HassProvider({
       config,
       updateConfig,
       resetConfig,
+      publishHousehold,
+      householdAvailable,
       status,
       ready: registries !== null && live,
       call,
@@ -319,6 +469,8 @@ export function HassProvider({
       config,
       updateConfig,
       resetConfig,
+      publishHousehold,
+      householdAvailable,
       status,
       live,
       call,
