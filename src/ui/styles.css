@@ -121,14 +121,16 @@
    * the bar: the sheet panel, the toasts, the scroll areas' bottom padding and
    * the bar's own inset.
    * `--bar-space` is everything the bar occupies at the bottom of the screen —
-   * its height, the sliver of page under it, and the home-indicator inset. The
-   * bar sits as low as the indicator allows; on a phone that has none it is
-   * 16px off the edge — the same inset the bar carries on its left and right —
-   * rather than floating a thumb's width above it.
+   * its height plus the sliver of page under it. That sliver is `--bar-drop`,
+   * the same 16px inset the bar carries on its left and right, UNLESS the
+   * home-indicator safe area is taller — then the indicator wins and the bar
+   * floats above it instead of sitting under it. It's a `max()`, not a sum:
+   * on a phone with no inset the bar sits exactly `--bar-drop` off the edge,
+   * matching its own sides, rather than that plus a zero-height safe area.
    */
   --bar-h: 64px;
   --bar-drop: 16px;
-  --bar-space: calc(var(--bar-h) + var(--bar-drop) + env(safe-area-inset-bottom));
+  --bar-space: calc(var(--bar-h) + max(var(--bar-drop), env(safe-area-inset-bottom)));
   /* What every scroll area pads its bottom with: the bar's own space plus a
      row's worth of clearance, so the last row is reachable and not just
      visible. */
@@ -879,7 +881,7 @@ button {
   right: 0;
   bottom: 0;
   z-index: 3;
-  padding: 0 16px calc(var(--bar-drop) + env(safe-area-inset-bottom));
+  padding: 0 16px max(var(--bar-drop), env(safe-area-inset-bottom));
 }
 
 .tabbar__inner {
