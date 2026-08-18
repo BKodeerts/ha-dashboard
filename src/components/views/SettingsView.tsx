@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { PALETTES, THEMES, TINT_CYCLE } from '../../config/config';
+import { useMemo, useState } from 'react';
+import { PALETTES, THEMES, TINT_CYCLE, weatherEntities } from '../../config/config';
 import { useHass } from '../../ha/HassProvider';
 import { friendlyName } from '../../ha/selectors';
 import type { Room } from '../../ha/types';
@@ -47,17 +47,11 @@ function MoreRow({
  * who is holding the phone (the presence pill then shows the *other* person),
  * the room order, and the display odds and ends.
  */
-export function SettingsView({
-  rooms,
-  persons,
-  onOpenWeather,
-}: {
-  rooms: Room[];
-  persons: string[];
-  onOpenWeather(): void;
-}) {
+export function SettingsView({ rooms, persons }: { rooms: Room[]; persons: string[] }) {
   const { entities, config, updateConfig, resetConfig } = useHass();
-  const [panel, setPanel] = useState<'thema' | 'kleuren' | 'tints' | null>(null);
+  const [panel, setPanel] = useState<'weer' | 'thema' | 'kleuren' | 'tints' | null>(null);
+
+  const weathers = useMemo(() => weatherEntities(entities), [entities]);
 
   const toggleFavourite = (roomId: string) => {
     const current = config.favouriteAreas;
@@ -87,6 +81,9 @@ export function SettingsView({
     updateConfig({ roomOrder: order });
   };
 
+  const weatherLabel = config.weatherEntity
+    ? friendlyName(entities, config.weatherEntity)
+    : 'niet gekozen';
   const themeLabel = THEMES.find((theme) => theme.value === config.theme)?.label ?? '';
   const paletteLabel = PALETTES.find(({ value }) => value === config.palette)?.label ?? '';
 
@@ -162,7 +159,33 @@ export function SettingsView({
       <div className="settings__section">
         <div className="settings__label">Overig</div>
 
-        <MoreRow name="Weer" meta="voorspelling en details" onTap={onOpenWeather} />
+        <MoreRow
+          name="Weer"
+          meta={weatherLabel}
+          open={panel === 'weer'}
+          onTap={() => setPanel((current) => (current === 'weer' ? null : 'weer'))}
+        >
+          <div className="persons persons--stack">
+            {weathers.map((entityId) => (
+              <button
+                key={entityId}
+                type="button"
+                className={`person${config.weatherEntity === entityId ? ' person--on' : ''}`}
+                aria-pressed={config.weatherEntity === entityId}
+                onClick={() => updateConfig({ weatherEntity: entityId })}
+              >
+                <span className="person__name">{friendlyName(entities, entityId)}</span>
+                <span className="person__id">{entityId}</span>
+              </button>
+            ))}
+            {weathers.length === 0 && (
+              <div className="settings__note">geen weather-entiteiten gevonden</div>
+            )}
+          </div>
+          <div className="settings__note">
+            tik op het weerblok bovenaan voor de voorspelling
+          </div>
+        </MoreRow>
 
         <MoreRow
           name="Thema"

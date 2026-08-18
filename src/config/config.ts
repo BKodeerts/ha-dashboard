@@ -220,6 +220,12 @@ export const personEntities = (states: HassEntities): string[] =>
     .filter((id) => id.startsWith('person.'))
     .sort();
 
+/** Every `weather.*` entity, for the picker in settings. */
+export const weatherEntities = (states: HassEntities): string[] =>
+  Object.keys(states)
+    .filter((id) => id.startsWith('weather.'))
+    .sort();
+
 /**
  * Fills the blanks a fresh install leaves: which areas are favourites, what tint
  * each gets, and which alarm / person / weather entity to watch. Everything here

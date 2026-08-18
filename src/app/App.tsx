@@ -156,11 +156,7 @@ export function App() {
         ) : tab === 'auto' ? (
           <CarView />
         ) : (
-          <SettingsView
-            rooms={rooms}
-            persons={persons}
-            onOpenWeather={() => setSheet({ kind: 'weather' })}
-          />
+          <SettingsView rooms={rooms} persons={persons} />
         )}
       </div>
 
