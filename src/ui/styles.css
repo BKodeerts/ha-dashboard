@@ -679,6 +679,15 @@ button {
    switches it to a fixed row height and hands it a scrollbar.              */
 
 .room-grid-area {
+  /* `display: flex` rather than the block default: a block box's percentage
+     height only resolves against an *explicit* ancestor height, and this
+     one's own height comes from flexbox stretching further up the tree, not
+     a `height` declaration — `height: 100%` on `.room-grid` below silently
+     failed to resolve against it and the grid fell back to its content size,
+     leaving dead space above the tab bar instead of filling the screen.
+     Making this a flex parent lets `.room-grid` stretch via `flex: 1 1 auto`
+     instead, which needs no percentage to resolve. */
+  display: flex;
   flex: 1 1 auto;
   min-height: 0;
   padding: 18px var(--gutter-v5) var(--bar-clearance);
@@ -696,13 +705,14 @@ button {
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-auto-rows: 1fr;
-  height: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: 16px;
 }
 
 .room-grid-area--open .room-grid {
   grid-auto-rows: 132px;
-  height: auto;
+  flex: 0 0 auto;
 }
 
 /* The fold's own cell — a normal grid item, not a row underneath, so it fills
