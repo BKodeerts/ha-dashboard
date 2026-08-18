@@ -1,10 +1,10 @@
 /*
- * Design tokens and layout for the v2 home screen.
+ * Design tokens and layout for the v3 home screen.
  *
  * Loaded as a string and injected into the panel's shadow root, so nothing here
  * leaks into (or is overridden by) the Home Assistant frontend around it.
  * The light values are the handoff's, verbatim — see
- * design_handoff_ha_dashboard_v2/README.md. The dark set mirrors them role for
+ * design_handoff_ha_dashboard_v3/README.md. The dark set mirrors them role for
  * role, so no rule below knows which scheme it is painting.
  *
  * Surfaces and text can instead be taken from Home Assistant's own theme — see
@@ -28,6 +28,10 @@
   --text: var(--from-ha-text, #111318);
   --text-body: var(--from-ha-text-body, #3b3934);
   --text-2: var(--from-ha-text-2, #57544e);
+  /* Tertiary — the floor for a 9–10px label a user has to read. `--text-faint`
+     measures ≈2.1:1 against the page at that size, so it is left to decoration:
+     a gear glyph, a chevron, an inactive star. */
+  --text-3: var(--from-ha-text-3, #6e6b64);
   --text-muted: var(--from-ha-text-muted, #8a877f);
   --text-faint: var(--from-ha-text-faint, #a8a49c);
   --text-dim: var(--from-ha-text-dim, #7d7a72);
@@ -44,6 +48,9 @@
   /* hvac modes, at full chroma for the mode button and washed for the chips */
   --cool: oklch(0.68 0.13 250);
   --cool-bg: oklch(0.68 0.13 250 / 0.18);
+  /* A touch lighter than `--cool-bg`: the person chip is a standing state, not
+     an exception, and must not read as loud as the pills under it. */
+  --person-bg: oklch(0.68 0.13 250 / 0.16);
   --cool-fg: oklch(0.42 0.12 250);
   --heat: oklch(0.68 0.13 35);
   --heat-bg: oklch(0.68 0.13 35 / 0.2);
@@ -54,6 +61,18 @@
   --fan: oklch(0.7 0.12 185);
   --fan-bg: oklch(0.7 0.12 185 / 0.2);
   --fan-fg: oklch(0.42 0.09 185);
+
+  /* The climate row's setpoint fill — the same four hues, at the weight the
+     lamp rows use for brightness. */
+  --cool-fill: oklch(0.68 0.13 250 / 0.45);
+  --heat-fill: oklch(0.68 0.13 35 / 0.45);
+  --dry-fill: oklch(0.7 0.12 95 / 0.45);
+  --fan-fill: oklch(0.7 0.12 185 / 0.45);
+
+  /* Floating surfaces, one step *above* the sheet rather than inside it. */
+  --popover: var(--from-ha-popover, #fdfcfa);
+  --glyph-off: var(--from-ha-glyph-off, #ded9d0);
+  --dot-away: var(--from-ha-dot-away, #b8b4ac);
 
   --alert: oklch(0.62 0.16 40);
   --export: oklch(0.44 0.11 150);
@@ -133,6 +152,7 @@
   --text: var(--from-ha-text, #f0eeea);
   --text-body: var(--from-ha-text-body, #d6d2ca);
   --text-2: var(--from-ha-text-2, #b6b2aa);
+  --text-3: var(--from-ha-text-3, #9b978f);
   --text-muted: var(--from-ha-text-muted, #8a877f);
   --text-faint: var(--from-ha-text-faint, #6e6b64);
   --text-dim: var(--from-ha-text-dim, #7d7a72);
@@ -144,12 +164,22 @@
   --accent-star: oklch(0.72 0.13 60 / 0.26);
   --cool-bg: oklch(0.68 0.13 250 / 0.22);
   --cool-fg: oklch(0.76 0.11 250);
+  --person-bg: oklch(0.68 0.13 250 / 0.2);
   --heat-bg: oklch(0.68 0.13 35 / 0.22);
   --heat-fg: oklch(0.78 0.12 35);
   --dry-bg: oklch(0.7 0.12 95 / 0.22);
   --dry-fg: oklch(0.82 0.11 95);
   --fan-bg: oklch(0.7 0.12 185 / 0.22);
   --fan-fg: oklch(0.8 0.09 185);
+
+  --cool-fill: oklch(0.68 0.13 250 / 0.5);
+  --heat-fill: oklch(0.68 0.13 35 / 0.5);
+  --dry-fill: oklch(0.7 0.12 95 / 0.5);
+  --fan-fill: oklch(0.7 0.12 185 / 0.5);
+
+  --popover: var(--from-ha-popover, #23272f);
+  --glyph-off: var(--from-ha-glyph-off, #31353d);
+  --dot-away: var(--from-ha-dot-away, #5b5f68);
 
   --export: oklch(0.72 0.13 150);
   --import: oklch(0.7 0.12 250);
@@ -201,6 +231,9 @@
     var(--secondary-background-color)
   );
   --from-ha-chip-off: var(--secondary-background-color);
+  --from-ha-glyph-off: var(--secondary-background-color);
+  --from-ha-dot-away: var(--disabled-text-color);
+  --from-ha-popover: var(--ha-card-background, var(--card-background-color));
   --from-ha-border: var(--divider-color);
   --from-ha-divider: var(--divider-color);
 
@@ -209,6 +242,7 @@
   --from-ha-text: var(--primary-text-color);
   --from-ha-text-body: var(--primary-text-color);
   --from-ha-text-2: var(--secondary-text-color);
+  --from-ha-text-3: var(--secondary-text-color);
   --from-ha-text-muted: var(--secondary-text-color);
   --from-ha-text-faint: var(--disabled-text-color);
   --from-ha-text-dim: var(--secondary-text-color);
@@ -300,76 +334,132 @@ button {
   min-height: 0;
 }
 
-/* ── weather block ─────────────────────────────────────────────────────────
-   Centred, and the whole thing is the tap target for the weather sheet.    */
+/* ── top line ──────────────────────────────────────────────────────────────
+   Weather on the left, the other person on the right, on one row. v2 stacked
+   a centred weather block over three wrapping pills and spent ~210px before
+   the first room; this pair plus the pill row below costs ~110px, which is
+   what puts the room grid back above the fold.                            */
 
-.weather {
+.topline {
   flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 4px;
-  width: 100%;
-  padding: max(16px, calc(env(safe-area-inset-top) + 8px)) var(--gutter) 0;
+  gap: 12px;
+  padding: max(16px, calc(env(safe-area-inset-top) + 8px)) 18px 0 var(--gutter);
 }
 
-.weather__row {
+/* The whole left half is the tap target for the weather sheet. */
+.weather {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: var(--text-2);
+  gap: 9px;
+  color: var(--text-muted);
+  text-align: left;
 }
 
 .weather__temp {
-  font-size: 30px;
+  font-size: 26px;
   font-weight: 400;
   letter-spacing: -0.03em;
+  line-height: 1;
   color: var(--text);
 }
 
+/* Today's range only. The condition *word* lives in the weather sheet now —
+   the icon beside the reading already carries it here. */
 .weather__meta {
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ── status pills ──────────────────────────────────────────────────────────
-   Alarm, openings, presence — always three, so the row never reflows to a
-   different shape as the house changes state.                             */
+/* ── person chip ───────────────────────────────────────────────────────────
+   Presence left the pill row for here: it is a standing fact, not an
+   exception, and holding it out of that row is what lets the two pills below
+   fit on one line at any label length.                                     */
+
+.presence {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 12px 0 10px;
+  border-radius: 18px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  background: var(--control-alt);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.presence--home {
+  background: var(--person-bg);
+  color: var(--cool-fg);
+}
+
+.presence__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--dot-away);
+  flex: 0 0 auto;
+}
+
+.presence--home .presence__dot {
+  background: var(--cool);
+}
+
+/* ── exception pills ───────────────────────────────────────────────────────
+   Two only — alarm and openings — and never more than one line. Both labels
+   are bounded (`3 ramen open`, not `Living raam 2`), so the row cannot wrap
+   the room grid below the fold no matter what the house is doing; the room a
+   window belongs to is in the sheet the pill opens.                        */
 
 .pills {
   flex: 0 0 auto;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 8px;
-  padding: 12px var(--gutter) 0;
+  padding: 14px var(--gutter) 0;
 }
 
 .pill {
   display: flex;
   align-items: center;
-  gap: 9px;
-  height: 42px;
-  padding: 0 15px;
-  border-radius: 21px;
+  gap: 8px;
+  height: 40px;
+  padding: 0 14px;
+  border-radius: 20px;
+  min-width: 0;
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
   background: var(--control-alt);
   color: var(--text-2);
+}
+
+.pill__icon {
+  flex: 0 0 auto;
+}
+
+.pill__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .pill--warn {
   background: var(--warn-bg);
   color: var(--warn-fg);
-}
-
-.pill--presence {
-  background: var(--cool-bg);
-  color: var(--cool-fg);
 }
 
 /* ── section head ──────────────────────────────────────────────────────── */
@@ -747,7 +837,7 @@ button {
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-3);
   text-align: center;
 }
 
@@ -787,7 +877,7 @@ button {
   font-size: 10px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-3);
 }
 
 .spark__hi {
@@ -865,141 +955,203 @@ button {
   text-align: right;
 }
 
-/* ── climate row ───────────────────────────────────────────────────────── */
+/* ── climate row ───────────────────────────────────────────────────────────
+   One row in the lamp rows' language: drag the fill to set the temperature,
+   tap to switch the unit, and the glyph opens the mode picker. v2 spent
+   ~100px here on a power button, a dropdown and a −/+ pair.
+
+   The wrapper is the picker's positioning context, and must never clip: the
+   popover floats *out* of it so opening it moves nothing in the sheet.     */
 
 .climate {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 8px 10px 8px 12px;
+  position: relative;
 }
 
-.climate__power {
+.climate__row {
+  position: relative;
+  overflow: hidden;
+  height: 54px;
+  border-radius: 16px;
+  background: var(--control);
+  /* As on the lamp rows: the horizontal drag is ours, vertical scrolling stays
+     the sheet's, so a finger that lands here can still scroll past. */
+  touch-action: pan-y;
+  user-select: none;
+  cursor: ew-resize;
+  width: 100%;
+  display: block;
+  text-align: left;
+}
+
+/* The setpoint on the unit's own temperature track, coloured by the mode it is
+   in. Zero-width while the unit is off — there is no setpoint to show. */
+.climate__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--cool-fill);
+  transition: width 0.09s linear;
+}
+
+.climate__fill--heat {
+  background: var(--heat-fill);
+}
+
+.climate__fill--dry {
+  background: var(--dry-fill);
+}
+
+.climate__fill--fan_only {
+  background: var(--fan-fill);
+}
+
+.climate__fill--other {
+  background: var(--accent-fill);
+}
+
+.climate__body {
+  position: relative;
+  height: 100%;
+  padding: 0 16px 0 6px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+/* The mode glyph — the only thing on this row that is not the drag surface. */
+.climate__glyph {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 42px;
+  height: 42px;
   border-radius: 12px;
-  background: var(--control);
-  color: var(--text-dim);
+  background: var(--glyph-off);
+  color: var(--text-3);
   flex: 0 0 auto;
 }
 
-/* The power button carries the hue at full chroma — it is the loudest control
-   in the sheet, and between it and the dropdown beside it the mode is said
-   once: this is the colour of it, that is the name. Grey is off. */
-.climate__power--cool {
+.climate__glyph--cool {
   background: var(--cool);
   color: #fff;
 }
 
-.climate__power--heat {
+.climate__glyph--heat {
   background: var(--heat);
   color: #fff;
 }
 
-.climate__power--dry {
+.climate__glyph--dry {
   background: var(--dry);
   color: #fff;
 }
 
-.climate__power--fan_only {
+.climate__glyph--fan_only {
   background: var(--fan);
   color: #fff;
 }
 
-.climate__power--other {
+.climate__glyph--other {
   background: var(--accent);
   color: var(--on-accent);
 }
 
-/* The mode dropdown. A native <select> so the phone opens its own wheel — and
-   `color-scheme` on the host is what makes that wheel dark with the app. */
-.climate__pick {
-  position: relative;
-  display: flex;
-  align-items: center;
-  flex: 1 1 120px;
-  min-width: 110px;
-  color: var(--text-2);
+.climate__mode {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.climate__select {
-  appearance: none;
-  width: 100%;
-  height: 44px;
-  margin: 0;
-  padding: 0 32px 0 34px;
-  border: 0;
-  border-radius: 12px;
-  background: var(--control);
-  color: var(--text-2);
+.climate__hint {
   font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-size: 10px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  cursor: pointer;
-}
-
-/* The popup is painted by the OS, which does not read the app's tokens for
-   anything but the scheme — spell the two colours out. */
-.climate__select option {
-  background: var(--sheet);
-  color: var(--text);
-  text-transform: none;
-  letter-spacing: normal;
-}
-
-.climate__pick-icon,
-.climate__pick-chevron {
-  position: absolute;
-  pointer-events: none;
-}
-
-.climate__pick-icon {
-  left: 11px;
-}
-
-.climate__pick-chevron {
-  right: 9px;
-}
-
-/* Pushed right on a wide row, and the whole reason the row wraps on a narrow
-   one: three controls plus a reading do not fit beside the mode dropdown. */
-.climate__steps {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-left: auto;
-}
-
-.stepper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--control);
-  font-size: 20px;
+  color: var(--text-3);
   flex: 0 0 auto;
 }
 
-.stepper:disabled {
-  opacity: 0.35;
-  cursor: default;
+.climate__target {
+  font-size: 16px;
+  font-weight: 500;
+  min-width: 52px;
+  text-align: right;
+  flex: 0 0 auto;
 }
 
-.climate__target {
-  font-size: 17px;
-  font-weight: 500;
-  min-width: 64px;
-  text-align: center;
+/* ── mode picker ───────────────────────────────────────────────────────────
+   Floating, and deliberately not a cycle: every mode change on this system is
+   a cloud round trip to the unit, so the control that changes it sends
+   exactly one command per pick.                                            */
+
+.modes {
+  position: absolute;
+  left: 0;
+  bottom: 62px;
+  z-index: 3;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  max-width: 100%;
+  padding: 5px;
+  border-radius: 24px;
+  background: var(--popover);
+  box-shadow:
+    0 16px 34px -14px rgba(17, 19, 24, 0.4),
+    0 0 0 1px rgba(17, 19, 24, 0.06);
+  animation: fadeIn 0.14s ease;
+}
+
+.modes__option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 38px;
+  padding: 0 13px;
+  border-radius: 19px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  background: transparent;
+  color: var(--text-2);
+}
+
+.modes__option--on {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.modes__option--on.modes__option--cool {
+  background: var(--cool);
+  color: #fff;
+}
+
+.modes__option--on.modes__option--heat {
+  background: var(--heat);
+  color: #fff;
+}
+
+.modes__option--on.modes__option--dry {
+  background: var(--dry);
+  color: #fff;
+}
+
+.modes__option--on.modes__option--fan_only {
+  background: var(--fan);
+  color: #fff;
+}
+
+.modes__option--on.modes__option--off {
+  background: var(--text-3);
+  color: var(--page);
 }
 
 /* ── media row ─────────────────────────────────────────────────────────── */
@@ -1143,7 +1295,7 @@ button {
   font-size: 10px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-3);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1217,7 +1369,7 @@ button {
 .forecast__low {
   font-family: var(--font-mono);
   font-size: 10px;
-  color: var(--text-faint);
+  color: var(--text-3);
 }
 
 /* ── alarm sheet ───────────────────────────────────────────────────────── */
@@ -1345,7 +1497,7 @@ button {
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-3);
 }
 
 .energy__cols {
@@ -1468,7 +1620,7 @@ button {
   font-size: 10px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-3);
   white-space: nowrap;
 }
 
@@ -1510,7 +1662,7 @@ button {
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-3);
   text-align: center;
   padding-top: 4px;
 }
@@ -1530,7 +1682,7 @@ button {
   font-size: 10px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-3);
 }
 
 .settings__section {
@@ -1623,7 +1775,7 @@ button {
   font-size: 9px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-3);
 }
 
 .order__btn {
