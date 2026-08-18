@@ -1,5 +1,5 @@
 import { useEffect, useState, type RefObject } from 'react';
-import type { ThemeSetting } from '../config/config';
+import type { PaletteSetting, ThemeSetting } from '../config/config';
 import type { HaBackend } from '../ha/types';
 
 export type Scheme = 'light' | 'dark';
@@ -45,14 +45,26 @@ export function useScheme(setting: ThemeSetting, backend: HaBackend): Scheme {
 }
 
 /**
- * Stamps the scheme on the shadow host, which is where `:host([data-theme])` can
- * see it — React renders inside the shadow root and cannot reach the host on its
- * own. `.app` carries the same attribute, so the tokens still flip if this is
- * ever mounted without a shadow root.
+ * Stamps the scheme and the palette on the shadow host, which is where
+ * `:host([data-theme])` and `:host([data-palette])` can see them — React renders
+ * inside the shadow root and cannot reach the host on its own. `.app` carries the
+ * same attributes, so the tokens still resolve if this is ever mounted without a
+ * shadow root.
+ *
+ * Both belong on the host rather than on `.app`: the host is the element that
+ * paints the page background, and it is also the element the Home Assistant theme
+ * variables reach first on their way down from `document.documentElement`.
  */
-export function useThemeAttribute(ref: RefObject<HTMLElement | null>, scheme: Scheme): void {
+export function useThemeAttribute(
+  ref: RefObject<HTMLElement | null>,
+  scheme: Scheme,
+  palette: PaletteSetting,
+): void {
   useEffect(() => {
     const root = ref.current?.getRootNode();
-    if (root instanceof ShadowRoot) (root.host as HTMLElement).setAttribute('data-theme', scheme);
-  }, [ref, scheme]);
+    if (!(root instanceof ShadowRoot)) return;
+    const host = root.host as HTMLElement;
+    host.setAttribute('data-theme', scheme);
+    host.setAttribute('data-palette', palette);
+  }, [ref, scheme, palette]);
 }
