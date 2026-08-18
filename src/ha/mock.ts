@@ -370,9 +370,12 @@ function buildStates(globals: MockGlobals): HassEntities {
       friendly_name: 'Alarm',
       code_format: 'number',
       code_arm_required: false,
-      // ARM_HOME | ARM_AWAY | ARM_NIGHT — the three the design's picker draws
-      // (`Weg`, `Nacht`, `Thuis`) plus `Uit`, which is always there.
-      supported_features: 1 | 2 | 4,
+      // ARM_HOME | ARM_AWAY | ARM_NIGHT | TRIGGER. The first three are what the
+      // picker draws (`Weg`, `Nacht`, `Thuis`) alongside the always-present
+      // `Uit`; TRIGGER is deliberately in here and deliberately *not* in the
+      // picker, which is the case that proves the picker filters the bitmask
+      // to arm modes rather than rendering every bit it finds.
+      supported_features: 1 | 2 | 4 | 8,
     }),
   );
   // Three people, so "Wie volg je bovenaan" has a real choice and the two-chip
@@ -607,6 +610,12 @@ export function mockBackend(): HaBackend {
             }, 4000);
           } else if (service === 'alarm_disarm') {
             patch(id, 'disarmed');
+          } else if (service === 'alarm_trigger') {
+            // Nothing in the UI sends this — the picker offers arm modes only.
+            // It is here so the chip's loudest state is reachable from a
+            // console (`callService('alarm_control_panel', 'alarm_trigger', …)`)
+            // without editing the mock to see it.
+            patch(id, 'triggered');
           }
         }
       }

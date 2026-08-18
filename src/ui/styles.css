@@ -84,6 +84,15 @@
   --alarm-arming-fg: oklch(0.42 0.1 60);
   --alarm-night: oklch(0.52 0.13 250);
   --alarm-disarmed: #6e6b64;
+  /*
+   * The two ends of the triggered flash. Both are solid — the chip is the
+   * loudest thing on the screen at that point, not a wash — and both clear
+   * 4.5:1 against the white glyph riding on them (4.75:1 and 8.27:1), so the
+   * shield stays readable at either end of the blink rather than only half
+   * the time.
+   */
+  --alarm-triggered: oklch(0.58 0.21 28);
+  --alarm-triggered-deep: oklch(0.44 0.19 27);
 
   --alert: oklch(0.62 0.16 40);
   --export: oklch(0.44 0.11 150);
@@ -515,9 +524,28 @@ button {
 }
 
 /*
+ * The alarm is going off. This is the one thing on the screen louder than the
+ * accent, and the one place the design's "no other state animates" gives way:
+ * a tripped alarm that reads as a still chip is a tripped alarm nobody notices.
+ *
+ * ~1.1 flashes per second — deliberately well under the three-per-second
+ * photosensitivity threshold, and slow enough to read as an alarm rather than
+ * as a rendering fault.
+ */
+.alarm-chip__face--triggered {
+  background: var(--alarm-triggered);
+  color: #fff;
+  animation: flashAlarm 0.9s linear infinite;
+}
+
+.alarm-chip__face--triggered .alarm-chip__dot {
+  /* Solid: the ground under it is already doing the flashing. */
+  background: #fff;
+}
+
+/*
  * `arming` is a transition, not a destination: HA reports it while the exit
  * delay runs and the chip leaves it when the panel reports the armed state.
- * It is the only state on this screen that animates.
  */
 .alarm-chip__dot--pulsing {
   animation: pulseDot 1.05s ease-in-out infinite;
@@ -2319,7 +2347,22 @@ button {
   }
 }
 
-/* The arming dot, and nothing else on this screen. */
+/*
+ * The triggered alarm chip. Hard stops rather than a fade, so it reads as a
+ * beacon; the 1% ramp between them is ~9ms, which is instant.
+ */
+@keyframes flashAlarm {
+  0%,
+  49% {
+    background: var(--alarm-triggered);
+  }
+  50%,
+  100% {
+    background: var(--alarm-triggered-deep);
+  }
+}
+
+/* The arming dot. */
 @keyframes pulseDot {
   0%,
   100% {
@@ -2346,6 +2389,16 @@ button {
   .sheet__panel,
   .toast {
     animation: none;
+  }
+
+  /*
+   * A tripped alarm still has to be unmissable without the flashing, so this
+   * holds the bright end rather than dropping to no treatment at all. Reduced
+   * motion is a request for less movement, not for less information.
+   */
+  .alarm-chip__face--triggered {
+    animation: none;
+    background: var(--alarm-triggered);
   }
 
   .lamp__fill,

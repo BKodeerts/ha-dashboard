@@ -274,10 +274,18 @@ export const ALARM_FEATURE = {
 } as const;
 
 /**
- * The four treatments the chip has. Everything HA can report collapses onto one
- * of them: the glyph and the dot are all the chip has to say the state with.
+ * The treatments the chip has. Everything HA can report collapses onto one of
+ * them: the glyph, the dot and the ground are all the chip has to say the state
+ * with.
+ *
+ * Four of them are *states of rest* the user chose. `triggered` is not — it is
+ * the alarm going off, and it is the only one that is neither a destination nor
+ * a transition on the way to one.
  */
-export type AlarmTone = 'disarmed' | 'arming' | 'away' | 'night';
+export type AlarmTone = 'disarmed' | 'arming' | 'away' | 'night' | 'triggered';
+
+/** The tones a picker option can wear — the ones a user can actually ask for. */
+export type AlarmModeTone = 'disarmed' | 'away' | 'night';
 
 export interface AlarmMode {
   /** The service to call, minus its `alarm_` prefix. */
@@ -285,7 +293,7 @@ export interface AlarmMode {
   /** Picker label — 10px mono, so it is clipped short. */
   label: string;
   /** The tone whose full-chroma colour the option wears while it is active. */
-  tone: Exclude<AlarmTone, 'arming'>;
+  tone: AlarmModeTone;
   /** The states that make this option the current one. */
   states: string[];
 }
@@ -328,10 +336,11 @@ const ALARM_TONES: Record<string, AlarmTone> = {
   armed_away: 'away',
   armed_vacation: 'away',
   armed_custom_bypass: 'away',
-  // A triggered panel is as loud as `away` and does not pulse: the design gives
-  // the animation to `arming` alone, because it is the one state that is
-  // *transitional*. What a triggered alarm needs is a siren, not a dot.
-  triggered: 'away',
+  // Its own treatment, and the loudest thing on the screen: the alarm is going
+  // off. The handoff gives the pulsing dot to `arming` alone and says no other
+  // state animates, but that rule was written about states of rest — a tripped
+  // alarm reading as a still chip is the one place the restraint is wrong.
+  triggered: 'triggered',
   armed_home: 'night',
   armed_night: 'night',
 };
