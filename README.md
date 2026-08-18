@@ -38,6 +38,18 @@ v2 spec stands.
 | Climate: power button, mode dropdown and a −/+ pair (~100 px) | One 54 px row — drag sets the setpoint, tap switches the unit, the glyph opens a mode picker |
 | Mode reached through a dropdown | A floating five-way picker that sends exactly one command per pick and never cycles |
 
+### What changed in v5
+
+v5 moves the settings off the browser and onto the server, and pins both bars to the viewport.
+
+| v4 | v5 |
+| --- | --- |
+| Settings in `localStorage` — per browser, and shared by everyone using that browser | Settings in Home Assistant, against your account: same dashboard on every device you sign in on, and your own on a tablet somebody else also uses |
+| Bulk changes meant pasting `localStorage.setItem(...)` into a console | The household layer is a button in settings (admin, HA 2025.12+); the rest is `configuration.yaml` |
+| A change on one device stayed there | Live sync through `frontend/subscribe_user_data` (HA 2025.6+) |
+| Versioned by renaming the storage key | Versioned by an envelope, `{version, config}`, since the data is no longer somewhere a human can replace by hand |
+| Tab bar absolutely positioned, top line in the flex column | Both `position: fixed` to the viewport — neither can be carried by an ancestor that scrolls |
+
 ### What changed in v4
 
 v4 gives the alarm and presence the treatment v3 gave the climate row, and makes favourites mean
@@ -51,7 +63,7 @@ something. Everything else in the v2/v3 spec stands.
 | One person chip; "who am I" was a setting | The people you *follow*, up to two — and who you are comes from `hass.user`, not from a list you can get wrong |
 | Favourites only sorted the grid | Favourites **are** the grid; the rest unfold from one disclosure row |
 | Tile chips: 26 px plates in a row under the reading | Bare 16 px glyphs in a column at the tile's right edge, fixed priority, three at a time |
-| Tab bar sat in the flex column | Absolutely pinned to the bottom of the frame; every scroll area pads to clear it |
+| Tab bar sat in the flex column | Pinned to the bottom of the frame; every scroll area pads to clear it (v5 makes this `fixed`) |
 
 ```
 npm install
@@ -233,9 +245,39 @@ bury the devices that are actually broken.
 
 ## Configuration
 
-Everything user-specific is client-side — a JSON blob in `localStorage` under
-`ha-dashboard.config.v2`, layered over `panel_custom`'s `config:` block, layered over the defaults.
-No YAML edit is needed to change a favourite or a colour.
+Settings live **in Home Assistant, against your account** — not in the browser. Sign in on a phone
+and a wall tablet and you get the same dashboard on both; sign in as somebody else on that tablet and
+you get your own. No YAML edit is needed to change a favourite or a colour.
+
+They are stored through HA's own frontend storage, so there is nothing to install beyond this panel:
+
+| Layer | Where | Who it applies to |
+| --- | --- | --- |
+| defaults | in the code, then derived from your state machine (see the table below) | everyone |
+| `panel_custom`'s `config:` block | `configuration.yaml` | everyone |
+| household | `frontend.system_data`, written by **"instellen als standaard voor het huishouden"** | everyone who has not chosen for themselves |
+| yours | `frontend.user_data_{user_id}`, written by every tap in settings | you, on every device |
+
+Each layer only carries what was actually set on it, so a household default keeps applying to the
+keys you have not touched yourself.
+
+Two of these need a recent Home Assistant, and neither is fatal on an older one:
+
+- **Live sync** (a change on your phone appearing on the tablet without a reload) uses
+  `frontend/subscribe_user_data`, **HA 2025.6+**. Below that the settings are read once at startup.
+- **The household layer** uses `frontend/set_system_data`, **HA 2025.12+**, and only an admin may
+  write it. Below that the button is not shown and `configuration.yaml` is the shared layer.
+
+`localStorage` is still used, but only as a cache: the last config each account saw is kept under
+`ha-dashboard.cache.{user_id}` so a cold start paints the right dashboard immediately instead of
+flashing the defaults while the socket connects. Deleting it costs nothing.
+
+**Upgrading from v4:** the old `ha-dashboard.config.v2` blob is moved up to your account the first
+time you open the dashboard, then renamed to `ha-dashboard.config.v2.migrated` so it cannot be
+applied twice. Nothing is lost, and the old blob stays on disk as a way back.
+
+**"standaardwaarden herstellen"** clears *your* layer only — you fall back to the household default,
+then the YAML, then the derived defaults.
 
 The **gear next to "Kamers"** opens the settings view: who you are (read-only — it comes from your
 account), who you follow at the top of the home screen, room order and favourites, and the display
@@ -260,26 +302,44 @@ Everything that is left blank is derived from the state machine on first run:
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
 | `lovelace.*` | card configs | sensible per-surface defaults, see below |
 
-Example, set from the browser console:
+The keys the settings view does not expose — media presets, the car sensors, the embedded Lovelace
+cards — are set in the `config:` block of the `panel_custom` snippet above, which applies to the
+whole household:
 
-```js
-localStorage.setItem('ha-dashboard.config.v2', JSON.stringify({
-  favouriteAreas: ['living', 'bureau', 'slaapkamer', 'clara', 'oliver'],
-  tracked: ['person.leen', 'person.nora'],
-  power: { solar: 'sensor.zonnepanelen_vermogen', consumption: 'sensor.verbruik_vermogen' },
-  car: { name: 'Kona electric', battery: 'sensor.kona_battery', range: 'sensor.kona_range' },
-  mediaPresets: {
-    'media_player.living_radio': [
-      { name: 'Studio Brussel', media_content_type: 'music', media_content_id: 'https://…/stubru.mp3' },
-      { name: 'Willy',          media_content_type: 'music', media_content_id: 'https://…/willy.mp3' },
-      { name: 'Klara',          media_content_type: 'music', media_content_id: 'https://…/klara.mp3' },
-    ],
-  },
-  lovelace: {
-    energy: [{ type: 'energy-distribution' }, { type: 'energy-usage-graph' }],
-    auto: [{ type: 'entities', entities: ['sensor.kona_battery', 'sensor.kona_range'] }],
-  },
-}));
+```yaml
+panel_custom:
+  - name: ha-dashboard-panel
+    # …
+    config:
+      power:
+        solar: sensor.zonnepanelen_vermogen
+        consumption: sensor.verbruik_vermogen
+      car:
+        name: Kona electric
+        battery: sensor.kona_battery
+        range: sensor.kona_range
+      mediaPresets:
+        media_player.living_radio:
+          - name: Studio Brussel
+            media_content_type: music
+            media_content_id: https://…/stubru.mp3
+          - name: Klara
+            media_content_type: music
+            media_content_id: https://…/klara.mp3
+      lovelace:
+        energy:
+          - type: energy-distribution
+          - type: energy-usage-graph
+        auto:
+          - type: entities
+            entities: [sensor.kona_battery, sensor.kona_range]
+```
+
+To read or write your stored layer directly, use **Developer Tools → the websocket API** rather than
+the browser console — the blob lives on the server now, under the key `ha-dashboard`:
+
+```json
+{ "type": "frontend/get_user_data", "key": "ha-dashboard" }
 ```
 
 v1's `accent`, `personEntity`, `lovelace.netwerk` and `lovelace.roomHistory` are gone: the accent is
@@ -289,7 +349,11 @@ half-reading an old shape.
 
 **v4 drops `me`.** It is stripped on read rather than migrated — it was a *guess* the user made
 about themselves, and the account is the answer — so an existing install keeps its favourites, order
-and tints and simply stops storing who you are. The storage key is unchanged for the same reason.
+and tints and simply stops storing who you are.
+
+**v5 moves the whole blob to the server.** The stored value is now an envelope, `{version, config}`:
+a key rename was how v1 → v2 was versioned, which worked when a human could paste a replacement into
+a console, and does not now that the data lives in Home Assistant.
 
 ## Following Home Assistant's theme
 
@@ -382,6 +446,8 @@ are painted from one source.
   dismiss it; `prefers-reduced-motion` drops the transforms.
 - Hit targets are ≥ 44 px throughout, except the two 34 px chips on a tile — light and AC. The
   26 px state chips are read-only and not targets at all.
+- Settings live on the server, against your account — see [Configuration](#configuration). What is
+  left in `localStorage` is a cache of them, plus the entity snapshot below.
 - The last entity snapshot is cached in `localStorage`, so a cold start paints real values before the
   socket connects. A dropped socket shows a subdued banner, not an error screen.
 

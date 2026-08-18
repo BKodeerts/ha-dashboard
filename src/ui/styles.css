@@ -117,8 +117,9 @@
   --gutter: 20px;
 
   /*
-   * Tab-bar geometry, as tokens because three other things measure themselves
-   * against the bar: the sheet panel, the toasts, and the bar's own inset.
+   * Tab-bar geometry, as tokens because four things measure themselves against
+   * the bar: the sheet panel, the toasts, the scroll areas' bottom padding and
+   * the bar's own inset.
    * `--bar-space` is everything the bar occupies at the bottom of the screen —
    * its height, the sliver of page under it, and the home-indicator inset. The
    * bar sits as low as the indicator allows; on a phone that has none it is
@@ -127,9 +128,13 @@
   --bar-h: 64px;
   --bar-drop: 8px;
   --bar-space: calc(var(--bar-h) + var(--bar-drop) + env(safe-area-inset-bottom));
-  /* What every scroll area pads its bottom with, now that the bar is pinned
-     over them: the bar's own space plus a row's worth of clearance. */
+  /* What every scroll area pads its bottom with: the bar's own space plus a
+     row's worth of clearance, so the last row is reachable and not just
+     visible. */
   --bar-clearance: calc(var(--bar-space) + 16px);
+  /* The top line's own height — its top padding plus the 36px chip row.
+     `.app__main` pads by this so everything under the fixed bar clears it. */
+  --topline-space: calc(max(16px, env(safe-area-inset-top) + 8px) + 36px);
 
   /* motion */
   --ease-sheet: cubic-bezier(0.2, 0.9, 0.2, 1);
@@ -361,6 +366,10 @@ button {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
+  /* The top line is fixed, so it occupies no space in this column. The offset
+     goes here rather than on the scrollers because `.section-head` sits between
+     the two and would otherwise be covered by the bar. */
+  padding-top: var(--topline-space);
 }
 
 /* ── top line ──────────────────────────────────────────────────────────────
@@ -370,11 +379,29 @@ button {
    ~110px, which is what puts the room grid back above the fold.           */
 
 .topline {
-  flex: 0 0 auto;
+  /*
+   * Fixed to the viewport, like the tab bar at the other end. In the flow it
+   * belonged to a column whose height is not always the height of what you can
+   * see, and it travelled with it; pinned, it is measured against the viewport
+   * and nothing above it in the tree can carry it anywhere.
+   *
+   * This holds only while no ancestor creates a containing block — a
+   * `transform`, `filter`, `backdrop-filter`, `perspective`, `will-change` or
+   * `contain` on `.root`, `.app` or `.app__main` would silently re-anchor both
+   * bars to that element and hand back the drift. There are none today; adding
+   * one is what would break this.
+   */
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 3;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: max(16px, calc(env(safe-area-inset-top) + 8px)) 18px 0 var(--gutter);
+  /* Out of flow, so the grid scrolls underneath rather than around it. */
+  background: var(--page);
 }
 
 /*
@@ -637,9 +664,13 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  /* The bar is pinned *over* this, so the bottom padding is what keeps the
-     last row reachable rather than merely visible. */
+  /* The bar is pinned *over* this, so the bottom padding is what keeps the last
+     row reachable rather than merely visible. The top line is cleared once, by
+     `.app__main`. */
   padding: 0 var(--gutter) var(--bar-clearance);
+  /* No scroll chaining to the document: a rubber-band bounce at the ends of the
+     list drags the whole page under the fixed bars. */
+  overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -829,16 +860,18 @@ button {
 }
 
 /* ── tab bar ───────────────────────────────────────────────────────────────
-   **Absolutely pinned**, not part of the column flow: v4 makes it something a
-   long room grid cannot scroll away, no matter how long the content is. Every
-   scroll area pads its bottom by `--bar-space` plus a row's clearance so its
-   last row still clears the bar.
+   **Fixed to the viewport**, not part of the column flow: v4 makes it something
+   a long room grid cannot scroll away, no matter how long the content is. Every
+   scroll area pads its bottom by `--bar-clearance` so its last row still clears
+   the bar.
 
    z-index 2 puts it above the sheet scrim: the bar is always visible and
    always tappable, which is the whole point of v2's sheet geometry.        */
 
 .tabbar {
-  position: absolute;
+  /* Fixed to the viewport for the same reason as `.topline` — see the note
+     there about ancestors that would break it. */
+  position: fixed;
   left: 0;
   right: 0;
   bottom: 0;
@@ -1692,9 +1725,10 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  /* Same clearance as `.scroll` — the pinned bar covers every tab, not just
-     the home screen's grid. */
+  /* Same clearance as `.scroll` — the pinned bar covers every tab, not just the
+     home screen's grid. */
   padding: 20px var(--gutter) var(--bar-clearance);
+  overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
   gap: 14px;

@@ -1,6 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { App } from './app/App';
-import type { DashboardConfig } from './config/config';
+import type { ConfigLayer } from './config/config';
 import { panelBackend, readSnapshot, standaloneBackend } from './ha/backend';
 import { HassProvider } from './ha/HassProvider';
 import { mockBackend } from './ha/mock';
@@ -40,7 +40,7 @@ export class HaDashboardPanel extends HTMLElement {
   #mountPoint: HTMLDivElement | null = null;
   #hass: HomeAssistant | null = null;
   #backend: HaBackend | null = null;
-  #panelConfig: Partial<DashboardConfig> | undefined;
+  #panelConfig: ConfigLayer | undefined;
   #starting = false;
   #darkMode: boolean | undefined;
   #darkModeListeners = new Set<(dark: boolean | undefined) => void>();
@@ -70,7 +70,7 @@ export class HaDashboardPanel extends HTMLElement {
   }
 
   /** `panel.config` carries whatever sits under `config:` in configuration.yaml. */
-  set panel(value: { config?: Partial<DashboardConfig> } | null) {
+  set panel(value: { config?: ConfigLayer } | null) {
     this.#panelConfig = value?.config;
   }
 

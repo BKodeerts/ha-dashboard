@@ -2,8 +2,12 @@ import type { AreaRegistryEntry, HassEntities } from '../ha/types';
 
 /**
  * Everything that is a per-user preference rather than Home Assistant state.
- * Stored client-side (localStorage) — deliberately not YAML, so changing a
- * favourite or a tint never means editing a config file and restarting HA.
+ *
+ * Stored in Home Assistant itself, against the logged-in account — see
+ * `ha/configStore.ts`. It is deliberately not YAML: changing a favourite or a
+ * tint should never mean editing a config file and restarting HA. It is no
+ * longer browser-local either, so the same account gets the same dashboard on
+ * every device, and two accounts sharing a tablet get their own.
  */
 export interface DashboardConfig {
   /** Area ids sorted to the front of the room grid. */
@@ -93,14 +97,6 @@ export const PALETTES: { value: PaletteSetting; label: string }[] = [
 ];
 
 /**
- * v2 renumbered the stored shape: accent and personEntity are gone. v4 drops
- * `me` and adds `tracked`, which is a migration rather than a new shape — see
- * `loadStoredConfig`, which strips `me` on the way in so an existing install
- * keeps its favourites, order and tints.
- */
-const STORAGE_KEY = 'ha-dashboard.config.v2';
-
-/**
  * The nine tints from the v2 handoff, keyed by normalised area name — personal
  * rooms distinct, wet rooms cool, dry rooms warm.
  */
@@ -139,14 +135,27 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   lovelace: {},
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** Shallow-merges a stored (or YAML-supplied) partial over the defaults. */
+/**
+ * One layer of the config, holding only what was explicitly set on it.
+ *
+ * The dashboard stacks four: defaults ← `panel_custom` YAML ← household ←
+ * account. A layer must never materialise the defaults, or setting a favourite
+ * on your account would silently shadow the household's power scale with the
+ * default nobody chose. `power` is the only member that is not already
+ * all-optional, so it is the only one restated here.
+ */
+export type ConfigLayer = Omit<Partial<DashboardConfig>, 'power'> & {
+  power?: Partial<DashboardConfig['power']>;
+};
+
+/** Shallow-merges one layer over a complete config. */
 export function mergeConfig(
   base: DashboardConfig,
-  patch: Partial<DashboardConfig> | undefined,
+  patch: ConfigLayer | undefined,
 ): DashboardConfig {
   if (!patch) return base;
   return {
@@ -160,28 +169,22 @@ export function mergeConfig(
   };
 }
 
-export function loadStoredConfig(): Partial<DashboardConfig> | undefined {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return undefined;
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed)) return undefined;
-    // v4 reads the user off the account. A stored `me` from v3 is dropped here
-    // rather than migrated: it was a *guess* the user made about themselves,
-    // and `hass.user` is the answer.
-    const { me: _dropped, ...rest } = parsed as Partial<DashboardConfig> & { me?: string };
-    return rest;
-  } catch {
-    return undefined;
+/**
+ * Merges two layers into one, keeping it a layer — the nested objects merge, but
+ * nothing absent on both sides is invented. This is what a settings tap does to
+ * your account's layer, and what "publish as household default" does to fold an
+ * account's layer into the household's.
+ */
+export function mergeLayers(base: ConfigLayer, patch: ConfigLayer): ConfigLayer {
+  const next: ConfigLayer = { ...base, ...patch };
+  if (base.areaTint ?? patch.areaTint) next.areaTint = { ...base.areaTint, ...patch.areaTint };
+  if (base.power ?? patch.power) next.power = { ...base.power, ...patch.power };
+  if (base.car ?? patch.car) next.car = { ...base.car, ...patch.car };
+  if (base.mediaPresets ?? patch.mediaPresets) {
+    next.mediaPresets = { ...base.mediaPresets, ...patch.mediaPresets };
   }
-}
-
-export function storeConfig(config: Partial<DashboardConfig>): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-  } catch {
-    /* private mode / quota — the dashboard still works, it just won't remember */
-  }
+  if (base.lovelace ?? patch.lovelace) next.lovelace = { ...base.lovelace, ...patch.lovelace };
+  return next;
 }
 
 const firstEntityOfDomain = (states: HassEntities, domain: string): string | undefined =>
