@@ -44,6 +44,7 @@ export class HaDashboardPanel extends HTMLElement {
   #starting = false;
   #darkMode: boolean | undefined;
   #darkModeListeners = new Set<(dark: boolean | undefined) => void>();
+  #lastTouchY: number | null = null;
 
   /* ── properties HA's panel_custom sets ─────────────────────────────────── */
 
@@ -85,13 +86,70 @@ export class HaDashboardPanel extends HTMLElement {
   connectedCallback(): void {
     if (this.getAttribute('fonts') !== 'off') ensureFonts();
     if (this.#mode() !== 'panel') void this.#start();
+    this.addEventListener('touchstart', this.#onTouchStart, { passive: true });
+    this.addEventListener('touchmove', this.#onTouchMove, { passive: false });
+    this.addEventListener('touchend', this.#onTouchEnd, { passive: true });
+    this.addEventListener('touchcancel', this.#onTouchEnd, { passive: true });
   }
 
   disconnectedCallback(): void {
+    this.removeEventListener('touchstart', this.#onTouchStart);
+    this.removeEventListener('touchmove', this.#onTouchMove);
+    this.removeEventListener('touchend', this.#onTouchEnd);
+    this.removeEventListener('touchcancel', this.#onTouchEnd);
     this.#root?.unmount();
     this.#root = null;
     this.#mountPoint = null;
   }
+
+  /*
+   * The HA companion app hosts this panel in a WKWebView. `.app` sets
+   * `overflow: hidden` so only `.scroll`/`.view`/`.sheet__panel` are meant to
+   * move, but once one of those hits its own scroll edge, the same drag can
+   * hand off to WKWebView's native page-level bounce instead of stopping —
+   * `overscroll-behavior: contain` doesn't reliably stop that hand-off in this
+   * host. That drags everything in normal flow (the status pill, the section
+   * head) out from under the fixed header. This is the standard fix: block
+   * the browser's default pan for a touch unless it started inside one of our
+   * own scrollers and that scroller still has room to move in that direction.
+   */
+  #onTouchStart = (event: TouchEvent): void => {
+    const touch = event.touches.length === 1 ? event.touches[0] : undefined;
+    this.#lastTouchY = touch?.clientY ?? null;
+  };
+
+  #onTouchMove = (event: TouchEvent): void => {
+    const touch = event.touches.length === 1 ? event.touches[0] : undefined;
+    if (!touch || this.#lastTouchY === null) return;
+    const y = touch.clientY;
+    const draggingDown = y > this.#lastTouchY;
+    this.#lastTouchY = y;
+
+    const scroller = event
+      .composedPath()
+      .find(
+        (node): node is HTMLElement =>
+          node instanceof HTMLElement &&
+          (node.classList.contains('scroll') ||
+            node.classList.contains('view') ||
+            node.classList.contains('sheet__panel')),
+      );
+
+    if (!scroller) {
+      event.preventDefault();
+      return;
+    }
+
+    const atTop = scroller.scrollTop <= 0;
+    const atBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 1;
+    if ((atTop && draggingDown) || (atBottom && !draggingDown)) {
+      event.preventDefault();
+    }
+  };
+
+  #onTouchEnd = (): void => {
+    this.#lastTouchY = null;
+  };
 
   #mode(): Mode {
     const attribute = this.getAttribute('mode');
