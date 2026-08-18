@@ -8,6 +8,22 @@ import type {
 } from './types';
 
 /**
+ * The account the mock is "logged in" as. `person.bart` carries this id in its
+ * `user_id` attribute, which is exactly how the real thing resolves who is
+ * holding the phone — see `currentPerson` in `ha/selectors.ts`.
+ */
+const MOCK_USER = { id: 'mock-user-bart', name: 'Bart', is_admin: true };
+
+/** Which armed state each arm service lands on, after the exit delay. */
+const ARMED_STATE: Record<string, string | undefined> = {
+  alarm_arm_home: 'armed_home',
+  alarm_arm_away: 'armed_away',
+  alarm_arm_night: 'armed_night',
+  alarm_arm_vacation: 'armed_vacation',
+  alarm_arm_custom_bypass: 'armed_custom_bypass',
+};
+
+/**
  * A stand-in Home Assistant, carrying the same mock state the design prototype
  * used. It implements `HaBackend` exactly like the live socket, so `npm run dev`
  * gives a working dashboard with no HA instance in reach — and every service call
@@ -354,13 +370,17 @@ function buildStates(globals: MockGlobals): HassEntities {
       friendly_name: 'Alarm',
       code_format: 'number',
       code_arm_required: false,
-      supported_features: 47,
+      // ARM_HOME | ARM_AWAY | ARM_NIGHT — the three the design's picker draws
+      // (`Weg`, `Nacht`, `Thuis`) plus `Uit`, which is always there.
+      supported_features: 1 | 2 | 4,
     }),
   );
-  // Two people, so the settings screen has a real choice and the pill has an
-  // "other" to show.
-  add(entity('person.bart', 'home', { friendly_name: 'Bart' }, 45));
+  // Three people, so "Wie volg je bovenaan" has a real choice and the two-chip
+  // cap is reachable. `user_id` on Bart is what makes him the logged-in
+  // account — see MOCK_USER and `currentPerson`.
+  add(entity('person.bart', 'home', { friendly_name: 'Bart', user_id: MOCK_USER.id }, 45));
   add(entity('person.leen', globals.person, { friendly_name: 'Leen' }, 60));
+  add(entity('person.nora', 'not_home', { friendly_name: 'Nora' }, 120));
 
   for (const quiet of QUIET) {
     add(entity(quiet.entityId, quiet.state, quiet.attributes, quiet.agoMin));
@@ -576,15 +596,18 @@ export function mockBackend(): HaBackend {
           else if (service === 'play_media')
             patch(id, 'playing', { media_title: String(data?.media_content_id ?? '') });
         } else if (domain === 'alarm_control_panel') {
-          const next =
-            service === 'alarm_disarm'
-              ? 'disarmed'
-              : service === 'alarm_arm_home'
-                ? 'armed_home'
-                : service === 'alarm_arm_away'
-                  ? 'armed_away'
-                  : states[id]?.state;
-          patch(id, next ?? 'disarmed');
+          // Arming runs through `arming` the way a real panel's exit delay
+          // does, so the chip's pulsing dot has something to pulse through.
+          const armed = ARMED_STATE[service];
+          if (armed) {
+            patch(id, 'arming');
+            setTimeout(() => {
+              patch(id, armed);
+              emit();
+            }, 4000);
+          } else if (service === 'alarm_disarm') {
+            patch(id, 'disarmed');
+          }
         }
       }
       emit();
@@ -592,6 +615,8 @@ export function mockBackend(): HaBackend {
     },
     async sendMessagePromise<T>(message: Record<string, unknown>): Promise<T> {
       switch (message.type) {
+        case 'auth/current_user':
+          return MOCK_USER as unknown as T;
         case 'config/area_registry/list':
           return registries.areas as unknown as T;
         case 'config/device_registry/list':

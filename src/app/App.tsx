@@ -5,7 +5,6 @@ import { StatusPills } from '../components/StatusPills';
 import { TabBar, type Tab } from '../components/TabBar';
 import { Toasts } from '../components/Toasts';
 import { TopLine } from '../components/TopLine';
-import { AlarmSheet } from '../components/sheets/AlarmSheet';
 import { OpeningsSheet } from '../components/sheets/OpeningsSheet';
 import { PresenceSheet } from '../components/sheets/PresenceSheet';
 import { RoomSheet } from '../components/sheets/RoomSheet';
@@ -20,21 +19,25 @@ import {
   alarmInfo,
   buildRooms,
   collectOpenings,
+  currentPerson,
   powerInfo,
-  presenceInfo,
+  trackedPeople,
   weatherInfo,
 } from '../ha/selectors';
 import { collectStale } from '../ha/stale';
 import { Icon } from '../ui/Icon';
 import { useScheme, useThemeAttribute } from '../ui/theme';
 
-/** Only one sheet is open at a time. */
+/**
+ * Only one sheet is open at a time. The alarm no longer has one: its chip in
+ * the header carries a picker instead, so arming is one tap rather than a sheet
+ * and a mode button.
+ */
 type SheetState =
   | { kind: 'room'; id: string }
   | { kind: 'openings' }
   | { kind: 'weather' }
-  | { kind: 'presence' }
-  | { kind: 'alarm' }
+  | { kind: 'person'; id: string }
   | null;
 
 /**
@@ -51,10 +54,22 @@ function useMinute(): number {
 }
 
 export function App() {
-  const { backend, entities, registries, areaEntities, config, status, toasts } = useHass();
+  const { backend, entities, registries, areaEntities, user, config, status, toasts } = useHass();
 
   const [sheet, setSheet] = useState<SheetState>(null);
   const [tab, setTab] = useState<Tab>('home');
+  /**
+   * The non-favourite fold. Session only, and owned here rather than in the
+   * grid so that switching tab and coming back does not silently re-collapse
+   * it — the design's "resets on load" means the load, not every visit.
+   */
+  const [showOther, setShowOther] = useState(false);
+  /**
+   * The alarm chip's state picker. It lives here rather than in the chip
+   * because the header stays mounted across every tab, and switching tab has
+   * to put a floating picker away.
+   */
+  const [alarmPickerOpen, setAlarmPickerOpen] = useState(false);
   const minute = useMinute();
 
   const rootRef = useRef<HTMLDivElement>(null);
@@ -77,7 +92,8 @@ export function App() {
   );
 
   const alarm = useMemo(() => alarmInfo(entities, config), [entities, config]);
-  const presence = useMemo(() => presenceInfo(entities, config), [entities, config]);
+  const me = useMemo(() => currentPerson(entities, user), [entities, user]);
+  const people = useMemo(() => trackedPeople(entities, config, me), [entities, config, me]);
   const weather = useMemo(() => weatherInfo(entities, config), [entities, config]);
   const power = useMemo(() => powerInfo(entities, config), [entities, config]);
   const persons = useMemo(() => personEntities(entities), [entities]);
@@ -85,10 +101,12 @@ export function App() {
 
   const closeSheet = useCallback(() => setSheet(null), []);
 
-  // Switching tab — or opening the gear — dismisses whatever sheet is open.
+  // Switching tab — or opening the gear — puts away whatever is floating over
+  // the screen: the open sheet, and the alarm chip's picker.
   const selectTab = useCallback((next: Tab) => {
     setTab(next);
     setSheet(null);
+    setAlarmPickerOpen(false);
   }, []);
 
   const openRoom = useCallback((id: string) => setSheet({ kind: 'room', id }), []);
@@ -119,15 +137,16 @@ export function App() {
         <TopLine
           weather={weather}
           forecast={forecast}
-          presence={presence}
+          alarm={alarm}
+          alarmPickerOpen={alarmPickerOpen}
+          onAlarmPickerChange={setAlarmPickerOpen}
+          people={people}
           onOpenWeather={() => setSheet({ kind: 'weather' })}
-          onOpenPresence={() => setSheet({ kind: 'presence' })}
+          onOpenPerson={(id) => setSheet({ kind: 'person', id })}
         />
 
         <StatusPills
-          alarm={alarm}
           openings={openings}
-          onOpenAlarm={() => setSheet({ kind: 'alarm' })}
           onOpenOpenings={() => setSheet({ kind: 'openings' })}
         />
 
@@ -146,7 +165,12 @@ export function App() {
             </div>
 
             <div className="scroll">
-              <RoomGrid rooms={rooms} onOpenRoom={openRoom} />
+              <RoomGrid
+                rooms={rooms}
+                showOther={showOther}
+                onToggleOther={() => setShowOther((open) => !open)}
+                onOpenRoom={openRoom}
+              />
             </div>
           </>
         ) : tab === 'energie' ? (
@@ -156,7 +180,7 @@ export function App() {
         ) : tab === 'auto' ? (
           <CarView />
         ) : (
-          <SettingsView rooms={rooms} persons={persons} />
+          <SettingsView rooms={rooms} persons={persons} me={me} />
         )}
       </div>
 
@@ -173,8 +197,9 @@ export function App() {
       {sheet?.kind === 'weather' && (
         <WeatherSheet weather={weather} forecast={forecast} onClose={closeSheet} />
       )}
-      {sheet?.kind === 'presence' && <PresenceSheet presence={presence} onClose={closeSheet} />}
-      {sheet?.kind === 'alarm' && <AlarmSheet alarm={alarm} onClose={closeSheet} />}
+      {sheet?.kind === 'person' && (
+        <PresenceSheet entityId={sheet.id} onClose={closeSheet} />
+      )}
     </div>
   );
 }

@@ -365,15 +365,15 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
       </div>
 
       {pickerOpen && (
-        <div className="modes" role="group" aria-label="Modus">
+        <div className="picker picker--climate" role="group" aria-label="Modus">
           {pickerModes(modes).map((value) => {
             const active = value === 'off' ? !on : value === modeId;
             return (
               <button
                 key={value}
                 type="button"
-                className={`modes__option modes__option--${hvacMode(value)}${
-                  active ? ' modes__option--on' : ''
+                className={`picker__option picker__option--${hvacMode(value)}${
+                  active ? ' picker__option--on' : ''
                 }`}
                 aria-pressed={active}
                 onClick={() => {

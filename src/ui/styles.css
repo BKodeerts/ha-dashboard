@@ -1,10 +1,10 @@
 /*
- * Design tokens and layout for the v3 home screen.
+ * Design tokens and layout for the v4 home screen.
  *
  * Loaded as a string and injected into the panel's shadow root, so nothing here
  * leaks into (or is overridden by) the Home Assistant frontend around it.
  * The light values are the handoff's, verbatim — see
- * design_handoff_ha_dashboard_v3/README.md. The dark set mirrors them role for
+ * design_handoff_ha_dashboard_v4/README.md. The dark set mirrors them role for
  * role, so no rule below knows which scheme it is painting.
  *
  * Surfaces and text can instead be taken from Home Assistant's own theme — see
@@ -20,7 +20,6 @@
   --sheet: var(--from-ha-sheet, #f6f4f0);
   --control: var(--from-ha-control, #eae7e0);
   --control-alt: var(--from-ha-control-alt, #e6e3dc);
-  --chip-off: var(--from-ha-chip-off, #e4e1da);
   --border: var(--from-ha-border, #e2dfd8);
   --divider: var(--from-ha-divider, #d8d4cc);
 
@@ -39,7 +38,9 @@
 
   /* accent — lights, and every "needs attention" state */
   --accent: oklch(0.72 0.13 60);
-  --accent-chip: oklch(0.72 0.13 60 / 0.5);
+  /* The lit bulb on a tile. A step darker than `--accent`, because it is a
+     bare glyph on the card rather than ink on an accent-coloured plate. */
+  --accent-glyph: oklch(0.58 0.14 60);
   --accent-fill: oklch(0.72 0.13 60 / 0.55);
   --accent-star: oklch(0.72 0.13 60 / 0.28);
   --warn-bg: oklch(0.72 0.13 60 / 0.22);
@@ -48,9 +49,10 @@
   /* hvac modes, at full chroma for the mode button and washed for the chips */
   --cool: oklch(0.68 0.13 250);
   --cool-bg: oklch(0.68 0.13 250 / 0.18);
-  /* A touch lighter than `--cool-bg`: the person chip is a standing state, not
-     an exception, and must not read as loud as the pills under it. */
-  --person-bg: oklch(0.68 0.13 250 / 0.16);
+  --cool-wash: oklch(0.68 0.13 250 / 0.12);
+  /* The selected row's edge in "Wie volg je bovenaan" — one step firmer than
+     its wash, so a checked row reads as a row and not as a tint. */
+  --cool-border: oklch(0.68 0.13 250 / 0.35);
   --cool-fg: oklch(0.42 0.12 250);
   --heat: oklch(0.68 0.13 35);
   --heat-bg: oklch(0.68 0.13 35 / 0.2);
@@ -72,7 +74,16 @@
   /* Floating surfaces, one step *above* the sheet rather than inside it. */
   --popover: var(--from-ha-popover, #fdfcfa);
   --glyph-off: var(--from-ha-glyph-off, #ded9d0);
-  --dot-away: var(--from-ha-dot-away, #b8b4ac);
+  /* An inactive state glyph on a tile: present, so the column does not jump,
+     and quiet, so it never competes with the reading beside it. */
+  --glyph-idle: var(--from-ha-glyph-idle, #b4afa5);
+
+  /* alarm — the chip's armed and night grounds, and the picker's active fills */
+  --alarm-armed: oklch(0.62 0.15 60);
+  --alarm-away-bg: oklch(0.72 0.13 60 / 0.5);
+  --alarm-arming-fg: oklch(0.42 0.1 60);
+  --alarm-night: oklch(0.52 0.13 250);
+  --alarm-disarmed: #6e6b64;
 
   --alert: oklch(0.62 0.16 40);
   --export: oklch(0.44 0.11 150);
@@ -107,6 +118,9 @@
   --bar-h: 64px;
   --bar-drop: 8px;
   --bar-space: calc(var(--bar-h) + var(--bar-drop) + env(safe-area-inset-bottom));
+  /* What every scroll area pads its bottom with, now that the bar is pinned
+     over them: the bar's own space plus a row's worth of clearance. */
+  --bar-clearance: calc(var(--bar-space) + 16px);
 
   /* motion */
   --ease-sheet: cubic-bezier(0.2, 0.9, 0.2, 1);
@@ -145,7 +159,6 @@
   --sheet: var(--from-ha-sheet, #1b1e24);
   --control: var(--from-ha-control, #23262d);
   --control-alt: var(--from-ha-control-alt, #2a2e36);
-  --chip-off: var(--from-ha-chip-off, #22252c);
   --border: var(--from-ha-border, #252931);
   --divider: var(--from-ha-divider, #2e323b);
 
@@ -161,10 +174,12 @@
      halves of each pair are lifted rather than darkened. */
   --warn-bg: oklch(0.72 0.13 60 / 0.2);
   --warn-fg: oklch(0.8 0.12 60);
+  --accent-glyph: oklch(0.8 0.12 60);
   --accent-star: oklch(0.72 0.13 60 / 0.26);
   --cool-bg: oklch(0.68 0.13 250 / 0.22);
+  --cool-wash: oklch(0.68 0.13 250 / 0.16);
+  --cool-border: oklch(0.68 0.13 250 / 0.4);
   --cool-fg: oklch(0.76 0.11 250);
-  --person-bg: oklch(0.68 0.13 250 / 0.2);
   --heat-bg: oklch(0.68 0.13 35 / 0.22);
   --heat-fg: oklch(0.78 0.12 35);
   --dry-bg: oklch(0.7 0.12 95 / 0.22);
@@ -177,9 +192,15 @@
   --dry-fill: oklch(0.7 0.12 95 / 0.5);
   --fan-fill: oklch(0.7 0.12 185 / 0.5);
 
+  /* On a dark ground the armed chip carries its own light ink instead of the
+     near-black `--on-accent`, and the washes lift the way the others do. */
+  --alarm-away-bg: oklch(0.72 0.13 60 / 0.42);
+  --alarm-arming-fg: oklch(0.82 0.11 60);
+  --alarm-disarmed: #57544e;
+
   --popover: var(--from-ha-popover, #23272f);
   --glyph-off: var(--from-ha-glyph-off, #31353d);
-  --dot-away: var(--from-ha-dot-away, #5b5f68);
+  --glyph-idle: var(--from-ha-glyph-idle, #5f5c56);
 
   --export: oklch(0.72 0.13 150);
   --import: oklch(0.7 0.12 250);
@@ -230,9 +251,8 @@
     --ha-color-fill-neutral-normal-hover,
     var(--secondary-background-color)
   );
-  --from-ha-chip-off: var(--secondary-background-color);
   --from-ha-glyph-off: var(--secondary-background-color);
-  --from-ha-dot-away: var(--disabled-text-color);
+  --from-ha-glyph-idle: var(--disabled-text-color);
   --from-ha-popover: var(--ha-card-background, var(--card-background-color));
   --from-ha-border: var(--divider-color);
   --from-ha-divider: var(--divider-color);
@@ -335,10 +355,10 @@ button {
 }
 
 /* ── top line ──────────────────────────────────────────────────────────────
-   Weather on the left, the other person on the right, on one row. v2 stacked
-   a centred weather block over three wrapping pills and spent ~210px before
-   the first room; this pair plus the pill row below costs ~110px, which is
-   what puts the room grid back above the fold.                            */
+   Weather, then the alarm chip and the people the user follows, on one row.
+   v2 stacked a centred weather block over three wrapping pills and spent
+   ~210px before the first room; this row plus the single pill below costs
+   ~110px, which is what puts the room grid back above the fold.           */
 
 .topline {
   flex: 0 0 auto;
@@ -348,15 +368,25 @@ button {
   padding: max(16px, calc(env(safe-area-inset-top) + 8px)) 18px 0 var(--gutter);
 }
 
-/* The whole left half is the tap target for the weather sheet. */
+/*
+ * The weather is the tap target for its sheet — and the block that does *not*
+ * give way. It is the reason the header was reshaped, so the range must never
+ * clip: the slack lives in `.topline__slack` below, and the chips are what
+ * shrink when the row runs out of room.
+ */
 .weather {
-  flex: 1;
-  min-width: 0;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 9px;
   color: var(--text-muted);
   text-align: left;
+}
+
+/* All of the row's give, in one place. */
+.topline__slack {
+  flex: 1 1 auto;
+  min-width: 8px;
 }
 
 .weather__temp {
@@ -370,20 +400,23 @@ button {
 /* Today's range only. The condition *word* lives in the weather sheet now —
    the icon beside the reading already carries it here. */
 .weather__meta {
+  flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   color: var(--text-3);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* ── person chip ───────────────────────────────────────────────────────────
-   Presence left the pill row for here: it is a standing fact, not an
-   exception, and holding it out of that row is what lets the two pills below
-   fit on one line at any label length.                                     */
+/* ── person chips ──────────────────────────────────────────────────────────
+   Presence left the pill row in v3 because it is a standing fact rather than
+   an exception. v4 makes it a *list*: the people the user chose to follow, at
+   most two — a third chip takes the space the weather range needs, which is
+   why the cap is a layout constraint and not a preference.
+
+   One chip keeps its name; two drop to glyph and dot, so both still fit
+   beside the alarm without touching the range.                             */
 
 .presence {
   flex: 0 0 auto;
@@ -391,18 +424,22 @@ button {
   align-items: center;
   gap: 7px;
   height: 36px;
-  padding: 0 12px 0 10px;
+  padding: 0 9px;
   border-radius: 18px;
   font-size: 13px;
   font-weight: 500;
   letter-spacing: -0.01em;
-  background: var(--control-alt);
-  color: var(--text-muted);
+  background: var(--control);
+  color: var(--text-2);
   white-space: nowrap;
 }
 
+.presence--named {
+  padding: 0 12px 0 10px;
+}
+
 .presence--home {
-  background: var(--person-bg);
+  background: var(--cool-bg);
   color: var(--cool-fg);
 }
 
@@ -410,12 +447,80 @@ button {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--dot-away);
+  background: var(--text-faint);
   flex: 0 0 auto;
 }
 
 .presence--home .presence__dot {
-  background: var(--cool);
+  background: var(--cool-fg);
+}
+
+/* ── alarm chip ────────────────────────────────────────────────────────────
+   Icon-only, beside the person chips. The glyph and a 6px dot carry all four
+   states; the word is gone from the header entirely.
+
+   Its wrapper is the positioning context for the picker, so the popover hangs
+   off the chip without anything in the header moving to make space.        */
+
+.alarm-chip {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.alarm-chip__face {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 18px;
+  background: var(--control);
+  color: var(--text-2);
+}
+
+.alarm-chip__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex: 0 0 auto;
+}
+
+/* Disarmed is the resting state and wears the resting colours above. */
+.alarm-chip__face--arming {
+  background: var(--warn-bg);
+  color: var(--alarm-arming-fg);
+}
+
+.alarm-chip__face--arming .alarm-chip__dot {
+  background: var(--alarm-armed);
+}
+
+.alarm-chip__face--away {
+  background: var(--alarm-away-bg);
+  color: var(--on-accent);
+}
+
+.alarm-chip__face--away .alarm-chip__dot {
+  background: var(--on-accent);
+}
+
+.alarm-chip__face--night {
+  background: var(--cool-bg);
+  color: var(--cool-fg);
+}
+
+.alarm-chip__face--night .alarm-chip__dot {
+  background: var(--cool-fg);
+}
+
+/*
+ * `arming` is a transition, not a destination: HA reports it while the exit
+ * delay runs and the chip leaves it when the panel reports the armed state.
+ * It is the only state on this screen that animates.
+ */
+.alarm-chip__dot--pulsing {
+  animation: pulseDot 1.05s ease-in-out infinite;
 }
 
 /* ── exception pills ───────────────────────────────────────────────────────
@@ -484,8 +589,8 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   color: var(--text-faint);
   transition: background 0.15s ease, color 0.15s ease;
@@ -504,7 +609,9 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--gutter) 16px;
+  /* The bar is pinned *over* this, so the bottom padding is what keeps the
+     last row reachable rather than merely visible. */
+  padding: 0 var(--gutter) var(--bar-clearance);
   -webkit-overflow-scrolling: touch;
 }
 
@@ -534,20 +641,27 @@ button {
   width: 5px;
 }
 
-/* The tap area opens the room card; the light chip inside it does not. */
+/* The tap area opens the room card; the glyph controls inside it do not. */
 .tile__body {
   flex: 1;
   display: flex;
-  flex-direction: column;
   align-items: flex-start;
-  gap: 4px;
-  padding: 13px 13px 11px 18px;
+  gap: 8px;
+  padding: 13px 11px 11px 18px;
   text-align: left;
   transition: background 0.15s ease;
 }
 
 .tile__body:hover {
   background: var(--control-alt);
+}
+
+.tile__names {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .tile__name {
@@ -579,80 +693,128 @@ button {
   color: var(--text-muted);
 }
 
-.tile__chips {
+/*
+ * The state glyphs, as of v4: a vertical stack against the tile's right edge
+ * rather than a row of plates under the reading. The negative margin lets the
+ * padded rows reach the tile's own edge, so right edges stay flush whether or
+ * not a glyph carries a note.
+ */
+.tile__glyphs {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+  margin: -6px -6px 0 0;
+}
+
+/*
+ * No plate. Colour alone carries state, which keeps the column quiet beside
+ * the 24px reading — a stack of filled squares next to it read as the loudest
+ * thing on the tile, which is exactly backwards.
+ *
+ * The padding is the hit area and is not optional: a bare 16px glyph inside a
+ * tile body that is itself a tap target turns every near-miss into an opened
+ * room card. Read-only glyphs keep it too (minus the left half, which has the
+ * note in it) so the column's rows line up.
+ */
+.glyph {
   display: flex;
   align-items: center;
   gap: 5px;
-  margin-top: 2px;
-}
-
-/* chips — rendered in a fixed slot whether or not the device is active, so
-   nothing shifts sideways as the house changes. One size for the whole row,
-   controls included, so it reads as a line of icons rather than a mix. */
-
-.chip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  height: 26px;
-  min-width: 26px;
-  padding: 0 6px;
-  border-radius: 8px;
+  padding: 8px 8px 8px 4px;
   user-select: none;
-  background: var(--chip-off);
-  color: var(--text-dim);
+  color: var(--glyph-idle);
 }
 
-.chip__note {
+.glyph--control {
+  padding: 8px;
+}
+
+/* The value beside a glyph — only the AC has one. It sits to the *left*, so
+   the glyphs themselves stay in one column. */
+.glyph__note {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.02em;
+  color: var(--text-faint);
 }
 
-/* Tones are shared between the controls and the read-only chips — an AC
-   that is cooling looks the same either way.
-
-   The light chip wears the accent while the room's lights are on; off, it
-   falls back to the shared inactive treatment.                            */
-.chip--light {
-  background: var(--accent-chip);
-  color: var(--on-accent);
+/* Active: the note darkens with the glyph it belongs to. */
+.glyph--light .glyph__note,
+.glyph--warn .glyph__note,
+.glyph--cool .glyph__note,
+.glyph--heat .glyph__note,
+.glyph--dry .glyph__note,
+.glyph--fan_only .glyph__note {
+  color: var(--text-3);
 }
 
-.chip--warn {
-  background: var(--warn-bg);
+.glyph--light {
+  color: var(--accent-glyph);
+}
+
+.glyph--warn {
   color: var(--warn-fg);
 }
 
-.chip--cool {
-  background: var(--cool-bg);
+.glyph--cool {
   color: var(--cool-fg);
 }
 
-.chip--heat {
-  background: var(--heat-bg);
+.glyph--heat {
   color: var(--heat-fg);
 }
 
-.chip--dry {
-  background: var(--dry-bg);
+.glyph--dry {
   color: var(--dry-fg);
 }
 
-.chip--fan_only {
-  background: var(--fan-bg);
+.glyph--fan_only {
   color: var(--fan-fg);
 }
 
+/* ── the non-favourite fold ────────────────────────────────────────────────
+   Favourites are the grid; the rest are one tap below. Collapsed on every
+   load — the fold is a display filter, not a stored preference.           */
+
+.disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border-radius: 14px;
+  background: var(--control);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  transition: background 0.15s ease;
+}
+
+.disclosure:hover {
+  background: var(--border);
+}
+
 /* ── tab bar ───────────────────────────────────────────────────────────────
+   **Absolutely pinned**, not part of the column flow: v4 makes it something a
+   long room grid cannot scroll away, no matter how long the content is. Every
+   scroll area pads its bottom by `--bar-space` plus a row's clearance so its
+   last row still clears the bar.
+
    z-index 2 puts it above the sheet scrim: the bar is always visible and
    always tappable, which is the whole point of v2's sheet geometry.        */
 
 .tabbar {
-  position: relative;
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 2;
-  flex: 0 0 auto;
   padding: 0 16px calc(var(--bar-drop) + env(safe-area-inset-bottom));
 }
 
@@ -1084,21 +1246,24 @@ button {
   flex: 0 0 auto;
 }
 
-/* ── mode picker ───────────────────────────────────────────────────────────
-   Floating, and deliberately not a cycle: every mode change on this system is
-   a cloud round trip to the unit, so the control that changes it sends
-   exactly one command per pick.                                            */
+/* ── floating pickers ──────────────────────────────────────────────────────
+   Two of them, on the same pattern: the climate row's mode picker and the
+   alarm chip's state picker. Both float, so nothing around them moves to make
+   room, and both are deliberately not cycles — every pick is a command a
+   cloud AC or an alarm panel has to acknowledge, so the control sends exactly
+   one per tap.
 
-.modes {
+   `inline-flex` so the width follows the options; `flex-wrap` and the
+   `max-width` are the guard for a panel that advertises more arm modes than
+   the design drew, which would otherwise run off the screen edge.        */
+
+.picker {
   position: absolute;
-  left: 0;
-  bottom: 62px;
   z-index: 3;
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 2px;
-  max-width: 100%;
   padding: 5px;
   border-radius: 24px;
   background: var(--popover);
@@ -1108,7 +1273,32 @@ button {
   animation: fadeIn 0.14s ease;
 }
 
-.modes__option {
+/* Above the climate row, whose wrapper is the positioning context. */
+.picker--climate {
+  left: 0;
+  bottom: 62px;
+  max-width: 100%;
+}
+
+/*
+ * Below the alarm chip — it sits at the very top of the screen, so there is
+ * nothing above it to hang into. Right-aligned, so it grows inwards.
+ *
+ * `width: max-content` is load-bearing: its containing block is the 36px chip
+ * wrapper, and an absolutely positioned box with `right: 0` and an auto width
+ * is shrink-to-fit *against that*, which folds the options into a column one
+ * per line. Sizing to content instead lets it overflow the chip leftwards, the
+ * way it is drawn.
+ */
+.picker--alarm {
+  right: 0;
+  top: 44px;
+  z-index: 4;
+  width: max-content;
+  max-width: calc(100vw - 2 * var(--gutter));
+}
+
+.picker__option {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1124,34 +1314,79 @@ button {
   color: var(--text-2);
 }
 
-.modes__option--on {
+.picker__option--on {
   background: var(--accent);
   color: var(--on-accent);
 }
 
-.modes__option--on.modes__option--cool {
+.picker__option--on.picker__option--cool {
   background: var(--cool);
   color: #fff;
 }
 
-.modes__option--on.modes__option--heat {
+.picker__option--on.picker__option--heat {
   background: var(--heat);
   color: #fff;
 }
 
-.modes__option--on.modes__option--dry {
+.picker__option--on.picker__option--dry {
   background: var(--dry);
   color: #fff;
 }
 
-.modes__option--on.modes__option--fan_only {
+.picker__option--on.picker__option--fan_only {
   background: var(--fan);
   color: #fff;
 }
 
-.modes__option--on.modes__option--off {
+.picker__option--on.picker__option--off {
   background: var(--text-3);
   color: var(--page);
+}
+
+/* the alarm picker's three tones */
+.picker__option--on.picker__option--away {
+  background: var(--alarm-armed);
+  color: #fff;
+}
+
+.picker__option--on.picker__option--night {
+  background: var(--alarm-night);
+  color: #fff;
+}
+
+.picker__option--on.picker__option--disarmed {
+  background: var(--alarm-disarmed);
+  color: #fff;
+}
+
+.picker__option:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/*
+ * A panel that wants a code gets asked for one here rather than being sent a
+ * call it is certain to reject. The picker's options give way to the field,
+ * so the popover neither grows nor moves.
+ */
+.picker__code {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.picker__code input {
+  width: 108px;
+  height: 38px;
+  padding: 0 13px;
+  border-radius: 19px;
+  border: 1px solid var(--border);
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  letter-spacing: 0.16em;
 }
 
 /* ── media row ─────────────────────────────────────────────────────────── */
@@ -1372,14 +1607,17 @@ button {
   color: var(--text-3);
 }
 
-/* ── alarm sheet ───────────────────────────────────────────────────────── */
+/* ── segmented control ─────────────────────────────────────────────────────
+   The Thema and Kleuren pickers in settings. It was the alarm sheet's mode
+   row until v4 moved arming onto the header chip's picker; the shape outlived
+   the sheet, so it kept it under a name that says what it is.             */
 
-.alarm__modes {
+.segmented {
   display: flex;
   gap: 7px;
 }
 
-.alarm__mode {
+.segmented__option {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1398,37 +1636,9 @@ button {
   transition: background 0.15s ease, color 0.15s ease;
 }
 
-.alarm__mode--current {
+.segmented__option--on {
   background: var(--accent);
   color: var(--on-accent);
-}
-
-.alarm__mode:disabled {
-  cursor: default;
-}
-
-.alarm__code {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 12px 14px;
-}
-
-.alarm__code input {
-  flex: 1;
-  min-width: 0;
-  height: 40px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  background: var(--control);
-  color: var(--text);
-  font-family: var(--font-mono);
-  font-size: 15px;
-  letter-spacing: 0.3em;
 }
 
 /* ── embedded Lovelace ─────────────────────────────────────────────────── */
@@ -1454,7 +1664,9 @@ button {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px var(--gutter) 16px;
+  /* Same clearance as `.scroll` — the pinned bar covers every tab, not just
+     the home screen's grid. */
+  padding: 20px var(--gutter) var(--bar-clearance);
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -1689,6 +1901,143 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+/*
+ * "Wie ben jij" — a read-only row, not a setting. A household of five people
+ * has five Home Assistant accounts, and asking each of them to pick themselves
+ * out of a list is a setting that can be wrong; `hass.user` matched to a
+ * `person`'s `user_id` cannot.
+ */
+.me {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 0 16px;
+  border-radius: 18px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.me__icon {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.me__names {
+  flex: 1;
+  min-width: 0;
+}
+
+.me__name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.me__id {
+  margin-top: 2px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.me__badge {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border-radius: 7px;
+  background: var(--control);
+  color: var(--text-dim);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── who you follow ────────────────────────────────────────────────────────
+   The people whose chips sit at the top right, at most two. At the cap a
+   further tap does nothing and the note underneath says why — evicting one of
+   the two silently would be guessing which.                                */
+
+.track {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.track__row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: 0 14px;
+  border-radius: 16px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  text-align: left;
+}
+
+.track__row--on {
+  /* A lighter wash than the header chip's: this is a checked row in a list,
+     not a state to read across the room. */
+  background: var(--cool-wash);
+  border-color: var(--cool-border);
+}
+
+.track__box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  border-radius: 6px;
+  border: 1.5px solid var(--divider);
+  color: transparent;
+}
+
+.track__row--on .track__box {
+  background: var(--cool-fg);
+  border-color: var(--cool-fg);
+  color: var(--page);
+}
+
+.track__names {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.track__name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.track__id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track__state {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
 }
 
 .persons {
@@ -1967,6 +2316,19 @@ button {
   }
   to {
     transform: translateY(0);
+  }
+}
+
+/* The arming dot, and nothing else on this screen. */
+@keyframes pulseDot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(0.65);
   }
 }
 

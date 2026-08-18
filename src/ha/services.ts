@@ -151,12 +151,29 @@ export function mediaPlayPreset(entityId: string, preset: MediaPreset): ServiceC
   };
 }
 
-export type AlarmAction = 'disarm' | 'arm_home' | 'arm_away';
+export type AlarmAction =
+  | 'disarm'
+  | 'arm_home'
+  | 'arm_away'
+  | 'arm_night'
+  | 'arm_vacation'
+  | 'arm_custom_bypass';
 
+/**
+ * What the panel is expected to report next. Never the armed state itself: HA
+ * runs an exit delay and reports `arming` through it, so painting `armed_away`
+ * optimistically would show the house as secured while the door is still open.
+ * The chip shows `arming` until the panel says otherwise — and if the panel
+ * rejects the call (wrong code, open zone), the overlay is dropped and the
+ * previous state comes back with a toast.
+ */
 const ALARM_PENDING: Record<AlarmAction, string> = {
   disarm: 'disarmed',
   arm_home: 'arming',
   arm_away: 'arming',
+  arm_night: 'arming',
+  arm_vacation: 'arming',
+  arm_custom_bypass: 'arming',
 };
 
 export function alarmCommand(entityId: string, action: AlarmAction, code?: string): ServiceCall {
