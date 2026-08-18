@@ -60,6 +60,16 @@
   --import: oklch(0.42 0.12 250);
   --scrim: rgba(17, 19, 24, 0.28);
 
+  /* The tab bar reads inverted, the way the original dashboard's did: its
+     ground is the page's ink and its own ink is the page, so it stays a solid
+     block against whatever is behind it. Its tones are the *other* scheme's —
+     they have to carry on that flipped ground, not on the page. */
+  --bar-bg: var(--text);
+  --bar-ink: var(--page);
+  --bar-export: oklch(0.72 0.13 150);
+  --bar-import: oklch(0.7 0.12 250);
+  --bar-warn: oklch(0.8 0.12 60);
+
   /* type */
   --font-ui: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
@@ -132,6 +142,11 @@
   --export: oklch(0.72 0.13 150);
   --import: oklch(0.7 0.12 250);
   --scrim: rgba(6, 7, 10, 0.5);
+
+  /* Bar ground is light here, so its tones are the light scheme's. */
+  --bar-export: oklch(0.44 0.11 150);
+  --bar-import: oklch(0.42 0.12 250);
+  --bar-warn: oklch(0.45 0.11 60);
 
   color-scheme: dark;
 }
@@ -560,8 +575,8 @@ button {
   height: 64px;
   padding: 0 6px;
   border-radius: 22px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: var(--bar-bg);
+  border: 1px solid var(--bar-bg);
 }
 
 .tabbar__item {
@@ -573,25 +588,40 @@ button {
   height: 52px;
   border-radius: 16px;
   background: transparent;
-  color: var(--text-faint);
+  /* Full ink where color-mix is missing: a shade too loud beats invisible. */
+  color: var(--bar-ink);
+  color: color-mix(in oklab, var(--bar-ink) 62%, var(--bar-bg));
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .tabbar__item--active {
-  background: var(--control-alt);
-  color: var(--text);
+  background: var(--bar-ink);
+  color: var(--bar-bg);
 }
 
-/* Energie and Netwerk say something about the house regardless of selection. */
+/* Energie and Netwerk say something about the house regardless of selection.
+   The active pill's ground is the page's, so those tones flip back with it. */
 .tabbar__item--export {
-  color: var(--export);
+  color: var(--bar-export);
 }
 
 .tabbar__item--import {
-  color: var(--import);
+  color: var(--bar-import);
 }
 
 .tabbar__item--stale {
+  color: var(--bar-warn);
+}
+
+.tabbar__item--active.tabbar__item--export {
+  color: var(--export);
+}
+
+.tabbar__item--active.tabbar__item--import {
+  color: var(--import);
+}
+
+.tabbar__item--active.tabbar__item--stale {
   color: var(--warn-fg);
 }
 
@@ -603,11 +633,11 @@ button {
   height: 9px;
   border-radius: 50%;
   background: var(--alert);
-  border: 2px solid var(--card);
+  border: 2px solid var(--bar-bg);
 }
 
 .tabbar__item--active .tabbar__dot {
-  border-color: var(--control-alt);
+  border-color: var(--bar-ink);
 }
 
 /* ── sheets ────────────────────────────────────────────────────────────────
