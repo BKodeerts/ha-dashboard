@@ -1,10 +1,7 @@
-import { useState } from 'react';
 import { useHass } from '../../ha/HassProvider';
 import { formatNumber, type PowerInfo } from '../../ha/selectors';
 import { Icon } from '../../ui/Icon';
 import { useLongPress } from '../../ui/useLongPress';
-import { LovelaceCard } from '../LovelaceCard';
-import { Sheet, SheetClose } from '../Sheet';
 
 const clampBar = (value: number | undefined, scale: number): string =>
   value === undefined ? '0%' : `${Math.max(0, Math.min(100, (value / scale) * 100))}%`;
@@ -29,17 +26,10 @@ function LoadRow({ load }: { load: PowerInfo['loads'][number] }) {
  * Stroom, v5 ("Adem"). The header (date, weather, section label) is shared
  * with the home tab and rendered above this; the section label reads "Nu"
  * here rather than "Kamers".
- *
- * The embedded Lovelace energy dashboard — the one place in this app
- * Lovelace cards belong — moved behind the footer link instead of sitting
- * inline: a grid of HA's own cards is exactly the kind of unbounded content
- * this revision keeps out of the screen that is meant to fit without
- * scrolling.
  */
 export function EnergyView({ power }: { power: PowerInfo }) {
   const { config } = useHass();
   const scale = config.power.scale > 0 ? config.power.scale : 2000;
-  const [dashboardOpen, setDashboardOpen] = useState(false);
 
   const net =
     power.net === undefined
@@ -47,8 +37,6 @@ export function EnergyView({ power }: { power: PowerInfo }) {
       : power.net >= 0
         ? `${formatNumber(power.net)} W naar het net`
         : `${formatNumber(power.net)} W van het net`;
-
-  const cards = config.lovelace.energy ?? [];
 
   const solarLongPress = useLongPress({ entityId: config.power.solar });
   const consumptionLongPress = useLongPress({ entityId: config.power.consumption });
@@ -116,43 +104,6 @@ export function EnergyView({ power }: { power: PowerInfo }) {
             <LoadRow key={load.entityId} load={load} />
           ))}
         </div>
-      )}
-
-      <button
-        type="button"
-        className="energy__footer-link mono"
-        onClick={() => setDashboardOpen(true)}
-      >
-        Volledig energiedashboard
-        <Icon name="chevronRight" size={14} />
-      </button>
-
-      {dashboardOpen && (
-        <Sheet onClose={() => setDashboardOpen(false)} labelledBy="energy-sheet-title">
-          <div className="sheet__head">
-            <div className="sheet__tile">
-              <Icon name="solar" size={18} />
-            </div>
-            <div className="sheet__titles">
-              <div className="sheet__title" id="energy-sheet-title">
-                Energiedashboard
-              </div>
-            </div>
-            <SheetClose onClose={() => setDashboardOpen(false)} />
-          </div>
-
-          {cards.length > 0 ? (
-            cards.map((card, index) => (
-              <LovelaceCard key={index} config={card} fallback={`lovelace · ${card.type}`} />
-            ))
-          ) : (
-            <div className="lovelace lovelace--empty">
-              <div className="sheet__footnote">
-                Stel lovelace.energy in om het energy-dashboard hier te tonen
-              </div>
-            </div>
-          )}
-        </Sheet>
       )}
     </div>
   );

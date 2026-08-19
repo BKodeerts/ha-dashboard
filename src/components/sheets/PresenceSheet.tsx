@@ -18,13 +18,20 @@ export function PresenceSheet({
   entityId: string;
   onClose(): void;
 }) {
-  const { entities, config } = useHass();
+  const { entities } = useHass();
   const state = entities[entityId];
   const home = state?.state === 'home';
   const since = state ? formatTime(new Date(state.last_changed)) : undefined;
 
-  const mapConfig =
-    config.lovelace.map ?? { type: 'map', entities: [entityId], hours_to_show: 12, dark_mode: true };
+  // No history trail — just where they are right now. `dark_mode` is left
+  // unset deliberately: HA's map card is always the same CartoDB "Voyager"
+  // raster tiles (light beige/green, with terrain shading), forced dark or
+  // not — `dark_mode: true` was applying an `invert() hue-rotate()` CSS
+  // filter over those tiles, which turned the shaded relief into the
+  // blotchy, high-contrast mess that reads as "satellite" at a glance. HA's
+  // own more-info dialog leaves this on `theme_mode: auto`, which is exactly
+  // what omitting it here does too.
+  const mapConfig = { type: 'map', entities: [entityId], hours_to_show: 0 };
 
   return (
     <Sheet onClose={onClose} labelledBy="presence-sheet-title">

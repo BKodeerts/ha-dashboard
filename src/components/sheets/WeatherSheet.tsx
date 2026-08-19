@@ -1,4 +1,3 @@
-import { useHass } from '../../ha/HassProvider';
 import {
   formatNumber,
   formatPlain,
@@ -9,7 +8,6 @@ import {
 import type { ForecastDay } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
 import { WEATHER_LABELS, weatherIcon } from '../../ui/icons';
-import { LovelaceCard } from '../LovelaceCard';
 import { Sheet, SheetClose } from '../Sheet';
 
 const dayCode = (datetime: string): string => {
@@ -27,7 +25,6 @@ export function WeatherSheet({
   forecast: ForecastDay[];
   onClose(): void;
 }) {
-  const { config } = useHass();
   const today = forecast[0];
 
   const line1 = [
@@ -51,12 +48,6 @@ export function WeatherSheet({
   ]
     .filter(Boolean)
     .join(' · ');
-
-  const forecastConfig =
-    config.lovelace.forecast ??
-    (weather.entityId
-      ? { type: 'weather-forecast', entity: weather.entityId, forecast_type: 'daily' }
-      : undefined);
 
   return (
     <Sheet onClose={onClose} labelledBy="weather-sheet-title">
@@ -96,11 +87,6 @@ export function WeatherSheet({
           ))}
         </div>
       )}
-
-      <LovelaceCard
-        config={forecastConfig}
-        fallback={`${weather.entityId ?? 'weather'} · lovelace forecast-kaart hier`}
-      />
     </Sheet>
   );
 }

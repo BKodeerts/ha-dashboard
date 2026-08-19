@@ -327,12 +327,29 @@
   min-height: 100dvh;
   max-height: 100vh;
   max-height: 100dvh;
+
+  /*
+   * Long-press is a gesture now (more-info), not a selection start — without
+   * this, holding down a glyph or a row to trigger it also fires the
+   * browser's own text-selection (and, on iOS, its copy/lookup callout) on
+   * top. `input` gets it back below: the alarm code field is the one place a
+   * press-and-hold has always meant "place the cursor here".
+   */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+input {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 
 button {
@@ -1914,18 +1931,6 @@ button {
   font-size: 14px;
   color: var(--text-body);
   flex: 0 0 auto;
-}
-
-.energy__footer-link {
-  align-self: flex-start;
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-faint);
 }
 
 /* ── Netwerk ───────────────────────────────────────────────────────────── */
