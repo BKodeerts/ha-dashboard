@@ -161,15 +161,18 @@
   /*
    * `height: 100%` against an indefinite parent collapses to the content
    * height, which is what left the tab bar floating wherever the room grid
-   * happened to end. A `panel_custom` panel and a Lovelace card both resolve
-   * against something real (the panel router, or the card's own box) and stop
-   * here; standalone and mock have no parent to resolve against at all, so
-   * they additionally pin to the viewport below — `dvh` there so a shrinking
-   * mobile address bar does not clip the bottom off.
+   * happened to end — a Lovelace panel-mode view stretches the card visually
+   * but does not necessarily give it a *resolvable* CSS height, so this can
+   * still happen for the card path, not just standalone/mock. `max-height`
+   * below is the guaranteed ceiling for all of them; `height: 100%` here is
+   * what lets a container that genuinely is smaller (a card-editor preview)
+   * win over that ceiling instead of being forced up to it.
    */
   display: flex;
   flex-direction: column;
   height: 100%;
+  max-height: 100vh;
+  max-height: 100dvh;
   background: var(--page);
   color: var(--text);
   font-family: var(--font-ui);
@@ -177,9 +180,12 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-/* The two modes `element.tsx` sets `mode` on the host for, and the only ones
-   with no real container to size against — everything else (a `panel_custom`
-   panel, or a Lovelace card) takes the plain `height: 100%` above instead. */
+/* Standalone and mock have no container to size against at all — `height: 100%`
+   above resolves to nothing, so they need a floor as well as the ceiling. A
+   `panel_custom` panel or a Lovelace card always has *something* real, even if
+   it's only the viewport by default, so a floor would just force them to full
+   height inside a container that's legitimately smaller (a card-editor
+   preview) — the ceiling above is all they get. */
 :host([mode='standalone']),
 :host([mode='mock']) {
   min-height: 100vh;
@@ -326,15 +332,19 @@
   /*
    * A *definite* height, not just a minimum, so the column doesn't grow with
    * the room grid, `.scroll` has something to scroll inside, and the tab bar
-   * can't be pushed off the bottom. `height: 100%` takes whatever the host is
-   * given — a `panel_custom` panel and a Lovelace card both get a real height
-   * from their container (the panel router, or the card's own box, however
-   * small — a card-editor preview included), and must stay inside it rather
-   * than blow out to the viewport. Standalone and mock have no such container,
-   * so the viewport is the only right answer there — see the mode-scoped rule
-   * below.
+   * can't be pushed off the bottom. `height: 100%` takes whatever `:host` is —
+   * `:host`'s own `max-height: 100dvh` should already make that definite, but
+   * this repeats the cap rather than trusting it: `:host`'s rules are only a
+   * *suggestion* the outer document can overrule (see the note above), this
+   * one is inside the shadow root where nothing outside can reach it. The
+   * min-height floor stays mode-scoped below — a real container (a
+   * `panel_custom` panel or a Lovelace card) might legitimately be smaller
+   * than the viewport (a card-editor preview), and only standalone/mock have
+   * no container at all to fall back from.
    */
   height: 100%;
+  max-height: 100vh;
+  max-height: 100dvh;
 
   /*
    * Long-press is a gesture now (more-info), not a selection start — without
@@ -349,14 +359,12 @@
 }
 
 /* `element.tsx` sets `mode` on the host for these two only — everything else
-   (a real `panel_custom` panel, or a Lovelace card) leaves it unset and takes
-   `.root`'s plain `height: 100%` above. */
+   (a real `panel_custom` panel, or a Lovelace card) leaves it unset and relies
+   on `.root`'s own `max-height` above with no floor. */
 :host([mode='standalone']) .root,
 :host([mode='mock']) .root {
   min-height: 100vh;
   min-height: 100dvh;
-  max-height: 100vh;
-  max-height: 100dvh;
 }
 
 *,
