@@ -192,10 +192,20 @@ views:
         favouriteAreas: [living, bureau, slaapkamer, clara, oliver]
 ```
 
-The card needs the same resource the panel does — add it once under Settings → Dashboards →
-Resources (`/hacsfiles/ha-dashboard/ha-dashboard-panel.js` for HACS, `/local/ha-dashboard-panel.js`
-for a manual copy), type **JavaScript Module**. `favouriteAreas` and the rest of the `config:` keys
-from the `panel_custom` snippet work the same way here, read straight off the card's own YAML.
+The card needs the same JS the panel does, registered as a Lovelace **resource**:
+
+- **Installed via HACS** (method 1): nothing to do. HACS registers this repo's file under Settings →
+  Dashboards → Resources on its own — since it's a "Dashboard" (HACS's current name for what used
+  to be "Plugin") repository, not because of the `panel_custom` entry — and appends its own
+  `?hacstag=…` to the URL, bumping it on every update. Check Settings → Dashboards → Resources; the
+  entry is very likely already there from installing the panel.
+- **Manual copy** (method 2): add it yourself, Settings → Dashboards → Resources → type **JavaScript
+  Module**, URL `/local/ha-dashboard-panel.js?v=1`. `/local/` is cached aggressively and, unlike
+  `/hacsfiles/`, HA does not version it for you — bump `?v=` yourself on every redeploy, same as the
+  `module_url` note for the `panel_custom` snippet above.
+
+`favouriteAreas` and the rest of the `config:` keys from the `panel_custom` snippet work the same way
+here, read straight off the card's own YAML.
 
 This dashboard now shows up in the **Default dashboard** picker. The one thing it does not fix on
 its own: Lovelace always draws its own header (title bar, sidebar toggle) above the view, stacked on
