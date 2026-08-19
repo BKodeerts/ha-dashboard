@@ -25,7 +25,7 @@ const TREND_H = 44;
 const HOUR_LABELS = ['00u', '06u', '12u', '18u', '24u'];
 
 /**
- * Refetches every entity's today-so-far hourly buckets, at `fetchDayBuckets`'
+ * Refetches every entity's today-so-far day-bucket series, at `fetchDayBuckets`'
  * own five-minute cache cadence — a mount never asks twice for the same hour.
  * Keyed by the joined id list rather than the array itself, which is a fresh
  * identity on every render.

@@ -117,17 +117,22 @@ function startOfDay(at: number): Date {
 }
 
 /**
- * Today's reading for `entityId`, averaged into one bucket per hour
- * (`buckets[0]` is 00:00–01:00). Hours with no sample yet come back
- * `undefined` rather than `0` — the rest of today hasn't happened, and a
- * chart reading this should stop its line there instead of drawing a flat
- * guess for the future. Cached five minutes, keyed by the calendar day so
- * the cache turns over at midnight instead of serving yesterday's shape.
+ * Today's reading for `entityId`, averaged into `buckets` even slices across
+ * the day (`buckets[0]` is 00:00–00:15 at the default). 96 rather than one
+ * per hour: a power sensor logging roughly a point a minute has real
+ * curvature within an hour — sunrise/sunset ramps, a midday cloud — that an
+ * hourly mean flattens into a straight line, drawing a chart that looks
+ * artificially jagged connecting only 24 points across a whole day. Slices
+ * with no sample yet come back `undefined` rather than `0` — the rest of
+ * today hasn't happened, and a chart reading this should stop its line there
+ * instead of drawing a flat guess for the future. Cached five minutes, keyed
+ * by the calendar day so the cache turns over at midnight instead of serving
+ * yesterday's shape.
  */
 export async function fetchDayBuckets(
   backend: HaBackend,
   entityId: string,
-  buckets = 24,
+  buckets = 96,
 ): Promise<(number | undefined)[]> {
   const now = Date.now();
   const dayStart = startOfDay(now);

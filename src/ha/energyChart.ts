@@ -1,7 +1,7 @@
 /**
  * Geometry for the Energie tab's charts. Pure functions, no React — the
  * "today" chart (solar + consumption sharing one 00u–24u axis) and the
- * device-trend small multiples both draw from `fetchDayBuckets`' hourly
+ * device-trend small multiples both draw from `fetchDayBuckets`' day-sliced
  * arrays, so both go through `bucketPath` rather than the room card's
  * `sparklinePoints`, which assumes a dense series with no gaps and no shared
  * time axis.
@@ -35,10 +35,10 @@ export interface BucketPath {
 }
 
 /**
- * Maps an hourly bucket series (see `fetchDayBuckets`) onto an SVG path, 0 at
+ * Maps a day-bucket series (see `fetchDayBuckets`) onto an SVG path, 0 at
  * `height - pad` and `max` at `pad`. Consecutive defined buckets draw a
- * segment; a gap — most often the hours still ahead of "now" — lifts the pen
- * rather than interpolating a value nobody has read yet.
+ * segment; a gap — most often the slices still ahead of "now" — lifts the
+ * pen rather than interpolating a value nobody has read yet.
  */
 export function bucketPath(
   values: (number | undefined)[],
@@ -80,9 +80,9 @@ export function bucketPath(
 /**
  * A day's consumption buckets, for a household with no whole-home sensor of
  * its own — the same `consumption = solar - net` physics `powerInfo()` uses
- * for the live "huis" reading, applied per hour instead of once. `net` here
+ * for the live "huis" reading, applied per slice instead of once. `net` here
  * is a grid sensor's history (positive = import), so `solar - net = solar +
- * grid`. Only defined where both series have a reading for that hour.
+ * grid`. Only defined where both series have a reading for that slice.
  */
 export function deriveConsumptionSeries(
   solar: (number | undefined)[],
@@ -99,8 +99,8 @@ export function deriveConsumptionSeries(
 }
 
 /** Today's self-consumption ratio (0–1): solar used directly, over total
-    consumption — `min(solar, consumption)` summed across the hours both have
-    a reading. Undefined until at least one hour has both. No battery in this
+    consumption — `min(solar, consumption)` summed across the slices both
+    have a reading. Undefined until at least one does. No battery in this
     household, so nothing solar produces is stored for later — it is either
     used as it's made or exported, which is exactly what `min` captures. */
 export function selfConsumptionRatio(
