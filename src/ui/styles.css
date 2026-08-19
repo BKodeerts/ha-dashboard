@@ -805,11 +805,6 @@ button {
   justify-content: space-between;
   padding: 20px 18px;
   text-align: left;
-  transition: background 0.15s ease;
-}
-
-.tile__body:hover {
-  background: var(--control-alt);
 }
 
 .tile__name {
@@ -2892,7 +2887,6 @@ button {
   }
 
   .lamp__fill,
-  .tile__body,
   .tabbar__item,
   .more__row,
   .more__chevron,
