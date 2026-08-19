@@ -183,6 +183,12 @@ lovelace:
 ```yaml
 # dashboards/home-dashboard.yaml
 title: Home
+# Requires the kiosk-mode custom card as its own registered Lovelace resource
+# (a one-time setup, same as the panel's own resource above) — this block just
+# turns it on for this dashboard specifically, unindented at the file's root,
+# so every other dashboard keeps HA's normal header.
+kiosk_mode:
+  hide_header: true
 views:
   - title: Home
     path: home
@@ -207,11 +213,12 @@ The card needs the same JS the panel does, registered as a Lovelace **resource**
 `favouriteAreas` and the rest of the `config:` keys from the `panel_custom` snippet work the same way
 here, read straight off the card's own YAML.
 
-This dashboard now shows up in the **Default dashboard** picker. The one thing it does not fix on
-its own: Lovelace always draws its own header (title bar, sidebar toggle) above the view, stacked on
-top of this app's own header and tab bar. Hide it with
-[`kiosk-mode`](https://github.com/NemesisRE/kiosk-mode) scoped to this dashboard's `path`, the same
-way you would for any other kiosk-style Lovelace dashboard.
+This dashboard now shows up in the **Default dashboard** picker. Lovelace would otherwise always draw
+its own header (title bar, sidebar toggle) above the view, stacked on top of this app's own header
+and tab bar — the `kiosk_mode:` block in the YAML above hides it automatically, scoped to just this
+dashboard; every other dashboard you have keeps HA's normal header. It needs
+[`kiosk-mode`](https://github.com/maykar/kiosk-mode) itself registered as a Lovelace resource, the
+same one-time step as the panel's own resource further up.
 
 ## How the room list is built
 
