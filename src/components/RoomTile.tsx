@@ -3,7 +3,7 @@ import { formatHumidity, formatTemp } from '../ha/selectors';
 import { toggleClimate, toggleRoomLights } from '../ha/services';
 import type { Room } from '../ha/types';
 import { Icon } from '../ui/Icon';
-import { HVAC_ICONS } from '../ui/icons';
+import { areaIcon, HVAC_ICONS } from '../ui/icons';
 import type { IconName } from '../ui/icons';
 import { useLongPress } from '../ui/useLongPress';
 
@@ -178,6 +178,12 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
   return (
     <div className="tile">
       <span className="tile__spine" style={{ background: room.tint }} />
+      <Icon
+        name={areaIcon(room.icon)}
+        size={64}
+        className="tile__glyph-bg"
+        style={{ fill: room.tint }}
+      />
 
       <div
         className="tile__body"

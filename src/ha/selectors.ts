@@ -184,6 +184,7 @@ export function buildRooms(
       lightsOn: lights.some((light) => light.on),
       openingOpen: entities.openings.some((id) => isOn(states[id])),
     };
+    if (area.icon) room.icon = area.icon;
     if (temperature !== undefined) room.temperature = temperature;
     if (humidity !== undefined) room.humidity = humidity;
     if (climateId) room.climate = buildClimate(climateId, states);

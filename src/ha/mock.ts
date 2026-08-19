@@ -41,6 +41,8 @@ interface MockLight {
 interface MockRoom {
   id: string;
   name: string;
+  /** Stands in for the area registry's own `icon` (e.g. `mdi:sofa`). */
+  icon?: string;
   temp?: number;
   hum?: number;
   lights: MockLight[];
@@ -123,6 +125,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'living',
     name: 'Living',
+    icon: 'mdi:sofa',
     temp: 24.2,
     hum: 61.9,
     lights: [
@@ -148,6 +151,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'bureau',
     name: 'Bureau',
+    icon: 'mdi:office-chair',
     temp: 23.4,
     hum: 64.0,
     lights: [{ id: 'light.bureau', name: 'Bureau ring', on: true, brightness: 80 }],
@@ -158,6 +162,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'slaapkamer',
     name: 'Slaapkamer',
+    icon: 'mdi:bed',
     temp: 23.1,
     hum: 63.4,
     lights: [{ id: 'light.slaapkamer', name: 'Plafond', on: false, brightness: 70 }],
@@ -176,6 +181,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'clara',
     name: 'Clara',
+    icon: 'mdi:bed',
     temp: 22.6,
     hum: 60.8,
     lights: [{ id: 'light.clara', name: 'Nachtlamp', on: false, brightness: 25 }],
@@ -188,6 +194,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'oliver',
     name: 'Oliver',
+    icon: 'mdi:bed',
     temp: 24.0,
     hum: 60.2,
     lights: [{ id: 'light.oliver', name: 'Nachtlamp', on: true, brightness: 35 }],
@@ -199,6 +206,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'dressing',
     name: 'Dressing',
+    icon: 'mdi:hanger',
     temp: 24.0,
     hum: 61.0,
     lights: [{ id: 'light.dressing', name: 'Dressing', on: false, brightness: 60 }],
@@ -206,6 +214,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'waskot',
     name: 'Waskot',
+    icon: 'mdi:washing-machine',
     temp: 23.8,
     hum: 59.0,
     lights: [{ id: 'light.waskot', name: 'Waskot', on: false }],
@@ -217,6 +226,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'badkamer',
     name: 'Badkamer',
+    icon: 'mdi:shower',
     temp: 24.4,
     hum: 66.0,
     lights: [{ id: 'light.badkamer', name: 'Badkamer', on: false, brightness: 80 }],
@@ -227,6 +237,7 @@ const ROOMS: MockRoom[] = [
   {
     id: 'toilet',
     name: 'Toilet',
+    icon: 'mdi:toilet',
     temp: 24.6,
     hum: 61.0,
     lights: [{ id: 'light.toilet', name: 'Toilet', on: false }],
@@ -467,7 +478,11 @@ function buildRegistries(states: HassEntities): {
   devices: DeviceRegistryEntry[];
   entities: EntityRegistryEntry[];
 } {
-  const areas = ROOMS.map((room) => ({ area_id: room.id, name: room.name }));
+  const areas = ROOMS.map((room) => ({
+    area_id: room.id,
+    name: room.name,
+    ...(room.icon ? { icon: room.icon } : {}),
+  }));
   const areaOf = (entityId: string): string | null => {
     const room = ROOMS.find(
       (r) =>
