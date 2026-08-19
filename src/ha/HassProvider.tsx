@@ -17,6 +17,7 @@ import {
   type DashboardConfig,
 } from '../config/config';
 import { writeSnapshot } from './backend';
+import { fetchEnergyPrefs, type EnergyPrefs } from './energyPrefs';
 import {
   createConfigPush,
   lastUserId,
@@ -73,6 +74,7 @@ interface HassContextValue {
    */
   user: CurrentUser | null;
   config: DashboardConfig;
+  energyPrefs: EnergyPrefs | undefined;
   updateConfig(patch: ConfigLayer): void;
   /** Clears *your* layer, dropping you back to the card's own YAML defaults. */
   resetConfig(): void;
@@ -137,6 +139,7 @@ export function HassProvider({
   const [rawEntities, setRawEntities] = useState<HassEntities>(initialEntities ?? {});
   const [overlays, setOverlays] = useState<Record<string, Overlay>>({});
   const [registries, setRegistries] = useState<Registries | null>(null);
+  const [energyPrefs, setEnergyPrefs] = useState<EnergyPrefs | undefined>(undefined);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
   /* Seeded from the local cache so the first paint is already the right
      dashboard. Panel mode knows the account synchronously; standalone has
@@ -311,6 +314,20 @@ export function HassProvider({
     };
   }, [backend]);
 
+  /* ── Home Assistant's own Energy dashboard config ────────────────────────
+     Fetched once — unlike registries, HA has no event that fires when
+     Settings → Energy changes, and it changes rarely enough that a panel
+     reload is an acceptable way to pick up a change made there. */
+  useEffect(() => {
+    let cancelled = false;
+    fetchEnergyPrefs(backend).then((prefs) => {
+      if (!cancelled) setEnergyPrefs(prefs);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [backend]);
+
   const areaEntities = useMemo(
     () => (registries ? resolveAreaEntities(registries) : EMPTY_AREA_ENTITIES),
     [registries],
@@ -325,9 +342,16 @@ export function HassProvider({
     // Who to follow defaults to "everyone but me", so the account has to be
     // resolved before the blanks are filled — hence `user` in the deps.
     const me = currentPerson(entitiesRef.current, user).entityId;
-    return withDerivedDefaults(merged, registries.areas, areaEntities, entitiesRef.current, me);
+    return withDerivedDefaults(
+      merged,
+      registries.areas,
+      areaEntities,
+      entitiesRef.current,
+      me,
+      energyPrefs,
+    );
     // `live` is in the deps so derivation reruns once real states have landed.
-  }, [yamlConfig, personal, registries, areaEntities, live, user]);
+  }, [yamlConfig, personal, registries, areaEntities, live, user, energyPrefs]);
 
   /**
    * Optimistic: the UI flips now and the server catches up. Only what was
@@ -404,6 +428,7 @@ export function HassProvider({
       areaEntities,
       user,
       config,
+      energyPrefs,
       updateConfig,
       resetConfig,
       status,
@@ -419,6 +444,7 @@ export function HassProvider({
       areaEntities,
       user,
       config,
+      energyPrefs,
       updateConfig,
       resetConfig,
       status,

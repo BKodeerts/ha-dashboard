@@ -18,14 +18,23 @@ below for the one embed that remains.
 v7 replaces the Energie tab's two-bar comparison with the
 [`design_handoff_ha_energy_tab/`](design_handoff_ha_energy_tab/) handoff: a solar/now card with
 today's production-vs-consumption curve and a self-consumption ratio, a per-device trend card (each
-line normalised to its own daily max), and the "apparaten nu" list, now sorted and filterable.
+line normalised to its own daily max), and the "apparaten nu" list.
+
+It also moves the devices list off name-guessing entirely. `power.loads` (a hand-written list) and
+`power.excludeLoads` (patterns to trim it) briefly existed and are gone again — a name-matching guess
+at "which sensors are individual devices" turned out to reliably catch a smart meter's own internal
+per-phase and import/export breakdown sensors alongside the real ones, however the guess was tuned,
+because there is no name pattern that tells the two apart. Home Assistant already has the answer:
+Settings → Dashboards → Energy's "Individual devices" list is the household's own curation of exactly
+this, read live over `energy/get_prefs` (see `ha/energyPrefs.ts`) — no config on this card at all,
+short of the noise floor.
 
 | v6 | v7 |
 | --- | --- |
 | Solar and consumption were two bars against a fixed scale | One card: live solar W, home W, and net flow, over today's hourly curve for both |
 | No sense of *how much* of today's solar was self-consumed | A self-consumption % bar — `min(solar, consumption)` summed across today's hours, over consumption |
-| Only a flat list of configured load sensors | The same list, plus a small-multiples trend chart per device (`power.loads`, still config-driven) |
-| No way to keep an unwanted sensor out of "Apparaten nu" without hand-editing `power.loads` | `power.excludeLoads` (wildcard entity-id patterns) and `power.minWatts` filter it, on top of auto-detection or a hand-written list alike |
+| The devices list was a flat row of numbers | The same list, plus a small-multiples trend chart per device |
+| Devices came from `power.loads`, a name-matched guess at every `device_class: power` sensor | Devices come from Settings → Dashboards → Energy's "Individual devices" list, read live — no guessing, no YAML |
 
 ### What changed in v6
 
@@ -237,17 +246,18 @@ same one-time step as the card's own resource.
 The card in the snippet above (`type: custom:ha-dashboard-panel`) is a normal Lovelace card: press
 **Edit Dashboard**, click the card, and "Edit card" opens with a GUI tab instead of raw YAML. It
 covers the household-wide settings that have no auto-detected default and used to require
-hand-written YAML — the car, media presets, the "apparaten nu" noise floor and exclude patterns, and
-which media player each room's card shows ("media per kamer") — because those are the ones a
-household actually changes from time to time, not a config editor for every key.
+hand-written YAML — the car, media presets, the "apparaten nu" noise floor, and which media player
+each room's card shows ("media per kamer") — because those are the ones a household actually changes
+from time to time, not a config editor for every key.
 
 **Which power sensors are which is deliberately not in the editor.** `power.solar`/`.consumption`/
-`.grid`/`.loads` are already auto-detected from any `device_class: power` sensor (see the
-derived-defaults table below) — adding pickers for them would just be asking you to re-enter what the
-app already found on its own. If the auto-detection ever guesses wrong for your setup, override it in
-the card's "Edit as YAML" tab, the same as any key the GUI doesn't cover. Trimming *which* of the
-auto-detected (or hand-written) loads actually show, though, is common enough to earn its own two
-fields — see `power.excludeLoads`/`power.minWatts` below.
+`.grid` are already auto-detected from any `device_class: power` sensor (see the derived-defaults
+table below) — adding pickers for them would just be asking you to re-enter what the app already found
+on its own. If the auto-detection ever guesses wrong for your setup, override it in the card's "Edit
+as YAML" tab, the same as any key the GUI doesn't cover. The devices list ("apparaten nu" and its
+trend chart) isn't here either, and never will be — it comes from Settings → Dashboards → Energy's
+"Individual devices", not from this card at all. `power.minWatts`, the noise floor beneath that list,
+is the one power field the editor does carry.
 
 Everything else (`favouriteAreas`, `theme`, tints, …) is either better set from the in-app Settings
 view (it is personal, per account) or still just plain YAML in the card's "Edit as YAML" tab if you
@@ -395,19 +405,19 @@ Everything that is left blank is derived from the state machine on first run:
 | `tracked` | `string[]` | the first other `person.*` found, capped at one |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
-| `power.solar` / `.consumption` / `.grid` | `string` | a `device_class: power` sensor matched by name |
-| `power.loads` | `string[]` | the remaining power sensors, sorted by value at render time |
-| `power.excludeLoads` | `string[]` | none — entity ids to drop from `loads`, `*` wildcards allowed (e.g. `sensor.*_apparent_power`) |
+| `power.solar` / `.consumption` / `.grid` | `string` | `energy/get_prefs`' solar source for `.solar`; otherwise a `device_class: power` sensor matched by name |
 | `power.minWatts` | `number` | `0` — loads reading under this many watts drop off "Apparaten nu" |
 | `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
 
+The devices list ("apparaten nu" and its trend chart) is not a config key at all — it reads
+Settings → Dashboards → Energy's "Individual devices" live, over `energy/get_prefs`.
+
 The keys the in-app settings view does not expose — power, the car, media presets, and media per
-kamer — are household-wide, and are set on the card itself. The car, media presets,
-`power.excludeLoads`/`.minWatts` and media per kamer have a GUI for that ("Editing it visually"
-above); `power.solar`/`.consumption`/
-`.grid`/`.loads` are auto-detected and only need touching if that guess is wrong, by hand in the
-card's YAML (or the `panel_custom` snippet's `config:` block, for a panel-mounted install):
+kamer — are household-wide, and are set on the card itself. The car, media presets, `power.minWatts`
+and media per kamer have a GUI for that ("Editing it visually" above); `power.solar`/`.consumption`/
+`.grid` are auto-detected and only need touching if that guess is wrong, by hand in the card's YAML
+(or the `panel_custom` snippet's `config:` block, for a panel-mounted install):
 
 ```yaml
 type: custom:ha-dashboard-panel

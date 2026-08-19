@@ -52,7 +52,8 @@ function useMinute(): number {
 }
 
 export function App() {
-  const { backend, entities, registries, areaEntities, user, config, status, toasts } = useHass();
+  const { backend, entities, registries, areaEntities, user, config, energyPrefs, status, toasts } =
+    useHass();
 
   const [sheet, setSheet] = useState<SheetState>(null);
   const [tab, setTab] = useState<Tab>('home');
@@ -93,7 +94,10 @@ export function App() {
   const me = useMemo(() => currentPerson(entities, user), [entities, user]);
   const people = useMemo(() => trackedPeople(entities, config, me), [entities, config, me]);
   const weather = useMemo(() => weatherInfo(entities, config), [entities, config]);
-  const power = useMemo(() => powerInfo(entities, config), [entities, config]);
+  const power = useMemo(
+    () => powerInfo(entities, config, energyPrefs),
+    [entities, config, energyPrefs],
+  );
   const persons = useMemo(() => personEntities(entities), [entities]);
   const forecast = useForecast(weather.entityId);
 

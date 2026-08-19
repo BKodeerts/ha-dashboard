@@ -1,4 +1,5 @@
-import { MAX_TRACKED, matchesAnyPattern, personEntities, type DashboardConfig } from '../config/config';
+import { MAX_TRACKED, personEntities, type DashboardConfig } from '../config/config';
+import type { EnergyPrefs } from './energyPrefs';
 import { bucketEntities } from './registry';
 import type { AlarmAction } from './services';
 import type {
@@ -629,14 +630,23 @@ function watts(states: HassEntities, entityId: string | undefined): number | und
   return unit.toLowerCase().startsWith('kw') ? value * 1000 : value;
 }
 
-export function powerInfo(states: HassEntities, config: DashboardConfig): PowerInfo {
+/**
+ * The devices list comes from Home Assistant's own Energy dashboard config
+ * (`energyPrefs.deviceRates`, see `ha/energyPrefs.ts`) rather than anything
+ * stored on this card — that is the household's own curated "Individual
+ * devices" list, not a guess this app has to make from sensor names.
+ */
+export function powerInfo(
+  states: HassEntities,
+  config: DashboardConfig,
+  energyPrefs: EnergyPrefs | undefined,
+): PowerInfo {
   const solar = watts(states, config.power.solar);
   const consumption = watts(states, config.power.consumption);
   const gridSensor = watts(states, config.power.grid);
 
   const info: PowerInfo = {
-    loads: config.power.loads
-      .filter((entityId) => !matchesAnyPattern(entityId, config.power.excludeLoads))
+    loads: (energyPrefs?.deviceRates ?? [])
       .map((entityId) => {
         const value = watts(states, entityId);
         return value === undefined || value < config.power.minWatts
@@ -647,10 +657,20 @@ export function powerInfo(states: HassEntities, config: DashboardConfig): PowerI
       .sort((a, b) => b.watts - a.watts),
   };
   if (solar !== undefined) info.solar = solar;
-  if (consumption !== undefined) info.consumption = consumption;
   // A grid sensor is authoritative when present (positive = import, so negate).
   if (gridSensor !== undefined) info.net = -gridSensor;
   else if (solar !== undefined && consumption !== undefined) info.net = solar - consumption;
+
+  if (consumption !== undefined) {
+    info.consumption = consumption;
+  } else if (solar !== undefined && info.net !== undefined) {
+    // No battery, so every watt is either self-consumed or exported: a
+    // household with a solar sensor and a grid sensor but no separate
+    // whole-home CT clamp — a common DSMR/P1 + PV setup — still gets a "huis"
+    // reading this way, the same physics `net` above derives in reverse.
+    info.consumption = solar - info.net;
+  }
+
   return info;
 }
 

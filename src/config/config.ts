@@ -1,3 +1,4 @@
+import type { EnergyPrefs } from '../ha/energyPrefs';
 import type { AreaRegistryEntry, HassEntities } from '../ha/types';
 
 /**
@@ -54,17 +55,14 @@ export interface DashboardConfig {
     consumption?: string;
     /** Positive = importing from grid. Optional: derived from solar − consumption. */
     grid?: string;
-    /** Sensors listed in the "top loads" block, sorted by value at render time. */
-    loads: string[];
     /**
-     * Entity ids to drop from `loads` — a `*` wildcard matches anything, so
-     * `sensor.*_apparent_power` clears a whole class of sensors an energy
-     * monitoring integration (Shelly, Tasmota, …) publishes alongside the
-     * real one. Applies whether `loads` came from auto-detection or was
-     * hand-written, so it is also how to trim an explicit list down.
+     * Loads reading under this many watts drop off the "apparaten nu" list —
+     * the noise floor. The list itself is not configured here: it is the
+     * "Individual devices" set up under Settings → Dashboards → Energy, read
+     * live through `energy/get_prefs` (see `ha/energyPrefs.ts`). That is
+     * curation Home Assistant's own UI already does well — a device picker,
+     * not a hand-written entity-id list this card would have to duplicate.
      */
-    excludeLoads: string[];
-    /** Loads reading under this many watts drop off the "apparaten nu" list — the noise floor. */
     minWatts: number;
   };
   /** The Auto tab's heading; the subtitle is built from whatever is set. */
@@ -134,7 +132,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   mediaEntity: {},
   theme: 'auto',
   palette: 'ha',
-  power: { loads: [], excludeLoads: [], minWatts: 0 },
+  power: { minWatts: 0 },
   car: {},
   mediaPresets: {},
 };
@@ -202,37 +200,32 @@ const SOLAR_HINT = /(solar|zonnepane?l|pv|omvormer|inverter)/i;
 const CONSUMPTION_HINT = /(verbruik|consumption|huis|house|total|totaal|load)/i;
 const GRID_HINT = /(grid|net(to)?|injectie|afname|import|export)/i;
 
-/** `*` is the only wildcard — enough to write `sensor.*_apparent_power`
-    without pulling in a full glob library for one config field. */
-function globToRegExp(pattern: string): RegExp {
-  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
-  return new RegExp(`^${escaped}$`, 'i');
-}
-
-export function matchesAnyPattern(entityId: string, patterns: string[]): boolean {
-  return patterns.some((pattern) => globToRegExp(pattern).test(entityId));
-}
-
 /**
- * Power sensors are picked by name, because HA has no device class that says
- * "this is the solar production". Anything unmatched becomes a candidate for the
- * top-loads list. Override any of it via `power` in the stored config.
+ * Solar/consumption/grid are picked by name, because HA has no device class
+ * that says "this is the solar production" — `energyPrefs.solarRate` (see
+ * `ha/energyPrefs.ts`) is tried first for solar since it is an explicit
+ * household choice rather than a guess, but consumption and grid have no
+ * equally reliable signal in `energy/get_prefs` (a smart meter often reports
+ * grid import/export as several per-phase sources with no single combined
+ * sensor), so those stay name-hint only. Override any of it via `power` in
+ * the stored config.
  */
 function derivePower(
   power: DashboardConfig['power'],
   states: HassEntities,
+  energyPrefs: EnergyPrefs | undefined,
 ): DashboardConfig['power'] {
   const candidates = Object.keys(states).filter(
     (id) => id.startsWith('sensor.') && states[id]?.attributes?.device_class === 'power',
   );
-  if (candidates.length === 0) return power;
 
   const nameOf = (id: string): string => {
     const friendly = states[id]?.attributes?.friendly_name;
     return `${id} ${typeof friendly === 'string' ? friendly : ''}`;
   };
 
-  const solar = power.solar ?? candidates.find((id) => SOLAR_HINT.test(nameOf(id)));
+  const solar =
+    power.solar ?? energyPrefs?.solarRate ?? candidates.find((id) => SOLAR_HINT.test(nameOf(id)));
   const consumption =
     power.consumption ??
     candidates.find((id) => id !== solar && CONSUMPTION_HINT.test(nameOf(id)));
@@ -240,19 +233,7 @@ function derivePower(
     power.grid ??
     candidates.find((id) => id !== solar && id !== consumption && GRID_HINT.test(nameOf(id)));
 
-  const loads =
-    power.loads.length > 0
-      ? power.loads
-      : candidates
-          .filter((id) => id !== solar && id !== consumption && id !== grid)
-          .filter((id) => !matchesAnyPattern(id, power.excludeLoads))
-          .slice(0, 8);
-
-  const next: DashboardConfig['power'] = {
-    loads,
-    excludeLoads: power.excludeLoads,
-    minWatts: power.minWatts,
-  };
+  const next: DashboardConfig['power'] = { minWatts: power.minWatts };
   if (solar) next.solar = solar;
   if (consumption) next.consumption = consumption;
   if (grid) next.grid = grid;
@@ -290,6 +271,7 @@ export function withDerivedDefaults(
   states: HassEntities,
   /** The `person.*` entity the logged-in account resolves to, when it does. */
   mePerson?: string,
+  energyPrefs?: EnergyPrefs,
 ): DashboardConfig {
   const areaTint = { ...config.areaTint };
   areas.forEach((area, index) => {
@@ -333,7 +315,7 @@ export function withDerivedDefaults(
     areaTint,
     favouriteAreas,
     tracked,
-    power: derivePower(config.power, states),
+    power: derivePower(config.power, states, energyPrefs),
   };
   if (alarmEntity) next.alarmEntity = alarmEntity;
   if (weatherEntity) next.weatherEntity = weatherEntity;
