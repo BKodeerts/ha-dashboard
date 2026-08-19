@@ -213,14 +213,18 @@ function DayView({ hourly, weather }: { hourly: ForecastEntry[]; weather: Weathe
               <span className="weather__legend-swatch weather__legend-swatch--temp" />
               temperatuur
             </span>
-            <span className="weather__legend-item">
-              <span className="weather__legend-swatch weather__legend-swatch--app" />
-              voelt als
-            </span>
-            <span className="weather__legend-item">
-              <span className="weather__legend-swatch weather__legend-swatch--rain" />
-              neerslag mm
-            </span>
+            {chart.appPath && (
+              <span className="weather__legend-item">
+                <span className="weather__legend-swatch weather__legend-swatch--app" />
+                voelt als
+              </span>
+            )}
+            {chart.rainPath && (
+              <span className="weather__legend-item">
+                <span className="weather__legend-swatch weather__legend-swatch--rain" />
+                neerslag mm
+              </span>
+            )}
           </div>
 
           <div className="weather__chart">
