@@ -403,6 +403,12 @@ function buildStates(globals: MockGlobals): HassEntities {
     }
   }
   add(
+    entity('sensor.disconnected_devices', String(QUIET.length), {
+      friendly_name: 'Disconnected Devices',
+      entities: QUIET.map((quiet) => quiet.entityId),
+    }),
+  );
+  add(
     entity('weather.kmi', 'cloudy', {
       friendly_name: 'KMI Halle',
       temperature: 16.0,
