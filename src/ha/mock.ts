@@ -709,6 +709,20 @@ export function mockBackend(): HaBackend {
           return registries.devices as unknown as T;
         case 'config/entity_registry/list':
           return registries.entities as unknown as T;
+        // A household that has gone through Settings → Dashboards → Energy:
+        // one solar source, and the three power sensors already in this mock
+        // as its "individual devices".
+        case 'energy/get_prefs':
+          return {
+            energy_sources: [
+              { type: 'solar', stat_rate: 'sensor.zonnepanelen_vermogen' },
+            ],
+            device_consumption: [
+              { name: 'Keukenboiler', stat_rate: 'sensor.keukenboiler_vermogen' },
+              { name: 'Bureau', stat_rate: 'sensor.bureau_vermogen' },
+              { name: 'TV', stat_rate: 'sensor.tv_vermogen' },
+            ],
+          } as unknown as T;
         case 'history/history_during_period': {
           const ids = (message.entity_ids as string[]) ?? [];
           const result: Record<string, { s: string; lu: number }[]> = {};

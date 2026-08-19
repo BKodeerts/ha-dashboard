@@ -133,8 +133,6 @@ function Editor({
   const sensors = useMemo(() => domainEntities(states, 'sensor'), [states]);
 
   const power: NonNullable<ConfigLayer['power']> = (config.power as ConfigLayer['power']) ?? {
-    loads: [],
-    excludeLoads: [],
     minWatts: 0,
   };
   const car: NonNullable<ConfigLayer['car']> = (config.car as ConfigLayer['car']) ?? {};
@@ -179,10 +177,13 @@ function Editor({
       <section className="hdpe__section">
         <h3 className="hdpe__title">Stroom</h3>
         <div className="hdpe__note">
-          Zon, verbruik, net en de apparatenlijst worden automatisch herkend (elke sensor met
+          Zon, verbruik en net worden automatisch herkend (elke sensor met
           <code> device_class: power</code>) — hier hoeft niets gekozen te worden. Raadt de
           herkenning verkeerd, dan overschrijf je <code>power.solar</code>/<code>power.consumption</code>/
-          <code>power.grid</code>/<code>power.loads</code> in de YAML van de kaart zelf.
+          <code>power.grid</code> in de YAML van de kaart zelf.
+          <br />
+          De apparatenlijst ("Apparaten nu" en de trendgrafiek) komt niet van hier: het is de lijst
+          "Individuele apparaten" onder Instellingen → Dashboards → Energie — beheer die daar.
         </div>
         <label className="hdpe__field">
           <span className="hdpe__field-label">Minimum vermogen (W) — apparaten eronder vallen weg uit "Apparaten nu"</span>
@@ -191,26 +192,6 @@ function Editor({
             min={0}
             value={power.minWatts ?? 0}
             onChange={(event) => patch({ power: { minWatts: Number(event.target.value) || 0 } })}
-          />
-        </label>
-        <label className="hdpe__field">
-          <span className="hdpe__field-label">
-            Uitgesloten sensoren — één per regel, <code>*</code> als jokerteken (bv.
-            <code> sensor.*_apparent_power</code>, <code>sensor.grid_power</code>)
-          </span>
-          <textarea
-            rows={3}
-            value={(power.excludeLoads ?? []).join('\n')}
-            onChange={(event) =>
-              patch({
-                power: {
-                  excludeLoads: event.target.value
-                    .split('\n')
-                    .map((line) => line.trim())
-                    .filter(Boolean),
-                },
-              })
-            }
           />
         </label>
       </section>
