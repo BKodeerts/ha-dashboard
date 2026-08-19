@@ -18,13 +18,14 @@ export function PresenceSheet({
   entityId: string;
   onClose(): void;
 }) {
-  const { entities, config } = useHass();
+  const { entities } = useHass();
   const state = entities[entityId];
   const home = state?.state === 'home';
   const since = state ? formatTime(new Date(state.last_changed)) : undefined;
 
-  const mapConfig =
-    config.lovelace.map ?? { type: 'map', entities: [entityId], hours_to_show: 12, dark_mode: true };
+  // No history trail — just where they are right now. HA's stock map card is
+  // already drawn (vector/OSM) tiles, never satellite imagery.
+  const mapConfig = { type: 'map', entities: [entityId], hours_to_show: 0, dark_mode: true };
 
   return (
     <Sheet onClose={onClose} labelledBy="presence-sheet-title">

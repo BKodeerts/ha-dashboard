@@ -67,17 +67,6 @@ export interface DashboardConfig {
   };
   /** Radio presets per media_player entity id. */
   mediaPresets: Record<string, MediaPreset[]>;
-  /**
-   * Lovelace card configs. After v2 these are only the energy dashboard, the car
-   * cards, and the two cards the weather and presence sheets embed — the room
-   * card draws its own history line and Netwerk is not a card page at all.
-   */
-  lovelace: {
-    energy?: LovelaceCardConfig[];
-    map?: LovelaceCardConfig;
-    forecast?: LovelaceCardConfig;
-    auto?: LovelaceCardConfig[];
-  };
 }
 
 export interface MediaPreset {
@@ -140,7 +129,6 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   power: { loads: [], scale: 2000 },
   car: {},
   mediaPresets: {},
-  lovelace: {},
 };
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -174,7 +162,6 @@ export function mergeConfig(
     power: { ...base.power, ...(patch.power ?? {}) },
     car: { ...base.car, ...(patch.car ?? {}) },
     mediaPresets: { ...base.mediaPresets, ...(patch.mediaPresets ?? {}) },
-    lovelace: { ...base.lovelace, ...(patch.lovelace ?? {}) },
   };
 }
 
@@ -195,7 +182,6 @@ export function mergeLayers(base: ConfigLayer, patch: ConfigLayer): ConfigLayer 
   if (base.mediaPresets ?? patch.mediaPresets) {
     next.mediaPresets = { ...base.mediaPresets, ...patch.mediaPresets };
   }
-  if (base.lovelace ?? patch.lovelace) next.lovelace = { ...base.lovelace, ...patch.lovelace };
   return next;
 }
 

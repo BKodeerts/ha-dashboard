@@ -300,11 +300,9 @@ Everything that is left blank is derived from the state machine on first run:
 | `power.scale` | `number` | `2000` — full scale of the two bars on the Energie tab, in watts |
 | `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
-| `lovelace.*` | card configs | sensible per-surface defaults, see below |
 
-The keys the settings view does not expose — media presets, the car sensors, the embedded Lovelace
-cards — are set in the `config:` block of the `panel_custom` snippet above, which applies to the
-whole household:
+The keys the settings view does not expose — media presets and the car sensors — are set in the
+`config:` block of the `panel_custom` snippet above, which applies to the whole household:
 
 ```yaml
 panel_custom:
@@ -326,13 +324,6 @@ panel_custom:
           - name: Klara
             media_content_type: music
             media_content_id: https://…/klara.mp3
-      lovelace:
-        energy:
-          - type: energy-distribution
-          - type: energy-usage-graph
-        auto:
-          - type: entities
-            entities: [sensor.kona_battery, sensor.kona_range]
 ```
 
 To read or write your stored layer directly, use **Developer Tools → the websocket API** rather than
@@ -392,15 +383,11 @@ Two details make this safe to leave on:
 
 ## What stays Lovelace
 
-These are embedded rather than rebuilt — they are where HA's own cards are worth more than a
-rewrite, and where the old dashboard's maintenance came from:
-
-| Where | Config key | Default card |
-| --- | --- | --- |
-| Bottom of the `energie` tab | `lovelace.energy` | none — set it to your energy cards |
-| `auto` tab | `lovelace.auto` | none — empty state explains how to set it |
-| Presence sheet | `lovelace.map` | `map` for the person entity |
-| Weather sheet | `lovelace.forecast` | `weather-forecast` |
+One thing: the **presence sheet's map**, hardcoded to HA's own `map` card for the tapped person —
+no history trail (`hours_to_show: 0`), and no config key to override it. Everywhere else that used
+to embed a card (the energy dashboard, the `auto` tab, the weather forecast) now shows only what
+this app draws itself; those embeds were placeholders more often than not, since nothing in the
+settings view ever set the config keys they depended on.
 
 **The room card embeds nothing.** v1 put a `history-graph` and a camera card in there, which is what
 made it slow and unreadable on a phone; v2 draws a plain polyline in the room's tint instead.
