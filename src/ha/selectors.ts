@@ -516,17 +516,39 @@ export function trackedPeople(
     });
 }
 
+/**
+ * `WeatherEntityFeature`, as Home Assistant publishes it on the weather
+ * entity's `supported_features` bitmask — which forecast types `weather.
+ * get_forecasts` / `weather/subscribe_forecast` will actually answer for.
+ */
+export const WEATHER_FEATURE = {
+  FORECAST_DAILY: 1,
+  FORECAST_HOURLY: 2,
+  FORECAST_TWICE_DAILY: 4,
+} as const;
+
 export interface WeatherInfo {
   entityId?: string;
   condition: string;
   temperature?: number;
   high?: number;
   low?: number;
+  apparentTemperature?: number;
+  dewPoint?: number;
+  humidity?: number;
   pressure?: number;
   pressureUnit: string;
   windSpeed?: number;
   windUnit: string;
   windBearing?: string;
+  windGustSpeed?: number;
+  cloudCoverage?: number;
+  uvIndex?: number;
+  visibility?: number;
+  visibilityUnit: string;
+  precipitationUnit: string;
+  supportedFeatures: number;
+  lastUpdated?: string;
   name: string;
 }
 
@@ -550,17 +572,35 @@ export function weatherInfo(states: HassEntities, config: DashboardConfig): Weat
     condition: state?.state ?? 'unknown',
     pressureUnit: String(attributes.pressure_unit ?? 'hPa'),
     windUnit: String(attributes.wind_speed_unit ?? 'km/h'),
+    visibilityUnit: String(attributes.visibility_unit ?? 'km'),
+    precipitationUnit: String(attributes.precipitation_unit ?? 'mm'),
+    supportedFeatures: toNumber(attributes.supported_features) ?? 0,
     name: entityId ? friendlyName(states, entityId) : 'Weer',
   };
   if (entityId) info.entityId = entityId;
+  if (state?.last_updated) info.lastUpdated = state.last_updated;
   const temperature = toNumber(attributes.temperature);
   if (temperature !== undefined) info.temperature = temperature;
+  const apparentTemperature = toNumber(attributes.apparent_temperature);
+  if (apparentTemperature !== undefined) info.apparentTemperature = apparentTemperature;
+  const dewPoint = toNumber(attributes.dew_point);
+  if (dewPoint !== undefined) info.dewPoint = dewPoint;
+  const humidity = toNumber(attributes.humidity);
+  if (humidity !== undefined) info.humidity = humidity;
   const pressure = toNumber(attributes.pressure);
   if (pressure !== undefined) info.pressure = pressure;
   const windSpeed = toNumber(attributes.wind_speed);
   if (windSpeed !== undefined) info.windSpeed = windSpeed;
+  const windGustSpeed = toNumber(attributes.wind_gust_speed);
+  if (windGustSpeed !== undefined) info.windGustSpeed = windGustSpeed;
   const bearing = bearingToCompass(attributes.wind_bearing);
   if (bearing) info.windBearing = bearing;
+  const cloudCoverage = toNumber(attributes.cloud_coverage);
+  if (cloudCoverage !== undefined) info.cloudCoverage = cloudCoverage;
+  const uvIndex = toNumber(attributes.uv_index);
+  if (uvIndex !== undefined) info.uvIndex = uvIndex;
+  const visibility = toNumber(attributes.visibility);
+  if (visibility !== undefined) info.visibility = visibility;
   return info;
 }
 

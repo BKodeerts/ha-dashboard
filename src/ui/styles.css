@@ -1648,7 +1648,19 @@ button {
   white-space: nowrap;
 }
 
-/* ── weather sheet ─────────────────────────────────────────────────────── */
+/* ── weather sheet ─────────────────────────────────────────────────────────
+   Two tabs sharing one sheet: `Vandaag` is the 24 h chart + current-conditions
+   grid, `Week` is the seven daily rows. See
+   design_handoff_ha_weather_popup/README.md for the geometry this follows —
+   colours and spacing come from the app's own tokens rather than the design's
+   fixed dark-mode values, so the sheet still flips with the theme. */
+
+.weather__meta {
+  margin-top: 3px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
 
 .weather__now {
   display: flex;
@@ -1657,66 +1669,387 @@ button {
 }
 
 .weather__big {
-  font-size: 48px;
+  flex: 0 0 auto;
+  font-size: 52px;
   font-weight: 400;
   letter-spacing: -0.04em;
-  line-height: 0.9;
+  line-height: 0.86;
 }
 
-.weather__lines {
+.weather__now-mid {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding-bottom: 6px;
-  font-family: var(--font-mono);
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.weather__condition {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-body);
+}
+
+.weather__feels {
   font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.05em;
   color: var(--text-muted);
 }
 
-.forecast {
-  display: flex;
-  gap: 7px;
-}
-
-.forecast__day {
+.weather__now-side {
+  flex: 0 0 auto;
+  text-align: right;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
+  padding-bottom: 4px;
+}
+
+.weather__hilo {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.weather__rainnote {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--cool-fg);
+}
+
+/* ── tab switch ──────────────────────────────────────────────────────────── */
+
+.weather__tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--control);
+  border-radius: 11px;
+  padding: 4px;
+}
+
+.weather__tab {
   flex: 1;
-  min-width: 0;
-  padding: 8px 9px;
+  text-align: center;
+  padding: 7px 0;
+  border-radius: 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  background: transparent;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.weather__tab--on {
+  background: var(--control-alt);
+  color: var(--text);
+}
+
+/* ── Vandaag ─────────────────────────────────────────────────────────────── */
+
+.weather__day {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.weather__legend {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 8.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.weather__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.weather__legend-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.weather__legend-swatch--temp {
+  background: var(--accent);
+}
+
+.weather__legend-swatch--app {
+  width: 14px;
+  height: 0;
+  border-top: 2px dashed var(--text-faint);
+}
+
+.weather__legend-swatch--rain {
+  width: 7px;
+  height: 9px;
+  background: var(--cool);
+}
+
+.weather__chart {
+  position: relative;
+}
+
+.weather__chart-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.weather__chart-grid {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text) 9%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 4;
+}
+
+.weather__chart-rain {
+  fill: var(--cool);
+  opacity: 0.85;
+}
+
+.weather__chart-nowline {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text) 30%, transparent);
+  stroke-width: 1;
+}
+
+.weather__chart-app {
+  fill: none;
+  stroke: color-mix(in oklab, var(--text) 40%, transparent);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+  stroke-linecap: round;
+}
+
+.weather__chart-area {
+  fill: var(--accent);
+  opacity: 0.1;
+}
+
+.weather__chart-temp {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.weather__chart-dot {
+  fill: var(--accent);
+  stroke: var(--sheet);
+  stroke-width: 2;
+}
+
+.weather__chart-axis {
+  position: absolute;
+  left: 0;
+  transform: translateY(-50%);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.weather__chart-ticks {
+  position: relative;
+  height: 12px;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.weather__chart-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.weather__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.weather__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 9px 10px;
   border-radius: 12px;
   background: var(--card);
   border: 1px solid var(--border);
 }
 
-.forecast__code {
+.weather__metric-key {
   font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
+  font-size: 8.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.weather__metric-value {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.weather__empty {
+  padding: 14px;
+  text-align: center;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px dashed var(--divider);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* ── Week ────────────────────────────────────────────────────────────────── */
+
+.weather__week {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.weather__week-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 2px 6px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.weather__week-col-day {
+  width: 30px;
+}
+
+.weather__week-col-icon {
+  width: 20px;
+  flex: 0 0 auto;
+}
+
+.weather__week-col-scale {
+  flex: 1;
+}
+
+.weather__week-col-rain {
+  width: 58px;
+  text-align: right;
+}
+
+.weather__week-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 2px;
+  border-top: 1px solid var(--divider);
+}
+
+.weather__week-day {
+  width: 30px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
 }
 
-.forecast__row {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  color: var(--text-2);
-}
-
-.forecast__high {
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
+.weather__week-day--today {
   color: var(--text);
 }
 
-.forecast__low {
-  font-family: var(--font-mono);
-  font-size: 10px;
+.weather__week-icon {
+  flex: 0 0 auto;
+  color: var(--text-2);
+}
+
+.weather__week-low {
+  width: 26px;
+  text-align: right;
+  font-size: 11px;
   color: var(--text-3);
+}
+
+.weather__week-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--control);
+}
+
+.weather__week-range {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--cool), var(--accent));
+}
+
+.weather__week-high {
+  width: 34px;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+
+.weather__week-rain {
+  width: 58px;
+  text-align: right;
+  font-size: 10px;
+  color: var(--text-faint);
+}
+
+.weather__week-rain--hot {
+  color: var(--cool-fg);
+}
+
+.weather__chips {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.weather__chip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 11px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.weather__chip-key {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.weather__chip-value {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text-body);
 }
 
 /* ── segmented control ─────────────────────────────────────────────────────
