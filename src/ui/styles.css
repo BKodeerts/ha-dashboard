@@ -159,23 +159,31 @@
   color-scheme: light;
 
   /*
-   * Fill the screen, not the content. Home Assistant drops a custom panel into
-   * a container whose height is not always resolvable, and `height: 100%`
-   * against an indefinite parent collapses to the content height — which is
-   * what left the tab bar floating wherever the room grid happened to end.
-   * The viewport is the floor; `dvh` so a shrinking mobile address bar does
-   * not clip the bottom off.
+   * `height: 100%` against an indefinite parent collapses to the content
+   * height, which is what left the tab bar floating wherever the room grid
+   * happened to end. A `panel_custom` panel and a Lovelace card both resolve
+   * against something real (the panel router, or the card's own box) and stop
+   * here; standalone and mock have no parent to resolve against at all, so
+   * they additionally pin to the viewport below — `dvh` there so a shrinking
+   * mobile address bar does not clip the bottom off.
    */
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
   background: var(--page);
   color: var(--text);
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* The two modes `element.tsx` sets `mode` on the host for, and the only ones
+   with no real container to size against — everything else (a `panel_custom`
+   panel, or a Lovelace card) takes the plain `height: 100%` above instead. */
+:host([mode='standalone']),
+:host([mode='mock']) {
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /*
@@ -316,17 +324,17 @@
   flex-direction: column;
   flex: 1 1 auto;
   /*
-   * A *definite* height, not just a minimum. `height: 100%` takes the host's
-   * height when HA gives it one; the min/max pair pins it to the viewport when
-   * it does not, which is the standalone case — and without the cap the column
-   * grows with the room grid, `.scroll` never gets a bound to scroll inside,
-   * and the tab bar is pushed off the bottom of the screen.
+   * A *definite* height, not just a minimum, so the column doesn't grow with
+   * the room grid, `.scroll` has something to scroll inside, and the tab bar
+   * can't be pushed off the bottom. `height: 100%` takes whatever the host is
+   * given — a `panel_custom` panel and a Lovelace card both get a real height
+   * from their container (the panel router, or the card's own box, however
+   * small — a card-editor preview included), and must stay inside it rather
+   * than blow out to the viewport. Standalone and mock have no such container,
+   * so the viewport is the only right answer there — see the mode-scoped rule
+   * below.
    */
   height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  max-height: 100vh;
-  max-height: 100dvh;
 
   /*
    * Long-press is a gesture now (more-info), not a selection start — without
@@ -338,6 +346,17 @@
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+
+/* `element.tsx` sets `mode` on the host for these two only — everything else
+   (a real `panel_custom` panel, or a Lovelace card) leaves it unset and takes
+   `.root`'s plain `height: 100%` above. */
+:host([mode='standalone']) .root,
+:host([mode='mock']) .root {
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
 }
 
 *,
@@ -389,6 +408,14 @@ button {
 
 .app {
   position: relative;
+  /*
+   * A containing block for the header and tab bar's `position: fixed` below —
+   * see the note there. Deliberate: it is what keeps both pinned to this shell
+   * rather than the true browser viewport, which matters once the shell is a
+   * bounded box smaller than the viewport (a Lovelace card, not a full-page
+   * panel) and not merely a cosmetic choice within one.
+   */
+  contain: layout;
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
@@ -417,16 +444,15 @@ button {
 
 .header {
   /*
-   * Fixed to the viewport, like the tab bar at the other end. In the flow it
-   * belonged to a column whose height is not always the height of what you can
-   * see, and it travelled with it; pinned, it is measured against the viewport
-   * and nothing above it in the tree can carry it anywhere.
+   * Fixed, like the tab bar at the other end. In the flow it belonged to a
+   * column whose height is not always the height of what you can see, and it
+   * travelled with it; pinned, it is measured against its containing block and
+   * nothing in between can carry it anywhere.
    *
-   * This holds only while no ancestor creates a containing block — a
-   * `transform`, `filter`, `backdrop-filter`, `perspective`, `will-change` or
-   * `contain` on `.root`, `.app` or `.app__main` would silently re-anchor both
-   * bars to that element and hand back the drift. There are none today; adding
-   * one is what would break this.
+   * That containing block is `.app`'s own `contain: layout`, not the true
+   * browser viewport — see the note there. The two coincide for a full-page
+   * panel, so this reads the same as "fixed to the viewport" there; a Lovelace
+   * card is the case they diverge for, and `.app`'s box is the correct one.
    */
   position: fixed;
   top: 0;
@@ -935,8 +961,8 @@ button {
    the rest of the page instead of floating above the scrim untouched.    */
 
 .tabbar {
-  /* Fixed to the viewport for the same reason as `.header` — see the note
-     there about ancestors that would break it. */
+  /* Fixed to `.app`'s containing block for the same reason as `.header` — see
+     the note there. */
   position: fixed;
   left: 0;
   right: 0;
