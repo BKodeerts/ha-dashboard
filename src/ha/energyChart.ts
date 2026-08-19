@@ -34,11 +34,51 @@ export interface BucketPath {
   lastPoint?: { x: number; y: number };
 }
 
+type Point = { x: number; y: number };
+
+/**
+ * One run of consecutive defined buckets, as a smooth curve through every
+ * point — Catmull-Rom converted to cubic Beziers, the standard way to do this
+ * without reaching for a charting library. Straight `L` segments between
+ * 15-minute buckets read as faceted/jagged even when the underlying reading
+ * is smooth; real device power is often genuinely spiky (a compressor or a
+ * heating element cycling), and the curve is what a normal reading of "this
+ * chart" expects there too, the same way the household's own ApexCharts-style
+ * cards render it.
+ */
+function smoothSegment(points: Point[]): string {
+  const [first] = points;
+  if (!first) return '';
+  let d = `M${first.x.toFixed(1)},${first.y.toFixed(1)} `;
+  // A run this short has nothing to curve through — draw a zero-length
+  // segment rather than dropping it, so a single real reading still shows up
+  // as a dot instead of vanishing (and instead of leaving `bucketPath`'s
+  // `area` closing tail pointing at coordinates no visible line ever drew).
+  if (points.length < 2) return `${d}L${first.x.toFixed(1)},${first.y.toFixed(1)}`;
+  if (points.length === 2) {
+    const [, second] = points;
+    return `${d}L${second!.x.toFixed(1)},${second!.y.toFixed(1)}`;
+  }
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const p0 = points[i - 1] ?? points[i]!;
+    const p1 = points[i]!;
+    const p2 = points[i + 1]!;
+    const p3 = points[i + 2] ?? p2;
+    const c1x = p1.x + (p2.x - p0.x) / 6;
+    const c1y = p1.y + (p2.y - p0.y) / 6;
+    const c2x = p2.x - (p3.x - p1.x) / 6;
+    const c2y = p2.y - (p3.y - p1.y) / 6;
+    d += `C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)} `;
+  }
+  return d.trim();
+}
+
 /**
  * Maps a day-bucket series (see `fetchDayBuckets`) onto an SVG path, 0 at
  * `height - pad` and `max` at `pad`. Consecutive defined buckets draw a
- * segment; a gap — most often the slices still ahead of "now" — lifts the
- * pen rather than interpolating a value nobody has read yet.
+ * smooth curve (see `smoothSegment`); a gap — most often the slices still
+ * ahead of "now" — starts a new one rather than interpolating a value nobody
+ * has read yet.
  */
 export function bucketPath(
   values: (number | undefined)[],
@@ -49,32 +89,42 @@ export function bucketPath(
   const usable = height - pad * 2;
   const baseline = height - pad;
 
-  const toXY = (index: number, value: number) => ({
+  const toXY = (index: number, value: number): Point => ({
     x: (index / (n - 1)) * width,
     y: baseline - Math.max(0, Math.min(1, value / max)) * usable,
   });
 
-  let line = '';
-  let firstX: number | undefined;
-  let lastPoint: { x: number; y: number } | undefined;
-  let penDown = false;
-
+  // A real sensor's logging is "not super consistent" (per-minute-ish, but
+  // with the odd missed slice) even while it is clearly still reporting —
+  // breaking the line at every lone empty bucket would shatter a normal day
+  // into a field of isolated dots. Only a longer silence — half an hour, most
+  // often the slices still ahead of "now" — is treated as an actual gap.
+  const MAX_BRIDGED_GAP = 2;
+  const runs: Point[][] = [];
+  let current: Point[] = [];
+  let gap = 0;
   for (let i = 0; i < n; i += 1) {
     const value = values[i];
     if (value === undefined) {
-      penDown = false;
+      gap += 1;
+      if (gap > MAX_BRIDGED_GAP && current.length > 0) {
+        runs.push(current);
+        current = [];
+      }
       continue;
     }
-    const point = toXY(i, value);
-    line += `${penDown ? 'L' : 'M'}${point.x.toFixed(1)},${point.y.toFixed(1)} `;
-    penDown = true;
-    lastPoint = point;
-    if (firstX === undefined) firstX = point.x;
+    gap = 0;
+    current.push(toXY(i, value));
   }
+  if (current.length > 0) runs.push(current);
 
-  if (!lastPoint || firstX === undefined) return { line: '', area: '' };
-  const area = `${line.trim()} L${lastPoint.x.toFixed(1)},${baseline.toFixed(1)} L${firstX.toFixed(1)},${baseline.toFixed(1)} Z`;
-  return { line: line.trim(), area, lastPoint };
+  if (runs.length === 0) return { line: '', area: '' };
+  const line = runs.map(smoothSegment).join(' ');
+  const firstPoint = runs[0]![0]!;
+  const lastRun = runs[runs.length - 1]!;
+  const lastPoint = lastRun[lastRun.length - 1]!;
+  const area = `${line} L${lastPoint.x.toFixed(1)},${baseline.toFixed(1)} L${firstPoint.x.toFixed(1)},${baseline.toFixed(1)} Z`;
+  return { line, area, lastPoint };
 }
 
 /**
