@@ -162,6 +162,8 @@ export interface Room {
   id: string;
   name: string;
   tint: string;
+  /** The HA area's own `icon` (e.g. `mdi:sofa`), rendered as-is by `ui/HaIcon.tsx`. */
+  icon?: string;
   favourite: boolean;
   entities: RoomEntities;
   /** `undefined` when the area has no temperature sensor or it is unavailable. */

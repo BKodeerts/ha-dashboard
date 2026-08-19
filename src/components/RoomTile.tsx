@@ -2,6 +2,7 @@ import { useHass } from '../ha/HassProvider';
 import { formatHumidity, formatTemp } from '../ha/selectors';
 import { toggleClimate, toggleRoomLights } from '../ha/services';
 import type { Room } from '../ha/types';
+import { HaIcon } from '../ui/HaIcon';
 import { Icon } from '../ui/Icon';
 import { HVAC_ICONS } from '../ui/icons';
 import type { IconName } from '../ui/icons';
@@ -178,6 +179,7 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
   return (
     <div className="tile">
       <span className="tile__spine" style={{ background: room.tint }} />
+      <HaIcon icon={room.icon} className="tile__glyph-bg" color={room.tint} />
 
       <div
         className="tile__body"

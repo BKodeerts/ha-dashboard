@@ -775,10 +775,30 @@ button {
   width: 4px;
 }
 
+/*
+ * The room-type watermark (v6): the area's own HA icon, bleeding off the
+ * card's bottom-right corner, tinted with the room's colour at very low
+ * opacity. Texture, not content — it sits behind the name/reading/glyphs and
+ * never intercepts a tap. `.tile`'s `overflow: hidden` is what gives it the
+ * bleed. Sizing goes through `--mdc-icon-size` because the glyph itself is
+ * HA's own `<ha-icon>`, not one of ours — see `ui/HaIcon.tsx`.
+ */
+.tile__glyph-bg {
+  position: absolute;
+  right: 24px;
+  bottom: -10px;
+  --mdc-icon-size: 64px;
+  opacity: 0.07;
+  pointer-events: none;
+  z-index: 0;
+}
+
 /* The tap area opens the room card; the glyph controls inside it do not.
    v5 stands the tile up: the name at top, the reading and the state glyphs
    sharing a row at the bottom, however tall the card ends up being. */
 .tile__body {
+  position: relative;
+  z-index: 1;
   flex: 1;
   display: flex;
   flex-direction: column;
