@@ -663,12 +663,16 @@ export function powerInfo(
 
   if (consumption !== undefined) {
     info.consumption = consumption;
-  } else if (solar !== undefined && info.net !== undefined) {
+  } else if (info.net !== undefined) {
     // No battery, so every watt is either self-consumed or exported: a
     // household with a solar sensor and a grid sensor but no separate
     // whole-home CT clamp — a common DSMR/P1 + PV setup — still gets a "huis"
     // reading this way, the same physics `net` above derives in reverse.
-    info.consumption = solar - info.net;
+    // `solar` defaults to 0 rather than requiring a reading — plenty of
+    // inverters go *unavailable* instead of reporting 0 once there is
+    // nothing to produce (overnight, heavy cloud), and the meter still knows
+    // the house's draw regardless of whether the inverter is answering.
+    info.consumption = (solar ?? 0) - info.net;
   }
 
   return info;
