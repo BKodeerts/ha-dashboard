@@ -2101,9 +2101,9 @@ button {
 }
 
 /* ── who you follow ────────────────────────────────────────────────────────
-   The people whose chips sit at the top right, at most two. At the cap a
-   further tap does nothing and the note underneath says why — evicting one of
-   the two silently would be guessing which.                                */
+   A radio list, not checkboxes: the header only ever shows one person's chip
+   (`TopLine` renders `people[0]`), so picking a row replaces whoever was
+   tracked instead of adding to them.                                       */
 
 .track {
   display: flex;
@@ -2137,15 +2137,20 @@ button {
   width: 20px;
   height: 20px;
   flex: 0 0 auto;
-  border-radius: 6px;
+  border-radius: 50%;
   border: 1.5px solid var(--divider);
-  color: transparent;
 }
 
 .track__row--on .track__box {
-  background: var(--cool-fg);
   border-color: var(--cool-fg);
-  color: var(--page);
+}
+
+.track__row--on .track__box::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--cool-fg);
 }
 
 .track__names {

@@ -197,10 +197,9 @@ it takes `hass.user` (or `auth/current_user` in standalone mode) and matches it 
 entity whose `user_id` attribute is that account's id. A household of five people has five accounts,
 and asking each of them to pick themselves out of a list is a setting that can be wrong.
 
-The chips at the top right are the people you chose to *follow* — **at most two**, and the cap is a
-layout constraint rather than a taste: a third chip takes exactly the space the weather's hi/lo range
-needs, and that range is what the v3 header was reshaped to buy. One followed person shows their
-name; two drop to glyph and dot. The logged-in user is never one of them.
+The chip at the top right is the one person you chose to *follow* — the header only ever renders the
+first entry in `tracked`, so the settings picker is a radio list, not a multi-select: picking someone
+replaces whoever was tracked before. The logged-in user is never an option.
 
 ### The alarm
 
@@ -295,7 +294,7 @@ Everything that is left blank is derived from the state machine on first run:
 | `roomOrder` | `string[]` | area registry order (favourites always sort first) |
 | `theme` | `'auto' \| 'light' \| 'dark'` | `auto` — follows Home Assistant's own light/dark setting |
 | `palette` | `'ha' \| 'design'` | `ha` — surfaces and text come from HA's active theme, see below |
-| `tracked` | `string[]` | every `person.*` except your own account's, capped at two |
+| `tracked` | `string[]` | the first other `person.*` found, capped at one |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | a `device_class: power` sensor matched by name |
