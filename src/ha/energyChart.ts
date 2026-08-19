@@ -132,7 +132,15 @@ export function bucketPath(
  * its own — the same `consumption = solar - net` physics `powerInfo()` uses
  * for the live "huis" reading, applied per slice instead of once. `net` here
  * is a grid sensor's history (positive = import), so `solar - net = solar +
- * grid`. Only defined where both series have a reading for that slice.
+ * grid`.
+ *
+ * Only `grid` has to have a reading — solar defaults to 0 where it doesn't.
+ * Plenty of inverters report *unavailable* rather than 0 once there is
+ * nothing to produce (overnight, heavy cloud), and a solar reading with
+ * nothing behind it is, for this purpose, indistinguishable from producing
+ * nothing: the meter still knows exactly what the house drew regardless, and
+ * a consumption line with a hole in it every time the inverter goes quiet
+ * would be wrong far more often than it would be honest.
  */
 export function deriveConsumptionSeries(
   solar: (number | undefined)[],
@@ -141,9 +149,8 @@ export function deriveConsumptionSeries(
   const length = Math.max(solar.length, grid.length);
   const consumption: (number | undefined)[] = [];
   for (let i = 0; i < length; i += 1) {
-    const s = solar[i];
     const g = grid[i];
-    consumption.push(s === undefined || g === undefined ? undefined : s + g);
+    consumption.push(g === undefined ? undefined : (solar[i] ?? 0) + g);
   }
   return consumption;
 }
