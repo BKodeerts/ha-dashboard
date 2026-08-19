@@ -4,6 +4,7 @@ import type { AlarmInfo, AlarmMode } from '../ha/selectors';
 import { alarmCommand } from '../ha/services';
 import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
+import { useLongPress } from '../ui/useLongPress';
 
 /**
  * The glyph each treatment wears. `arming`, `armed_away` and `triggered` share
@@ -94,6 +95,11 @@ export function AlarmChip({
     if (pending) codeRef.current?.focus();
   }, [pending]);
 
+  const longPress = useLongPress({
+    entityId: alarm.entityId,
+    onClick: () => (open ? close() : onOpenChange(true)),
+  });
+
   if (!alarm.entityId) return null;
   const entityId = alarm.entityId;
 
@@ -128,7 +134,11 @@ export function AlarmChip({
         className={`header__btn alarm-chip__face alarm-chip__face--${alarm.tone}`}
         aria-label={alarm.label}
         aria-expanded={open}
-        onClick={() => (open ? close() : onOpenChange(true))}
+        onPointerDown={longPress.onPointerDown}
+        onPointerMove={longPress.onPointerMove}
+        onPointerUp={longPress.onPointerUp}
+        onPointerCancel={longPress.onPointerCancel}
+        onClick={longPress.onClick}
       >
         <Icon name={TONE_ICONS[alarm.tone]} size={17} />
         <span className={`alarm-chip__dot${alarm.pulsing ? ' alarm-chip__dot--pulsing' : ''}`} />

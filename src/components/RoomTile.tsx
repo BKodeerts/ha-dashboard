@@ -5,6 +5,7 @@ import type { Room } from '../ha/types';
 import { Icon } from '../ui/Icon';
 import { HVAC_ICONS } from '../ui/icons';
 import type { IconName } from '../ui/icons';
+import { useLongPress } from '../ui/useLongPress';
 
 interface StateGlyph {
   key: string;
@@ -18,6 +19,8 @@ interface StateGlyph {
   onTap?: () => void;
   /** Only meaningful alongside `onTap` — it is the button's `aria-pressed`. */
   on?: boolean;
+  /** The single entity a long hold opens more-info for, when the glyph has one. */
+  entityId?: string;
 }
 
 /**
@@ -62,6 +65,7 @@ function stateGlyphs(
       icon: 'radio',
       tone: room.media.playing ? 'glyph--warn' : '',
       label: room.media.playing ? `Radio ${room.name} speelt` : `Radio ${room.name} uit`,
+      entityId: room.media.entityId,
     });
   }
 
@@ -84,6 +88,7 @@ function stateGlyphs(
       label: `Airco ${room.name} ${on ? 'uit' : 'aan'}`,
       onTap: () => onToggleClimate(entityId),
       on,
+      entityId,
     };
     // The setpoint is the whole point of the glyph — except in fan mode, where
     // there is nothing to hold.
@@ -94,6 +99,71 @@ function stateGlyphs(
   }
 
   return glyphs.slice(0, 3);
+}
+
+/**
+ * One glyph. Its own component, not inlined in the `.map` above, because
+ * `useLongPress` needs one hook instance per glyph — holding down a glyph
+ * that carries a single entity (the AC, the radio) opens HA's own more-info
+ * for it; a short tap still does whatever the glyph already did.
+ */
+function GlyphView({ glyph }: { glyph: StateGlyph }) {
+  const face = (
+    <>
+      {glyph.note && <span className="glyph__note">{glyph.note}</span>}
+      <Icon name={glyph.icon} size={16} />
+    </>
+  );
+  const className = `glyph${glyph.tone ? ` ${glyph.tone}` : ''}`;
+
+  const longPress = useLongPress({
+    entityId: glyph.entityId,
+    // Read-only glyphs have nothing of their own to do with a tap, so it
+    // falls through and opens the room card, same as tapping anywhere else on
+    // the tile. A control glyph stops that fall-through — it already acted.
+    onClick: glyph.onTap
+      ? (event) => {
+          event.stopPropagation();
+          glyph.onTap?.();
+        }
+      : undefined,
+  });
+
+  if (!glyph.onTap) {
+    return (
+      <span
+        className={className}
+        role="img"
+        aria-label={glyph.label}
+        onPointerDown={longPress.onPointerDown}
+        onPointerMove={longPress.onPointerMove}
+        onPointerUp={longPress.onPointerUp}
+        onPointerCancel={longPress.onPointerCancel}
+        onClick={longPress.onClick}
+      >
+        {face}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      // The 8px of padding is not decoration: a bare 16px glyph inside a tile
+      // body that is itself a tap target turns every near-miss into an
+      // opened room card.
+      className={`${className} glyph--control`}
+      aria-label={glyph.label}
+      aria-pressed={glyph.on}
+      onPointerDown={longPress.onPointerDown}
+      onPointerMove={longPress.onPointerMove}
+      onPointerUp={longPress.onPointerUp}
+      onPointerCancel={longPress.onPointerCancel}
+      onClick={longPress.onClick}
+    >
+      {face}
+    </button>
+  );
 }
 
 export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
@@ -138,39 +208,9 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
           {/* A vertical stack against the tile's bottom-right corner, beside
               the reading. */}
           <div className="tile__glyphs">
-            {glyphs.map((glyph) => {
-              const face = (
-                <>
-                  {glyph.note && <span className="glyph__note">{glyph.note}</span>}
-                  <Icon name={glyph.icon} size={16} />
-                </>
-              );
-              const className = `glyph${glyph.tone ? ` ${glyph.tone}` : ''}`;
-
-              return glyph.onTap ? (
-                <button
-                  key={glyph.key}
-                  type="button"
-                  // The 8px of padding is not decoration: a bare 16px glyph inside
-                  // a tile body that is itself a tap target turns every near-miss
-                  // into an opened room card.
-                  className={`${className} glyph--control`}
-                  aria-label={glyph.label}
-                  aria-pressed={glyph.on}
-                  onClick={(event) => {
-                    // Toggle, and never fall through to the card underneath.
-                    event.stopPropagation();
-                    glyph.onTap?.();
-                  }}
-                >
-                  {face}
-                </button>
-              ) : (
-                <span key={glyph.key} className={className} role="img" aria-label={glyph.label}>
-                  {face}
-                </span>
-              );
-            })}
+            {glyphs.map((glyph) => (
+              <GlyphView key={glyph.key} glyph={glyph} />
+            ))}
           </div>
         </div>
       </div>
