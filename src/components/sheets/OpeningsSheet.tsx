@@ -1,6 +1,29 @@
 import type { OpeningsSummary } from '../../ha/selectors';
+import type { Opening } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
+import { useLongPress } from '../../ui/useLongPress';
 import { Sheet, SheetClose } from '../Sheet';
+
+function OpeningRow({ opening }: { opening: Opening }) {
+  const longPress = useLongPress({ entityId: opening.entityId });
+  return (
+    <div
+      className="opening"
+      onPointerDown={longPress.onPointerDown}
+      onPointerMove={longPress.onPointerMove}
+      onPointerUp={longPress.onPointerUp}
+      onPointerCancel={longPress.onPointerCancel}
+    >
+      <div className="opening__tile">
+        <Icon name={opening.deviceClass === 'window' ? 'window' : 'door'} size={16} />
+      </div>
+      <div className="opening__names">
+        <div className="opening__name">{`${opening.room} · ${opening.name}`}</div>
+        <div className="opening__meta">{`sinds ${opening.since} · ${opening.entityId}`}</div>
+      </div>
+    </div>
+  );
+}
 
 /** Scrolls, because up to 13 openings can be listed at once. */
 export function OpeningsSheet({
@@ -27,15 +50,7 @@ export function OpeningsSheet({
 
       <div className="openings">
         {openings.open.map((opening) => (
-          <div className="opening" key={opening.entityId}>
-            <div className="opening__tile">
-              <Icon name={opening.deviceClass === 'window' ? 'window' : 'door'} size={16} />
-            </div>
-            <div className="opening__names">
-              <div className="opening__name">{`${opening.room} · ${opening.name}`}</div>
-              <div className="opening__meta">{`sinds ${opening.since} · ${opening.entityId}`}</div>
-            </div>
-          </div>
+          <OpeningRow key={opening.entityId} opening={opening} />
         ))}
       </div>
     </Sheet>

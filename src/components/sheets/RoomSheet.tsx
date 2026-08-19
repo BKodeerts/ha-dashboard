@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useHass } from '../../ha/HassProvider';
 import { fetchSparkline, seriesRange, sparklinePoints } from '../../ha/history';
+import { openMoreInfo } from '../../ha/moreInfo';
 import {
   formatHumidity,
   formatNumber,
@@ -22,34 +23,44 @@ import {
 import type { HvacMode, Room, RoomClimate, RoomLight, RoomMedia } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
 import { HVAC_ICONS, HVAC_ROW_LABELS, hvacLabel } from '../../ui/icons';
+import { useLongPress } from '../../ui/useLongPress';
 import { Sheet, SheetClose } from '../Sheet';
 
 /** A pointer that never travelled this far is a tap, not a drag. */
 const TAP_SLOP_PX = 6;
+/** Matches the browser's own press-and-hold convention (context menus, etc). */
+const LONG_PRESS_MS = 500;
 
 /**
  * The gesture the lamp rows and the climate row share: drag horizontally to set
- * a level, tap to toggle. `value` is the confirmed level in percent; while a
- * drag is in flight the returned `percent` is the finger's instead, so the fill
- * tracks it rather than waiting on the round trip.
+ * a level, tap to toggle, hold to open HA's own more-info for the row's entity.
+ * `value` is the confirmed level in percent; while a drag is in flight the
+ * returned `percent` is the finger's instead, so the fill tracks it rather
+ * than waiting on the round trip.
  *
  * `draggable` false makes the row tap-only — a lamp that merely switches must
- * never show a fill it can be left in the middle of.
+ * never show a fill it can be left in the middle of. `longPressEntityId` is
+ * `undefined` for a row that opens a picker instead of toggling directly (the
+ * climate glyph does its own thing), never for the row itself.
  */
 function useDragRow({
   value,
   draggable,
+  longPressEntityId,
   onCommit,
   onTap,
 }: {
   value: number;
   draggable: boolean;
+  longPressEntityId?: string;
   onCommit(percent: number): void;
   onTap(): void;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; startX: number; moved: boolean } | null>(null);
   const [preview, setPreview] = useState<number | null>(null);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
 
   // Drop the local preview once the real value lands — but never mid-drag, or
   // an unrelated state update would yank the fill out from under the finger.
@@ -63,6 +74,13 @@ function useDragRow({
     return Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
   }, []);
 
+  const clearLongPress = () => {
+    if (longPressTimer.current !== null) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  };
+
   const handlers = {
     onPointerDown(event: React.PointerEvent<HTMLDivElement>) {
       // State first: if the capture below throws, the tap must still work.
@@ -72,6 +90,17 @@ function useDragRow({
       } catch {
         /* capture is a nicety — the row still tracks without it */
       }
+      if (longPressEntityId) {
+        longPressFired.current = false;
+        const target = event.currentTarget;
+        longPressTimer.current = setTimeout(() => {
+          longPressTimer.current = null;
+          longPressFired.current = true;
+          drag.current = null;
+          setPreview(null);
+          openMoreInfo(target, longPressEntityId);
+        }, LONG_PRESS_MS);
+      }
     },
 
     onPointerMove(event: React.PointerEvent<HTMLDivElement>) {
@@ -79,12 +108,18 @@ function useDragRow({
       if (!state || state.pointerId !== event.pointerId) return;
       if (!state.moved && Math.abs(event.clientX - state.startX) <= TAP_SLOP_PX) return;
       state.moved = true;
+      clearLongPress();
       if (draggable) setPreview(percentAt(event.clientX));
     },
 
     onPointerUp(event: React.PointerEvent<HTMLDivElement>) {
+      clearLongPress();
       const state = drag.current;
       drag.current = null;
+      if (longPressFired.current) {
+        longPressFired.current = false;
+        return;
+      }
       if (!state || state.pointerId !== event.pointerId) return;
 
       if (!state.moved) {
@@ -104,6 +139,7 @@ function useDragRow({
     },
 
     onPointerCancel() {
+      clearLongPress();
       drag.current = null;
       setPreview(null);
     },
@@ -196,6 +232,7 @@ function LampRow({ light }: { light: RoomLight }) {
   const { rowRef, percent, handlers } = useDragRow({
     value: light.brightness,
     draggable: light.dimmable,
+    longPressEntityId: light.entityId,
     onCommit: commit,
     onTap: toggle,
   });
@@ -293,6 +330,7 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
     // Off has no setpoint to show, so the track reads empty until it is on.
     value: on && target !== undefined ? Math.max(0, Math.min(100, toPercent(target))) : 0,
     draggable: true,
+    longPressEntityId: entityId,
     onCommit: commit,
     onTap: toggle,
   });
@@ -398,11 +436,18 @@ function MediaRow({ media }: { media: RoomMedia }) {
   const { entities, config, call } = useHass();
   const { entityId, playing, station } = media;
   const presets = config.mediaPresets[entityId] ?? [];
+  const longPress = useLongPress({ entityId });
 
   return (
     <div className="media">
       <div className="media__row">
-        <div className="media__names">
+        <div
+          className="media__names"
+          onPointerDown={longPress.onPointerDown}
+          onPointerMove={longPress.onPointerMove}
+          onPointerUp={longPress.onPointerUp}
+          onPointerCancel={longPress.onPointerCancel}
+        >
           <div className="media__station">{station}</div>
           <div className="media__state">{`${playing ? 'Speelt' : 'Gepauzeerd'} · ${entityId}`}</div>
         </div>

@@ -4,6 +4,7 @@ import type { ForecastDay } from '../ha/types';
 import type { Tab } from './TabBar';
 import { Icon } from '../ui/Icon';
 import { weatherIcon } from '../ui/icons';
+import { useLongPress } from '../ui/useLongPress';
 import { AlarmChip } from './AlarmChip';
 
 /**
@@ -62,6 +63,12 @@ export function TopLine({
   const account = people[0];
   const openCount = openings.open.length;
 
+  const weatherLongPress = useLongPress({ entityId: weather.entityId, onClick: onOpenWeather });
+  const personLongPress = useLongPress({
+    entityId: account?.entityId,
+    onClick: () => account?.entityId && onOpenPerson(account.entityId),
+  });
+
   const onHome = tab === 'home';
   // The section row is shared screen furniture, but its label only means
   // something on the two tabs this revision covers — Netwerk, Auto and
@@ -90,7 +97,16 @@ export function TopLine({
       </div>
 
       <div className="header__weather-row">
-        <button type="button" className="header__weather" onClick={onOpenWeather} aria-label="Weer">
+        <button
+          type="button"
+          className="header__weather"
+          aria-label="Weer"
+          onPointerDown={weatherLongPress.onPointerDown}
+          onPointerMove={weatherLongPress.onPointerMove}
+          onPointerUp={weatherLongPress.onPointerUp}
+          onPointerCancel={weatherLongPress.onPointerCancel}
+          onClick={weatherLongPress.onClick}
+        >
           <Icon
             name={weatherIcon(weather.condition)}
             size={20}
@@ -104,8 +120,12 @@ export function TopLine({
           <button
             type="button"
             className="person-chip"
-            onClick={() => account.entityId && onOpenPerson(account.entityId)}
             aria-label={account.label}
+            onPointerDown={personLongPress.onPointerDown}
+            onPointerMove={personLongPress.onPointerMove}
+            onPointerUp={personLongPress.onPointerUp}
+            onPointerCancel={personLongPress.onPointerCancel}
+            onClick={personLongPress.onClick}
           >
             <span className="person-chip__avatar">
               <Icon name="account" size={15} />

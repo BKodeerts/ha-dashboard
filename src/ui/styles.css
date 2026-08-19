@@ -812,15 +812,16 @@ button {
 }
 
 /*
- * The state glyphs, as of v5: a row beside the reading rather than a stack
- * pinned to the tile's right edge. The negative margin lets the padded
- * glyphs still reach the tile's own corner, the way the vertical stack did.
+ * The state glyphs: a vertical stack pinned to the tile's bottom-right
+ * corner, beside the reading. The negative margin lets the padded glyphs
+ * still reach the tile's own corner.
  */
 .tile__glyphs {
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   margin: 0 -6px -6px 0;
 }
 
@@ -2373,6 +2374,24 @@ button {
 
 .tint-swatch--on {
   border-color: var(--text);
+}
+
+/* One room's block in "Media per kamer" — the name above its own picker
+   list, rather than beside it like a tint row: the list can run to several
+   rows, and a name centred against that would drift from it. */
+.media-room {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.media-room__name {
+  padding: 0 4px;
+  font-size: 14px;
+}
+
+.media-room + .media-room {
+  margin-top: 10px;
 }
 
 /* ── connection banner + toasts ────────────────────────────────────────── */

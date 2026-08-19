@@ -2,11 +2,28 @@ import { useState } from 'react';
 import { useHass } from '../../ha/HassProvider';
 import { formatNumber, type PowerInfo } from '../../ha/selectors';
 import { Icon } from '../../ui/Icon';
+import { useLongPress } from '../../ui/useLongPress';
 import { LovelaceCard } from '../LovelaceCard';
 import { Sheet, SheetClose } from '../Sheet';
 
 const clampBar = (value: number | undefined, scale: number): string =>
   value === undefined ? '0%' : `${Math.max(0, Math.min(100, (value / scale) * 100))}%`;
+
+function LoadRow({ load }: { load: PowerInfo['loads'][number] }) {
+  const longPress = useLongPress({ entityId: load.entityId });
+  return (
+    <div
+      className="energy__load"
+      onPointerDown={longPress.onPointerDown}
+      onPointerMove={longPress.onPointerMove}
+      onPointerUp={longPress.onPointerUp}
+      onPointerCancel={longPress.onPointerCancel}
+    >
+      <span className="energy__load-name">{load.name}</span>
+      <span className="energy__load-value mono">{`${formatNumber(load.watts)} W`}</span>
+    </div>
+  );
+}
 
 /**
  * Stroom, v5 ("Adem"). The header (date, weather, section label) is shared
@@ -33,10 +50,19 @@ export function EnergyView({ power }: { power: PowerInfo }) {
 
   const cards = config.lovelace.energy ?? [];
 
+  const solarLongPress = useLongPress({ entityId: config.power.solar });
+  const consumptionLongPress = useLongPress({ entityId: config.power.consumption });
+
   return (
     <div className="view view--energy">
       <div className="energy__cols">
-        <div className="energy__col">
+        <div
+          className="energy__col"
+          onPointerDown={solarLongPress.onPointerDown}
+          onPointerMove={solarLongPress.onPointerMove}
+          onPointerUp={solarLongPress.onPointerUp}
+          onPointerCancel={solarLongPress.onPointerCancel}
+        >
           <div className="energy__col-head">
             <span className="energy__label mono">Zon</span>
             <Icon name="solar" size={16} className="energy__col-icon energy__col-icon--solar" />
@@ -53,7 +79,13 @@ export function EnergyView({ power }: { power: PowerInfo }) {
           </div>
         </div>
 
-        <div className="energy__col">
+        <div
+          className="energy__col"
+          onPointerDown={consumptionLongPress.onPointerDown}
+          onPointerMove={consumptionLongPress.onPointerMove}
+          onPointerUp={consumptionLongPress.onPointerUp}
+          onPointerCancel={consumptionLongPress.onPointerCancel}
+        >
           <div className="energy__col-head">
             <span className="energy__label mono">Huis</span>
             <Icon name="home" size={16} className="energy__col-icon energy__col-icon--use" />
@@ -81,10 +113,7 @@ export function EnergyView({ power }: { power: PowerInfo }) {
       {power.loads.length > 0 && (
         <div className="energy__loads">
           {power.loads.map((load) => (
-            <div className="energy__load" key={load.entityId}>
-              <span className="energy__load-name">{load.name}</span>
-              <span className="energy__load-value mono">{`${formatNumber(load.watts)} W`}</span>
-            </div>
+            <LoadRow key={load.entityId} load={load} />
           ))}
         </div>
       )}

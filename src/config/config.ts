@@ -42,6 +42,13 @@ export interface DashboardConfig {
   /** Entity overrides. Left empty, each is auto-detected from the state machine. */
   alarmEntity?: string;
   weatherEntity?: string;
+  /**
+   * Media player per area id, overriding the auto-pick (the first
+   * `media_player.*` the area's registry happens to list — a TV can easily
+   * beat a Sonos this way). Admin-only, household-wide: see "Media per kamer"
+   * in settings. `undefined` for a room clears the override.
+   */
+  mediaEntity: Record<string, string | undefined>;
   power: {
     solar?: string;
     consumption?: string;
@@ -127,6 +134,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   tracked: [],
   areaTint: {},
   roomOrder: [],
+  mediaEntity: {},
   theme: 'auto',
   palette: 'ha',
   power: { loads: [], scale: 2000 },
@@ -162,6 +170,7 @@ export function mergeConfig(
     ...base,
     ...patch,
     areaTint: { ...base.areaTint, ...(patch.areaTint ?? {}) },
+    mediaEntity: { ...base.mediaEntity, ...(patch.mediaEntity ?? {}) },
     power: { ...base.power, ...(patch.power ?? {}) },
     car: { ...base.car, ...(patch.car ?? {}) },
     mediaPresets: { ...base.mediaPresets, ...(patch.mediaPresets ?? {}) },
@@ -178,6 +187,9 @@ export function mergeConfig(
 export function mergeLayers(base: ConfigLayer, patch: ConfigLayer): ConfigLayer {
   const next: ConfigLayer = { ...base, ...patch };
   if (base.areaTint ?? patch.areaTint) next.areaTint = { ...base.areaTint, ...patch.areaTint };
+  if (base.mediaEntity ?? patch.mediaEntity) {
+    next.mediaEntity = { ...base.mediaEntity, ...patch.mediaEntity };
+  }
   if (base.power ?? patch.power) next.power = { ...base.power, ...patch.power };
   if (base.car ?? patch.car) next.car = { ...base.car, ...patch.car };
   if (base.mediaPresets ?? patch.mediaPresets) {
@@ -251,6 +263,16 @@ export const personEntities = (states: HassEntities): string[] =>
 export const weatherEntities = (states: HassEntities): string[] =>
   Object.keys(states)
     .filter((id) => id.startsWith('weather.'))
+    .sort();
+
+/**
+ * Every `media_player.*` entity, for the "Media per kamer" picker. Global
+ * rather than scoped to the room's own area: the point of the picker is
+ * offering a device HA's own area assignment would not have auto-picked.
+ */
+export const mediaPlayerEntities = (states: HassEntities): string[] =>
+  Object.keys(states)
+    .filter((id) => id.startsWith('media_player.'))
     .sort();
 
 /**
