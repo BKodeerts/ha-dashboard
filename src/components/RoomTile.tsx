@@ -135,9 +135,8 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
             <span className="tile__hum">{formatHumidity(room.humidity)}</span>
           </div>
 
-          {/* A horizontal row against the tile's bottom-right corner — v5
-              lets the tile breathe vertically, so the glyphs sit beside the
-              reading instead of stacked above it. */}
+          {/* A vertical stack against the tile's bottom-right corner, beside
+              the reading. */}
           <div className="tile__glyphs">
             {glyphs.map((glyph) => {
               const face = (

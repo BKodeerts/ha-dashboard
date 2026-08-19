@@ -812,15 +812,16 @@ button {
 }
 
 /*
- * The state glyphs, as of v5: a row beside the reading rather than a stack
- * pinned to the tile's right edge. The negative margin lets the padded
- * glyphs still reach the tile's own corner, the way the vertical stack did.
+ * The state glyphs: a vertical stack pinned to the tile's bottom-right
+ * corner, beside the reading. The negative margin lets the padded glyphs
+ * still reach the tile's own corner.
  */
 .tile__glyphs {
   flex: 0 0 auto;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
   margin: 0 -6px -6px 0;
 }
 
