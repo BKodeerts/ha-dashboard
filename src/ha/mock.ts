@@ -413,13 +413,22 @@ function buildStates(globals: MockGlobals): HassEntities {
       friendly_name: 'KMI Halle',
       temperature: 16.0,
       temperature_unit: '°C',
-      humidity: 71,
+      apparent_temperature: 15.2,
+      dew_point: 12.4,
+      humidity: 78,
       pressure: 1015,
       pressure_unit: 'hPa',
       wind_speed: 10,
       wind_speed_unit: 'km/h',
+      wind_gust_speed: 28,
       wind_bearing: 225,
-      supported_features: 3,
+      cloud_coverage: 75,
+      uv_index: 4,
+      visibility: 12,
+      visibility_unit: 'km',
+      precipitation_unit: 'mm',
+      // FORECAST_DAILY | FORECAST_HOURLY
+      supported_features: 1 | 2,
     }),
   );
   add(
@@ -705,17 +714,46 @@ export function mockBackend(): HaBackend {
     },
     async subscribeMessage<T>(cb: (msg: T) => void, message: Record<string, unknown>) {
       if (message.type === 'weather/subscribe_forecast') {
-        cb({
-          type: 'daily',
-          forecast: [
-            { datetime: iso(-24 * 60), condition: 'cloudy', temperature: 23, templow: 17 },
-            { datetime: iso(-48 * 60), condition: 'rainy', temperature: 24, templow: 17 },
-            { datetime: iso(-72 * 60), condition: 'rainy', temperature: 21, templow: 20 },
-            { datetime: iso(-96 * 60), condition: 'partlycloudy', temperature: 23, templow: 14 },
+        if (message.forecast_type === 'hourly') {
+          // Same 24 h curve as the handoff's own prototype (Weer Sheet.dc.html).
+          const TEMPS = [
+            15.2, 16.4, 17.9, 19.4, 20.8, 22.1, 23.0, 23.6, 23.9, 23.4, 22.5, 21.3, 20.1, 19.2, 18.6,
+            18.1, 17.6, 17.2, 16.9, 16.5, 16.2, 15.9, 15.6, 15.4,
+          ];
+          const APP = [
+            14.1, 15.3, 16.9, 18.6, 20.1, 21.5, 22.4, 23.0, 23.1, 22.3, 21.1, 19.8, 18.7, 18.0, 17.5,
+            17.0, 16.5, 16.1, 15.8, 15.4, 15.1, 14.8, 14.5, 14.3,
+          ];
+          const MM: Record<number, number> = { 3: 0.4, 4: 1.2, 5: 0.9, 6: 0.3, 13: 0.2 };
+          cb({
+            type: 'hourly',
+            forecast: TEMPS.map((temperature, i) => ({
+              datetime: iso(-60 * (i + 1)),
+              condition: MM[i] ? 'rainy' : i > 15 ? 'clear-night' : 'partlycloudy',
+              temperature,
+              apparent_temperature: APP[i],
+              precipitation: MM[i] ?? 0,
+              humidity: 78,
+              wind_speed: 10,
+              wind_bearing: 225,
+            })),
+          } as unknown as T);
+        } else {
+          const DAYS = [
+            { condition: 'cloudy', temperature: 23, templow: 17, precipitation: 2.6, precipitation_probability: 70 },
+            { condition: 'partlycloudy', temperature: 24, templow: 14, precipitation: 0, precipitation_probability: 10 },
+            { condition: 'sunny', temperature: 26, templow: 15, precipitation: 0, precipitation_probability: 0 },
+            { condition: 'partlycloudy', temperature: 25, templow: 16, precipitation: 0.4, precipitation_probability: 20 },
+            { condition: 'rainy', temperature: 21, templow: 17, precipitation: 6.2, precipitation_probability: 85 },
+            { condition: 'rainy', temperature: 19, templow: 14, precipitation: 3.1, precipitation_probability: 65 },
             // HA sends `null` for readings an integration does not have.
-            { datetime: iso(-120 * 60), condition: 'sunny', temperature: null, templow: null },
-          ],
-        } as unknown as T);
+            { condition: 'partlycloudy', temperature: null, templow: null, precipitation: 0.2, precipitation_probability: 15 },
+          ];
+          cb({
+            type: 'daily',
+            forecast: DAYS.map((day, i) => ({ datetime: iso(-24 * 60 * (i + 1)), ...day })),
+          } as unknown as T);
+        }
       }
       return () => undefined;
     },

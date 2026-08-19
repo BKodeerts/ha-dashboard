@@ -1,6 +1,6 @@
 import type { OpeningsSummary } from '../ha/selectors';
 import { formatFullDate, formatNumber, formatTemp, isNumber, type AlarmInfo, type PersonInfo, type WeatherInfo } from '../ha/selectors';
-import type { ForecastDay } from '../ha/types';
+import type { ForecastEntry } from '../ha/types';
 import type { Tab } from './TabBar';
 import { Icon } from '../ui/Icon';
 import { weatherIcon } from '../ui/icons';
@@ -41,7 +41,7 @@ export function TopLine({
   onOpenOpenings,
 }: {
   weather: WeatherInfo;
-  forecast: ForecastDay[];
+  forecast: ForecastEntry[];
   alarm: AlarmInfo;
   alarmPickerOpen: boolean;
   onAlarmPickerChange(open: boolean): void;

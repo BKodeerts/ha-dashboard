@@ -200,13 +200,26 @@ export type AlarmState =
   | 'unavailable';
 
 /**
- * A normalised forecast day. Both readings are optional: integrations leave
- * `templow` (and occasionally `temperature`) out, or send them as `null`, which
- * `normalizeForecast` drops.
+ * A normalised forecast entry — one hour or one day, `weather/subscribe_forecast`
+ * shapes both the same way. Every reading past `datetime`/`condition` is optional:
+ * integrations leave fields out, or send them as `null`, which `normalizeForecast`
+ * drops rather than coercing to `0`.
  */
-export interface ForecastDay {
+export interface ForecastEntry {
   datetime: string;
   condition: string;
   temperature?: number;
   templow?: number;
+  apparent_temperature?: number;
+  dew_point?: number;
+  humidity?: number;
+  precipitation?: number;
+  precipitation_probability?: number;
+  wind_speed?: number;
+  wind_gust_speed?: number;
+  wind_bearing?: string;
+  cloud_coverage?: number;
+  pressure?: number;
+  uv_index?: number;
+  is_daytime?: boolean;
 }
