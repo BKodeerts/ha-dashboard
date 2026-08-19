@@ -647,10 +647,20 @@ export function powerInfo(states: HassEntities, config: DashboardConfig): PowerI
       .sort((a, b) => b.watts - a.watts),
   };
   if (solar !== undefined) info.solar = solar;
-  if (consumption !== undefined) info.consumption = consumption;
   // A grid sensor is authoritative when present (positive = import, so negate).
   if (gridSensor !== undefined) info.net = -gridSensor;
   else if (solar !== undefined && consumption !== undefined) info.net = solar - consumption;
+
+  if (consumption !== undefined) {
+    info.consumption = consumption;
+  } else if (solar !== undefined && info.net !== undefined) {
+    // No battery, so every watt is either self-consumed or exported: a
+    // household with a solar sensor and a grid sensor but no separate
+    // whole-home CT clamp — a common DSMR/P1 + PV setup — still gets a "huis"
+    // reading this way, the same physics `net` above derives in reverse.
+    info.consumption = solar - info.net;
+  }
+
   return info;
 }
 
