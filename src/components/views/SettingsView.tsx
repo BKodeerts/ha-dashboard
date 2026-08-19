@@ -183,7 +183,7 @@ export function SettingsView({
 
       <div className="settings__section">
         <div className="settings__label">Wie volg je bovenaan</div>
-        <div className="track" role="radiogroup" aria-label="Wie volg je bovenaan">
+        <div className="radio-list" role="radiogroup" aria-label="Wie volg je bovenaan">
           {persons
             .filter((entityId) => entityId !== me.entityId)
             .map((entityId) => {
@@ -193,17 +193,17 @@ export function SettingsView({
                 <button
                   key={entityId}
                   type="button"
-                  className={`track__row${on ? ' track__row--on' : ''}`}
+                  className={`radio-row${on ? ' radio-row--on' : ''}`}
                   role="radio"
                   aria-checked={on}
                   onClick={() => selectTracked(entityId)}
                 >
-                  <span className="track__box" />
-                  <span className="track__names">
-                    <span className="track__name">{friendlyName(entities, entityId)}</span>
-                    <span className="track__id">{entityId}</span>
+                  <span className="radio-dot" />
+                  <span className="radio-names">
+                    <span className="radio-name">{friendlyName(entities, entityId)}</span>
+                    <span className="radio-id">{entityId}</span>
                   </span>
-                  <span className="track__state">{home ? 'thuis' : 'weg'}</span>
+                  <span className="radio-state">{home ? 'thuis' : 'weg'}</span>
                 </button>
               );
             })}
@@ -371,28 +371,36 @@ export function SettingsView({
               return (
                 <div className="media-room" key={room.id}>
                   <span className="media-room__name">{room.name}</span>
-                  <div className="persons persons--stack">
+                  <div className="radio-list" role="radiogroup" aria-label={room.name}>
                     <button
                       type="button"
-                      className={`person${!current ? ' person--on' : ''}`}
-                      aria-pressed={!current}
+                      className={`radio-row${!current ? ' radio-row--on' : ''}`}
+                      role="radio"
+                      aria-checked={!current}
                       disabled={mediaSaving === room.id}
                       onClick={() => void setRoomMedia(room.id, undefined)}
                     >
-                      <span className="person__name">automatisch</span>
-                      <span className="person__id">{auto}</span>
+                      <span className="radio-dot" />
+                      <span className="radio-names">
+                        <span className="radio-name">automatisch</span>
+                        <span className="radio-id">{auto}</span>
+                      </span>
                     </button>
                     {room.entities.mediaPlayers.map((entityId) => (
                       <button
                         key={entityId}
                         type="button"
-                        className={`person${current === entityId ? ' person--on' : ''}`}
-                        aria-pressed={current === entityId}
+                        className={`radio-row${current === entityId ? ' radio-row--on' : ''}`}
+                        role="radio"
+                        aria-checked={current === entityId}
                         disabled={mediaSaving === room.id}
                         onClick={() => void setRoomMedia(room.id, entityId)}
                       >
-                        <span className="person__name">{friendlyName(entities, entityId)}</span>
-                        <span className="person__id">{entityId}</span>
+                        <span className="radio-dot" />
+                        <span className="radio-names">
+                          <span className="radio-name">{friendlyName(entities, entityId)}</span>
+                          <span className="radio-id">{entityId}</span>
+                        </span>
                       </button>
                     ))}
                   </div>

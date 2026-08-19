@@ -2100,18 +2100,19 @@ button {
   text-transform: uppercase;
 }
 
-/* ── who you follow ────────────────────────────────────────────────────────
-   A radio list, not checkboxes: the header only ever shows one person's chip
-   (`TopLine` renders `people[0]`), so picking a row replaces whoever was
-   tracked instead of adding to them.                                       */
+/* ── radio lists ────────────────────────────────────────────────────────────
+   The shared look for "pick exactly one of these": who you follow up top and
+   which media player a room uses. Picking a row replaces whatever was chosen
+   before rather than adding to it, so a filled dot reads better than a
+   checkbox — nothing here is ever a set of more than one.                  */
 
-.track {
+.radio-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
 }
 
-.track__row {
+.radio-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2123,14 +2124,14 @@ button {
   text-align: left;
 }
 
-.track__row--on {
+.radio-row--on {
   /* A lighter wash than the header chip's: this is a checked row in a list,
      not a state to read across the room. */
   background: var(--cool-wash);
   border-color: var(--cool-border);
 }
 
-.track__box {
+.radio-dot {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2141,11 +2142,11 @@ button {
   border: 1.5px solid var(--divider);
 }
 
-.track__row--on .track__box {
+.radio-row--on .radio-dot {
   border-color: var(--cool-fg);
 }
 
-.track__row--on .track__box::after {
+.radio-row--on .radio-dot::after {
   content: '';
   width: 10px;
   height: 10px;
@@ -2153,7 +2154,7 @@ button {
   background: var(--cool-fg);
 }
 
-.track__names {
+.radio-names {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -2161,13 +2162,13 @@ button {
   gap: 2px;
 }
 
-.track__name {
+.radio-name {
   font-size: 15px;
   font-weight: 500;
   letter-spacing: -0.015em;
 }
 
-.track__id {
+.radio-id {
   font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.05em;
@@ -2177,7 +2178,7 @@ button {
   white-space: nowrap;
 }
 
-.track__state {
+.radio-state {
   flex: 0 0 auto;
   font-family: var(--font-mono);
   font-size: 9px;
