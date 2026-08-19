@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useHass } from '../../ha/HassProvider';
-import { bucketPath, deviceColor, nowFraction, selfConsumptionRatio } from '../../ha/energyChart';
+import {
+  bucketPath,
+  deriveConsumptionSeries,
+  deviceColor,
+  nowFraction,
+  selfConsumptionRatio,
+} from '../../ha/energyChart';
 import { fetchDayBuckets } from '../../ha/history';
 import { formatNumber, type PowerInfo } from '../../ha/selectors';
 import { Icon } from '../../ui/Icon';
@@ -57,14 +63,22 @@ function SolarNowCard({
   power,
   solarEntity,
   consumptionEntity,
+  gridEntity,
 }: {
   power: PowerInfo;
   solarEntity: string | undefined;
   consumptionEntity: string | undefined;
+  gridEntity: string | undefined;
 }) {
-  const buckets = useDayBuckets([solarEntity, consumptionEntity]);
+  const buckets = useDayBuckets([solarEntity, consumptionEntity, gridEntity]);
   const solar = solarEntity ? (buckets.get(solarEntity) ?? []) : [];
-  const consumption = consumptionEntity ? (buckets.get(consumptionEntity) ?? []) : [];
+  const grid = gridEntity ? (buckets.get(gridEntity) ?? []) : [];
+  // Most households have no whole-home sensor of their own — see
+  // powerInfo()'s same fallback for the live "huis" number — so the chart's
+  // consumption line falls back to solar + grid import per hour.
+  const consumption = consumptionEntity
+    ? (buckets.get(consumptionEntity) ?? [])
+    : deriveConsumptionSeries(solar, grid);
 
   const chart = useMemo(() => {
     const max = Math.max(
@@ -260,6 +274,7 @@ export function EnergyView({ power }: { power: PowerInfo }) {
         power={power}
         solarEntity={config.power.solar}
         consumptionEntity={config.power.consumption}
+        gridEntity={config.power.grid}
       />
 
       <DeviceTrendCard loads={power.loads} />

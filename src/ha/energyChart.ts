@@ -77,6 +77,27 @@ export function bucketPath(
   return { line: line.trim(), area, lastPoint };
 }
 
+/**
+ * A day's consumption buckets, for a household with no whole-home sensor of
+ * its own — the same `consumption = solar - net` physics `powerInfo()` uses
+ * for the live "huis" reading, applied per hour instead of once. `net` here
+ * is a grid sensor's history (positive = import), so `solar - net = solar +
+ * grid`. Only defined where both series have a reading for that hour.
+ */
+export function deriveConsumptionSeries(
+  solar: (number | undefined)[],
+  grid: (number | undefined)[],
+): (number | undefined)[] {
+  const length = Math.max(solar.length, grid.length);
+  const consumption: (number | undefined)[] = [];
+  for (let i = 0; i < length; i += 1) {
+    const s = solar[i];
+    const g = grid[i];
+    consumption.push(s === undefined || g === undefined ? undefined : s + g);
+  }
+  return consumption;
+}
+
 /** Today's self-consumption ratio (0–1): solar used directly, over total
     consumption — `min(solar, consumption)` summed across the hours both have
     a reading. Undefined until at least one hour has both. No battery in this
