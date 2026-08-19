@@ -158,6 +158,61 @@ front and keep the token there.
 Standalone has no access to HA's card registry, so the Lovelace embeds degrade to a footnote naming
 what would be there. Everything else works identically.
 
+## Setting it as your default dashboard
+
+A `panel_custom` panel (method 1 or 2 above) is not a Lovelace dashboard, so it never shows up in
+Settings → your profile → **Default dashboard** — that picker only lists a handful of built-in
+dashboards and whatever is registered under Settings → Dashboards. This is a Home Assistant
+frontend restriction, not something the panel config can opt into.
+
+To make it eligible, register the same bundle as a Lovelace **resource** instead of (or alongside)
+the `panel_custom` entry, and put it in a dashboard with a single `panel: true` view:
+
+```yaml
+# configuration.yaml, if not already using panel_custom for this URL
+lovelace:
+  dashboards:
+    home-dashboard:
+      mode: yaml
+      title: Home
+      icon: mdi:home-variant
+      show_in_sidebar: true
+      filename: dashboards/home-dashboard.yaml
+```
+
+```yaml
+# dashboards/home-dashboard.yaml
+title: Home
+views:
+  - title: Home
+    path: home
+    panel: true
+    cards:
+      - type: custom:ha-dashboard-panel
+        favouriteAreas: [living, bureau, slaapkamer, clara, oliver]
+```
+
+The card needs the same JS the panel does, registered as a Lovelace **resource**:
+
+- **Installed via HACS** (method 1): nothing to do. HACS registers this repo's file under Settings →
+  Dashboards → Resources on its own — since it's a "Dashboard" (HACS's current name for what used
+  to be "Plugin") repository, not because of the `panel_custom` entry — and appends its own
+  `?hacstag=…` to the URL, bumping it on every update. Check Settings → Dashboards → Resources; the
+  entry is very likely already there from installing the panel.
+- **Manual copy** (method 2): add it yourself, Settings → Dashboards → Resources → type **JavaScript
+  Module**, URL `/local/ha-dashboard-panel.js?v=1`. `/local/` is cached aggressively and, unlike
+  `/hacsfiles/`, HA does not version it for you — bump `?v=` yourself on every redeploy, same as the
+  `module_url` note for the `panel_custom` snippet above.
+
+`favouriteAreas` and the rest of the `config:` keys from the `panel_custom` snippet work the same way
+here, read straight off the card's own YAML.
+
+This dashboard now shows up in the **Default dashboard** picker. The one thing it does not fix on
+its own: Lovelace always draws its own header (title bar, sidebar toggle) above the view, stacked on
+top of this app's own header and tab bar. Hide it with
+[`kiosk-mode`](https://github.com/NemesisRE/kiosk-mode) scoped to this dashboard's `path`, the same
+way you would for any other kiosk-style Lovelace dashboard.
+
 ## How the room list is built
 
 Rooms come from the **area registry**, not from a hand-written list. At startup the app fetches the

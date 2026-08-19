@@ -1,6 +1,6 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { App } from './app/App';
-import type { ConfigLayer } from './config/config';
+import type { ConfigLayer, LovelaceCardConfig } from './config/config';
 import { panelBackend, readSnapshot, standaloneBackend } from './ha/backend';
 import { HassProvider } from './ha/HassProvider';
 import { mockBackend } from './ha/mock';
@@ -76,6 +76,22 @@ export class HaDashboardPanel extends HTMLElement {
   /** `panel.config` carries whatever sits under `config:` in configuration.yaml. */
   set panel(value: { config?: ConfigLayer } | null) {
     this.#panelConfig = value?.config;
+  }
+
+  /**
+   * Lovelace's card entry point — lets this element double as a
+   * `type: custom:ha-dashboard-panel` card in a panel-mode view. Unlike a
+   * `panel_custom` panel, a Lovelace dashboard is eligible for "Set as default
+   * dashboard" (see README.md for the YAML and the kiosk-mode note).
+   */
+  setConfig(config: LovelaceCardConfig): void {
+    const { type: _type, ...rest } = config;
+    this.#panelConfig = rest;
+  }
+
+  /** Lovelace's masonry view sizes cards off this; the panel view ignores it. */
+  getCardSize(): number {
+    return 3;
   }
 
   set narrow(_value: boolean) {
