@@ -56,66 +56,12 @@ export function SettingsView({
   persons: string[];
   me: PersonInfo;
 }) {
-  const {
-    entities,
-    config,
-    updateConfig,
-    resetConfig,
-    publishHousehold,
-    updateHousehold,
-    householdAvailable,
-    user,
-    notify,
-  } = useHass();
-  const [panel, setPanel] = useState<
-    'weer' | 'thema' | 'kleuren' | 'tints' | 'media' | 'opslag' | null
-  >(null);
-  /** Publishing overwrites everyone's defaults, so it takes a second tap. */
-  const [confirmPublish, setConfirmPublish] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-
-  /* Only an admin may write HA's system store — a non-admin's attempt is
-     rejected by the server, so the button (and the household-wide settings
-     below, like "Media per kamer") is not offered rather than offered and
-     then failing. */
-  const isHouseholdAdmin = householdAvailable && user?.is_admin === true;
-
-  const publish = async () => {
-    if (!confirmPublish) {
-      setConfirmPublish(true);
-      return;
-    }
-    setConfirmPublish(false);
-    setPublishing(true);
-    try {
-      await publishHousehold();
-      notify('opgeslagen als standaard voor het huishouden');
-    } catch (error) {
-      notify(`publiceren mislukt — ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setPublishing(false);
-    }
-  };
+  const { entities, config, updateConfig, resetConfig, user } = useHass();
+  const [panel, setPanel] = useState<'weer' | 'thema' | 'kleuren' | 'tints' | 'opslag' | null>(
+    null,
+  );
 
   const weathers = useMemo(() => weatherEntities(entities), [entities]);
-  const mediaRooms = useMemo(
-    () => rooms.filter((room) => room.entities.mediaPlayers.length > 0),
-    [rooms],
-  );
-  const mediaOverrideCount = Object.values(config.mediaEntity).filter(Boolean).length;
-
-  const [mediaSaving, setMediaSaving] = useState<string | null>(null);
-
-  const setRoomMedia = async (roomId: string, entityId: string | undefined) => {
-    setMediaSaving(roomId);
-    try {
-      await updateHousehold({ mediaEntity: { [roomId]: entityId } });
-    } catch (error) {
-      notify(`media-keuze bewaren mislukt — ${error instanceof Error ? error.message : String(error)}`);
-    } finally {
-      setMediaSaving(null);
-    }
-  };
 
   const tracked = config.tracked;
 
@@ -358,73 +304,11 @@ export function SettingsView({
           ))}
         </MoreRow>
 
-        {isHouseholdAdmin && (
-          <MoreRow
-            name="Media per kamer"
-            meta={`${mediaOverrideCount} van ${mediaRooms.length} aangepast`}
-            open={panel === 'media'}
-            onTap={() => setPanel((current) => (current === 'media' ? null : 'media'))}
-          >
-            {mediaRooms.map((room) => {
-              const current = config.mediaEntity[room.id];
-              const auto = room.entities.mediaPlayers[0]!;
-              return (
-                <div className="media-room" key={room.id}>
-                  <span className="media-room__name">{room.name}</span>
-                  <div className="radio-list" role="radiogroup" aria-label={room.name}>
-                    <button
-                      type="button"
-                      className={`radio-row${!current ? ' radio-row--on' : ''}`}
-                      role="radio"
-                      aria-checked={!current}
-                      disabled={mediaSaving === room.id}
-                      onClick={() => void setRoomMedia(room.id, undefined)}
-                    >
-                      <span className="radio-dot" />
-                      <span className="radio-names">
-                        <span className="radio-name">automatisch</span>
-                        <span className="radio-id">{auto}</span>
-                      </span>
-                    </button>
-                    {room.entities.mediaPlayers.map((entityId) => (
-                      <button
-                        key={entityId}
-                        type="button"
-                        className={`radio-row${current === entityId ? ' radio-row--on' : ''}`}
-                        role="radio"
-                        aria-checked={current === entityId}
-                        disabled={mediaSaving === room.id}
-                        onClick={() => void setRoomMedia(room.id, entityId)}
-                      >
-                        <span className="radio-dot" />
-                        <span className="radio-names">
-                          <span className="radio-name">{friendlyName(entities, entityId)}</span>
-                          <span className="radio-id">{entityId}</span>
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              );
-            })}
-            {mediaRooms.length === 0 && (
-              <div className="settings__note">geen kamers met media_player-entiteiten</div>
-            )}
-            <div className="settings__note">
-              admin-only, geldt voor iedereen — welke speler de kamerkaart toont in plaats van de
-              automatische keuze. Enkel kamers met een eigen media_player staan hier.
-            </div>
-          </MoreRow>
-        )}
-
         <MoreRow
           name="Instellingen"
           meta={user ? 'in Home Assistant' : 'niet gekoppeld'}
           open={panel === 'opslag'}
-          onTap={() => {
-            setConfirmPublish(false);
-            setPanel((current) => (current === 'opslag' ? null : 'opslag'));
-          }}
+          onTap={() => setPanel((current) => (current === 'opslag' ? null : 'opslag'))}
         >
           <div className="settings__note">
             {user
@@ -432,24 +316,10 @@ export function SettingsView({
                 ' hetzelfde dashboard op elk toestel, en wie mee inlogt op dit scherm heeft zijn eigen'
               : 'geen account gevonden — instellingen blijven lokaal tot de verbinding er is'}
           </div>
-          {isHouseholdAdmin && (
-            <>
-              <button
-                type="button"
-                className="stale__foot"
-                disabled={publishing}
-                onClick={() => void publish()}
-              >
-                {confirmPublish
-                  ? 'zeker? overschrijft de standaard voor iedereen'
-                  : 'instellen als standaard voor het huishouden'}
-              </button>
-              <div className="settings__note">
-                jouw keuzes worden de basis voor elk account dat nog niets zelf koos; je eigen laag
-                wordt daarna leeggemaakt, zodat je die standaard blijft volgen
-              </div>
-            </>
-          )}
+          <div className="settings__note">
+            instellingen voor het hele huishouden (stroom, auto, media-presets, media per kamer)
+            stel je in via de kaart zelf — bewerk de kaart in het dashboard voor de visuele editor
+          </div>
         </MoreRow>
       </div>
 

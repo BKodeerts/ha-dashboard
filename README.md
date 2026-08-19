@@ -13,6 +13,18 @@ absolutely pinned to the bottom of the screen — no amount of content scrolls i
 stop above it. Heavy data views (the energy dashboard, the car cards) stay Home Assistant's own
 Lovelace cards, embedded in the shell.
 
+### What changed in v6
+
+v6 makes the Lovelace card the primary way to run this, gives it a GUI editor, and drops the
+household layer that lived in HA's system store.
+
+| v5 | v6 |
+| --- | --- |
+| Household defaults were a button in settings (admin, HA 2025.12+) that copied your layer into `frontend.system_data` | Household defaults are the card's own YAML — no version gate, no publish step |
+| The only way to set power sensors, the car and media presets was hand-written `panel_custom`/card YAML | A GUI editor (HA's "Edit card" dialog) covers those, plus "media per kamer" — hand-written YAML still works for anything the editor doesn't cover |
+| "Media per kamer" was admin-only, written straight to the household layer from Settings | Set from the card's visual editor instead; the in-app Settings view no longer has an admin section |
+| Recommended install was a `panel_custom` sidebar panel | Recommended install is the Lovelace card — see "Three ways to run it" |
+
 ### What changed in v2
 
 | v1 (rejected on UX grounds) | v2 |
@@ -81,17 +93,34 @@ style — or be styled by — the Home Assistant frontend around it.
 
 ## Three ways to run it
 
-All of them mount the same `<ha-dashboard-panel>` custom element, so there is one code path.
+All of them mount the same `<ha-dashboard-panel>` custom element, so there is one code path. The
+Lovelace card is the recommended one — it needs no restart to add or reconfigure, and it is the only
+mount that gets the visual editor (see "Editing it visually" below).
 
-### 1. As a Home Assistant panel, via HACS (recommended)
-
-HA handles authentication, `hui-card` is available for the embedded Lovelace cards, and updates are
-one click — no file copying.
+### 1. As a Lovelace card, via HACS (recommended)
 
 1. HACS → ⋮ → **Custom repositories** → add `BKodeerts/ha-dashboard`, type **Dashboard**.
-2. Find "Home dashboard" in HACS and **Download**. It lands at
-   `/config/www/community/ha-dashboard/ha-dashboard-panel.js`, served as `/hacsfiles/…`.
-3. Add the panel to `configuration.yaml` (once — later updates never touch this):
+2. Find "Home dashboard" in HACS and **Download**. HACS registers the bundle as a Lovelace
+   **resource** on its own — check Settings → Dashboards → Resources if in doubt.
+3. **+ Add card** on any dashboard, search "HA Dashboard", and use the GUI editor that opens (or add
+   it by hand — see "Setting it as your default dashboard" below for the YAML and the `panel: true`
+   view that gives it a full-page, no-sidebar look).
+
+Updates are one click in HACS — no file copying, no restart. Releases are built by CI
+(`.github/workflows/release.yml`); to cut one:
+
+```bash
+npm version patch && git push --follow-tags
+```
+
+### 2. As a Home Assistant panel (`panel_custom`)
+
+An alternative for a fixed sidebar entry point outside any dashboard. It works exactly the way it
+always has, but it has no visual editor — `config:` stays hand-written YAML — and, unlike the card,
+it is not eligible for "Default dashboard" (see below).
+
+1. Build or download the same bundle as above.
+2. Add it to `configuration.yaml`:
 
 ```yaml
 panel_custom:
@@ -99,16 +128,16 @@ panel_custom:
     url_path: home
     sidebar_title: Home
     sidebar_icon: mdi:home-variant
-    module_url: /hacsfiles/ha-dashboard/ha-dashboard-panel.js
+    module_url: /hacsfiles/ha-dashboard/ha-dashboard-panel.js  # or /local/… for a manual copy
     embed_iframe: false
     require_admin: false
     # Optional: defaults for the client-side config (see "Configuration").
-    # Anything the user changes in the app overrides this and is stored locally.
+    # Anything the user changes in the app overrides this and is stored on their account.
     config:
       favouriteAreas: [living, bureau, slaapkamer, clara, oliver]
 ```
 
-4. Restart Home Assistant — a YAML reload will not register a new panel. The dashboard is at `/home`.
+3. Restart Home Assistant — a YAML reload will not register a new panel. The dashboard is at `/home`.
 
 Three fields matter and are easy to get wrong:
 
@@ -117,26 +146,15 @@ Three fields matter and are easy to get wrong:
 - `embed_iframe: false` is required. Inside an iframe the panel never receives `hass`, so there is
   no data and no Lovelace embeds.
 
-Releases are built by CI (`.github/workflows/release.yml`) and the panel is attached as a release
-asset, which is what HACS downloads. To cut one:
-
-```bash
-npm version patch && git push --follow-tags
-```
-
-HACS then offers the update in Home Assistant.
-
-### 2. As a Home Assistant panel, manually
-
-Same thing without HACS, if you would rather not add the custom repository:
+A manual (non-HACS) copy works the same way:
 
 ```bash
 npm run build:panel                                        # → dist/panel/ha-dashboard-panel.js
 scp dist/panel/ha-dashboard-panel.js root@homeassistant.local:/config/www/
 ```
 
-Use `module_url: /local/ha-dashboard-panel.js` in the snippet above. HA caches `/local/`
-aggressively, so bump `?v=2` on every redeploy — this is the copying that HACS saves you.
+Use `module_url: /local/ha-dashboard-panel.js`. HA caches `/local/` aggressively, so bump `?v=2` on
+every redeploy — this is the copying HACS saves you, on either mount.
 
 ### 3. Standalone
 
@@ -160,16 +178,13 @@ what would be there. Everything else works identically.
 
 ## Setting it as your default dashboard
 
-A `panel_custom` panel (method 1 or 2 above) is not a Lovelace dashboard, so it never shows up in
-Settings → your profile → **Default dashboard** — that picker only lists a handful of built-in
-dashboards and whatever is registered under Settings → Dashboards. This is a Home Assistant
-frontend restriction, not something the panel config can opt into.
-
-To make it eligible, register the same bundle as a Lovelace **resource** instead of (or alongside)
-the `panel_custom` entry, and put it in a dashboard with a single `panel: true` view:
+Put the card in a dashboard with a single `panel: true` view and it is eligible for Settings → your
+profile → **Default dashboard** — something a `panel_custom` panel never is, since that picker only
+lists dashboards registered under Settings → Dashboards, a Home Assistant frontend restriction the
+panel config cannot opt into.
 
 ```yaml
-# configuration.yaml, if not already using panel_custom for this URL
+# configuration.yaml
 lovelace:
   dashboards:
     home-dashboard:
@@ -184,9 +199,8 @@ lovelace:
 # dashboards/home-dashboard.yaml
 title: Home
 # Requires the kiosk-mode custom card as its own registered Lovelace resource
-# (a one-time setup, same as the panel's own resource above) — this block just
-# turns it on for this dashboard specifically, unindented at the file's root,
-# so every other dashboard keeps HA's normal header.
+# (a one-time setup) — this block just turns it on for this dashboard specifically,
+# unindented at the file's root, so every other dashboard keeps HA's normal header.
 kiosk_mode:
   hide_header: true
 views:
@@ -198,27 +212,25 @@ views:
         favouriteAreas: [living, bureau, slaapkamer, clara, oliver]
 ```
 
-The card needs the same JS the panel does, registered as a Lovelace **resource**:
-
-- **Installed via HACS** (method 1): nothing to do. HACS registers this repo's file under Settings →
-  Dashboards → Resources on its own — since it's a "Dashboard" (HACS's current name for what used
-  to be "Plugin") repository, not because of the `panel_custom` entry — and appends its own
-  `?hacstag=…` to the URL, bumping it on every update. Check Settings → Dashboards → Resources; the
-  entry is very likely already there from installing the panel.
-- **Manual copy** (method 2): add it yourself, Settings → Dashboards → Resources → type **JavaScript
-  Module**, URL `/local/ha-dashboard-panel.js?v=1`. `/local/` is cached aggressively and, unlike
-  `/hacsfiles/`, HA does not version it for you — bump `?v=` yourself on every redeploy, same as the
-  `module_url` note for the `panel_custom` snippet above.
-
-`favouriteAreas` and the rest of the `config:` keys from the `panel_custom` snippet work the same way
-here, read straight off the card's own YAML.
-
-This dashboard now shows up in the **Default dashboard** picker. Lovelace would otherwise always draw
-its own header (title bar, sidebar toggle) above the view, stacked on top of this app's own header
-and tab bar — the `kiosk_mode:` block in the YAML above hides it automatically, scoped to just this
-dashboard; every other dashboard you have keeps HA's normal header. It needs
+Lovelace would otherwise always draw its own header (title bar, sidebar toggle) above the view,
+stacked on top of this app's own header and tab bar — the `kiosk_mode:` block above hides it
+automatically, scoped to just this dashboard. It needs
 [`kiosk-mode`](https://github.com/maykar/kiosk-mode) itself registered as a Lovelace resource, the
-same one-time step as the panel's own resource further up.
+same one-time step as the card's own resource.
+
+## Editing it visually
+
+The card in the snippet above (`type: custom:ha-dashboard-panel`) is a normal Lovelace card: press
+**Edit Dashboard**, click the card, and "Edit card" opens with a GUI tab instead of raw YAML. It
+covers the settings that used to require hand-written YAML and nothing else — power sensors, the
+car, media presets, and which media player each room's card shows ("media per kamer") — because
+those are the ones a household actually changes from time to time, not a config editor for every
+key. Everything else (`favouriteAreas`, `theme`, tints, …) is either better set from the in-app
+Settings view (it is personal, per account) or still just plain YAML in the card's "Edit as YAML"
+tab if you want a household-wide starting point for it.
+
+The editor only exists for the Lovelace card — `panel_custom` has no such hook, so a panel-mounted
+install keeps editing `config:` by hand in `configuration.yaml`.
 
 ## How the room list is built
 
@@ -318,19 +330,15 @@ They are stored through HA's own frontend storage, so there is nothing to instal
 | Layer | Where | Who it applies to |
 | --- | --- | --- |
 | defaults | in the code, then derived from your state machine (see the table below) | everyone |
-| `panel_custom`'s `config:` block | `configuration.yaml` | everyone |
-| household | `frontend.system_data`, written by **"instellen als standaard voor het huishouden"** | everyone who has not chosen for themselves |
+| household | the card's own YAML — hand-written or the visual editor (or `panel_custom`'s `config:` block, for a panel-mounted install) | everyone who has not chosen for themselves |
 | yours | `frontend.user_data_{user_id}`, written by every tap in settings | you, on every device |
 
 Each layer only carries what was actually set on it, so a household default keeps applying to the
 keys you have not touched yourself.
 
-Two of these need a recent Home Assistant, and neither is fatal on an older one:
-
-- **Live sync** (a change on your phone appearing on the tablet without a reload) uses
-  `frontend/subscribe_user_data`, **HA 2025.6+**. Below that the settings are read once at startup.
-- **The household layer** uses `frontend/set_system_data`, **HA 2025.12+**, and only an admin may
-  write it. Below that the button is not shown and `configuration.yaml` is the shared layer.
+**Live sync** (a change on your phone appearing on the tablet without a reload) uses
+`frontend/subscribe_user_data`, **HA 2025.6+**. Below that your own settings are read once at
+startup — the household layer needs no such gate, since it is just Lovelace's own storage.
 
 `localStorage` is still used, but only as a cache: the last config each account saw is kept under
 `ha-dashboard.cache.{user_id}` so a cold start paints the right dashboard immediately instead of
@@ -340,8 +348,12 @@ flashing the defaults while the socket connects. Deleting it costs nothing.
 time you open the dashboard, then renamed to `ha-dashboard.config.v2.migrated` so it cannot be
 applied twice. Nothing is lost, and the old blob stays on disk as a way back.
 
-**"standaardwaarden herstellen"** clears *your* layer only — you fall back to the household default,
-then the YAML, then the derived defaults.
+**Upgrading from v5:** the household layer that used to live in `frontend.system_data` is gone —
+move whatever it held into the card's own YAML (by hand or through the visual editor). There is
+nothing to migrate automatically: that store had no equivalent in Lovelace to move it to.
+
+**"standaardwaarden herstellen"** clears *your* layer only — you fall back to the card's own YAML,
+then the derived defaults.
 
 The **gear next to "Kamers"** opens the settings view: who you are (read-only — it comes from your
 account), who you follow at the top of the home screen, room order and favourites, and the display
@@ -365,29 +377,30 @@ Everything that is left blank is derived from the state machine on first run:
 | `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
 
-The keys the settings view does not expose — media presets and the car sensors — are set in the
-`config:` block of the `panel_custom` snippet above, which applies to the whole household:
+The keys the in-app settings view does not expose — power, the car, media presets, and media per
+kamer — are household-wide, and are set on the card itself: through the visual editor ("Editing it
+visually" above), or by hand in its YAML (or the `panel_custom` snippet's `config:` block, for a
+panel-mounted install):
 
 ```yaml
-panel_custom:
-  - name: ha-dashboard-panel
-    # …
-    config:
-      power:
-        solar: sensor.zonnepanelen_vermogen
-        consumption: sensor.verbruik_vermogen
-      car:
-        name: Kona electric
-        battery: sensor.kona_battery
-        range: sensor.kona_range
-      mediaPresets:
-        media_player.living_radio:
-          - name: Studio Brussel
-            media_content_type: music
-            media_content_id: https://…/stubru.mp3
-          - name: Klara
-            media_content_type: music
-            media_content_id: https://…/klara.mp3
+type: custom:ha-dashboard-panel
+power:
+  solar: sensor.zonnepanelen_vermogen
+  consumption: sensor.verbruik_vermogen
+car:
+  name: Kona electric
+  battery: sensor.kona_battery
+  range: sensor.kona_range
+mediaEntity:
+  living: media_player.living_sonos
+mediaPresets:
+  media_player.living_radio:
+    - name: Studio Brussel
+      media_content_type: music
+      media_content_id: https://…/stubru.mp3
+    - name: Klara
+      media_content_type: music
+      media_content_id: https://…/klara.mp3
 ```
 
 To read or write your stored layer directly, use **Developer Tools → the websocket API** rather than
@@ -585,6 +598,7 @@ Small, deliberate, and listed so they are easy to reverse:
 ```
 src/
   element.tsx        the <ha-dashboard-panel> custom element (shadow root, backend selection)
+  editor.tsx         the Lovelace card's visual editor (<ha-dashboard-panel-editor>)
   panel.ts           entry for the HA panel build
   main.tsx           entry for the standalone build / dev server
   app/App.tsx        screen composition, sheet + tab state

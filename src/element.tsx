@@ -1,6 +1,9 @@
 import { createRoot, type Root } from 'react-dom/client';
 import { App } from './app/App';
 import type { ConfigLayer, LovelaceCardConfig } from './config/config';
+// Registers `<ha-dashboard-panel-editor>`, the GUI Lovelace mounts inside the
+// "Edit card" dialog for `getConfigElement()` below.
+import './editor';
 import { panelBackend, readSnapshot, standaloneBackend } from './ha/backend';
 import { HassProvider } from './ha/HassProvider';
 import { mockBackend } from './ha/mock';
@@ -92,6 +95,16 @@ export class HaDashboardPanel extends HTMLElement {
   /** Lovelace's masonry view sizes cards off this; the panel view ignores it. */
   getCardSize(): number {
     return 3;
+  }
+
+  /** The GUI tab of the "Edit card" dialog — see `editor.tsx`. */
+  static getConfigElement(): HTMLElement {
+    return document.createElement('ha-dashboard-panel-editor');
+  }
+
+  /** What a freshly-dragged-in card starts with, before anyone has edited it. */
+  static getStubConfig(): LovelaceCardConfig {
+    return { type: 'custom:ha-dashboard-panel' };
   }
 
   set narrow(_value: boolean) {
@@ -254,3 +267,20 @@ export class HaDashboardPanel extends HTMLElement {
 if (!customElements.get('ha-dashboard-panel')) {
   customElements.define('ha-dashboard-panel', HaDashboardPanel);
 }
+
+/**
+ * Lets the "+ Add card" picker find this by name instead of requiring the
+ * YAML type to be typed by hand — Lovelace reads this array itself, no
+ * registration call needed.
+ */
+declare global {
+  interface Window {
+    customCards?: { type: string; name: string; description: string }[];
+  }
+}
+window.customCards ??= [];
+window.customCards.push({
+  type: 'ha-dashboard-panel',
+  name: 'HA Dashboard',
+  description: 'Het volledige mobile-first dashboard als één kaart, met een visuele editor voor stroom, auto en media.',
+});

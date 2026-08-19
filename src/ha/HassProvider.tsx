@@ -19,19 +19,14 @@ import {
 import { writeSnapshot } from './backend';
 import {
   createConfigPush,
-  EMPTY_LAYERS,
   lastUserId,
   markLegacyMigrated,
   readCache,
-  readHousehold,
   readLegacyConfig,
   readPersonal,
-  subscribeHousehold,
   subscribePersonal,
   writeCache,
-  writeHousehold,
   writePersonal,
-  type ConfigLayers,
   type ConfigPush,
 } from './configStore';
 import { fetchRegistries, resolveAreaEntities } from './registry';
@@ -79,23 +74,8 @@ interface HassContextValue {
   user: CurrentUser | null;
   config: DashboardConfig;
   updateConfig(patch: ConfigLayer): void;
-  /** Clears *your* layer, dropping you back to the household defaults. */
+  /** Clears *your* layer, dropping you back to the card's own YAML defaults. */
   resetConfig(): void;
-  /**
-   * Folds your layer into the household one, so every account inherits it.
-   * Admin-only, and only on an HA new enough to have a system store — see
-   * `householdAvailable`, which the settings view gates the button on.
-   */
-  publishHousehold(): Promise<void>;
-  /**
-   * Writes straight into the household layer, for the settings a design wants
-   * shared and admin-only regardless of what any one account has chosen —
-   * "Media per kamer" is the first of these. The server rejects a non-admin's
-   * write, so this is only ever called from behind the same
-   * `householdAvailable && user.is_admin` gate `publishHousehold` uses.
-   */
-  updateHousehold(patch: ConfigLayer): Promise<void>;
-  householdAvailable: boolean;
   status: ConnectionStatus;
   ready: boolean;
   call(serviceCall: ServiceCall | null): Promise<void>;
@@ -162,19 +142,15 @@ export function HassProvider({
      dashboard. Panel mode knows the account synchronously; standalone has
      nobody to ask yet and falls back to whoever used this browser last, which
      the socket corrects a moment later. */
-  const [layers, setLayers] = useState<ConfigLayers>(
-    () => readCache(backend.hass?.user?.id ?? lastUserId()) ?? EMPTY_LAYERS,
+  const [personal, setPersonal] = useState<ConfigLayer>(
+    () => readCache(backend.hass?.user?.id ?? lastUserId()) ?? {},
   );
-  const [householdAvailable, setHouseholdAvailable] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [live, setLive] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(() => backend.hass?.user ?? null);
 
   const entitiesRef = useRef(rawEntities);
   entitiesRef.current = rawEntities;
-
-  const layersRef = useRef(layers);
-  layersRef.current = layers;
 
   /** Coalesces bursts of settings taps into one write. Created with the socket. */
   const pushRef = useRef<ConfigPush | null>(null);
@@ -225,9 +201,9 @@ export function HassProvider({
   }, [backend]);
 
   /* ── config, from Home Assistant ──────────────────────────────────────────
-     Both stores are scoped by the *connection*, so neither read needs to wait
-     for `auth/current_user` — only the local cache is keyed by account, and
-     that is a separate effect below. */
+     The store is scoped by the *connection*, so the read does not need to
+     wait for `auth/current_user` — only the local cache is keyed by account,
+     and that is a separate effect below. */
   useEffect(() => {
     let cancelled = false;
     const push = createConfigPush(
@@ -239,14 +215,10 @@ export function HassProvider({
     /* A subscription event that is merely our own write coming back, or one
        that arrives while a change of ours is still queued, would undo what the
        user just did. */
-    const accept = (apply: (config: ConfigLayer) => void) => (config: ConfigLayer | undefined) => {
+    const accept = (config: ConfigLayer | undefined) => {
       if (cancelled || push.isPending() || push.isEcho(config)) return;
-      apply(config ?? {});
+      setPersonal(config ?? {});
     };
-    const applyPersonal = (personal: ConfigLayer) =>
-      setLayers((current) => ({ ...current, personal }));
-    const applyHousehold = (household: ConfigLayer) =>
-      setLayers((current) => ({ ...current, household }));
 
     const unsubscribers: (() => void)[] = [];
     const track = (unsubscribe: () => void) => {
@@ -255,18 +227,11 @@ export function HassProvider({
     };
 
     void (async () => {
-      const household = await readHousehold(backend);
+      const result = await readPersonal(backend);
       if (cancelled) return;
-      // `ok: false` is an HA older than the system store, not a failure. The
-      // YAML block is the household layer there, and publishing is hidden.
-      setHouseholdAvailable(household.ok);
-      if (household.ok) applyHousehold(household.config ?? {});
-
-      const personal = await readPersonal(backend);
-      if (cancelled) return;
-      if (personal.ok) {
-        if (personal.config) {
-          applyPersonal(personal.config);
+      if (result.ok) {
+        if (result.config) {
+          setPersonal(result.config);
         } else {
           /* Nothing on the server yet. An install upgrading from v4 has its
              settings in the old browser-local blob, so they move up here
@@ -279,15 +244,14 @@ export function HassProvider({
             } catch {
               /* keep the blob; the next load tries again */
             }
-            if (!cancelled) applyPersonal(legacy);
+            if (!cancelled) setPersonal(legacy);
           } else {
-            applyPersonal({});
+            setPersonal({});
           }
         }
       }
 
-      if (household.ok) track(await subscribeHousehold(backend, accept(applyHousehold)));
-      track(await subscribePersonal(backend, accept(applyPersonal)));
+      track(await subscribePersonal(backend, accept));
     })();
 
     return () => {
@@ -302,8 +266,8 @@ export function HassProvider({
      cold start. Keyed by account, so a shared tablet never paints one person's
      dashboard for another. */
   useEffect(() => {
-    writeCache(user?.id, layers);
-  }, [user?.id, layers]);
+    writeCache(user?.id, personal);
+  }, [user?.id, personal]);
 
   /* Snapshot the last known states so the next cold start paints real values. */
   useEffect(() => {
@@ -354,65 +318,38 @@ export function HassProvider({
 
   const entities = useMemo(() => applyOverlays(rawEntities, overlays), [rawEntities, overlays]);
 
-  /* ── config: defaults ← panel YAML ← household ← account, then blanks derived ── */
+  /* ── config: defaults ← card YAML ← account, then blanks derived ────────── */
   const config = useMemo(() => {
-    const merged = mergeConfig(
-      mergeConfig(mergeConfig(DEFAULT_CONFIG, yamlConfig), layers.household),
-      layers.personal,
-    );
+    const merged = mergeConfig(mergeConfig(DEFAULT_CONFIG, yamlConfig), personal);
     if (!registries) return merged;
     // Who to follow defaults to "everyone but me", so the account has to be
     // resolved before the blanks are filled — hence `user` in the deps.
     const me = currentPerson(entitiesRef.current, user).entityId;
     return withDerivedDefaults(merged, registries.areas, areaEntities, entitiesRef.current, me);
     // `live` is in the deps so derivation reruns once real states have landed.
-  }, [yamlConfig, layers, registries, areaEntities, live, user]);
+  }, [yamlConfig, personal, registries, areaEntities, live, user]);
 
   /**
    * Optimistic: the UI flips now and the server catches up. Only what was
    * actually set lands in your layer — merging the defaults in would shadow the
-   * household's choices with values nobody made.
+   * card's own YAML choices with values nobody made.
    */
   const updateConfig = useCallback((patch: ConfigLayer) => {
-    setLayers((current) => {
-      const personal = mergeLayers(current.personal, patch);
-      pushRef.current?.queue(personal);
-      return { ...current, personal };
+    setPersonal((current) => {
+      const next = mergeLayers(current, patch);
+      pushRef.current?.queue(next);
+      return next;
     });
   }, []);
 
-  /** Clears your layer only, so you fall back to household → YAML → defaults. */
+  /** Clears your layer only, so you fall back to the card's own YAML → defaults. */
   const resetConfig = useCallback(() => {
     pushRef.current?.cancel();
-    setLayers((current) => ({ ...current, personal: {} }));
+    setPersonal({});
     writePersonal(backend, null).catch((error: unknown) => {
       notify(`herstellen mislukt — ${describe(error)}`);
     });
   }, [backend, notify]);
-
-  const updateHousehold = useCallback(
-    async (patch: ConfigLayer) => {
-      const household = mergeLayers(layersRef.current.household, patch);
-      await writeHousehold(backend, household);
-      setLayers((current) => ({ ...current, household }));
-    },
-    [backend],
-  );
-
-  const publishHousehold = useCallback(async () => {
-    // The stored layers, deliberately not the derived config: freezing today's
-    // auto-detected alarm and power sensors into the household layer would stop
-    // every other account from detecting its own.
-    const { household, personal } = layersRef.current;
-    const merged = mergeLayers(household, personal);
-    pushRef.current?.cancel();
-    await writeHousehold(backend, merged);
-    // Clearing your own layer afterwards means you inherit what you just
-    // published, rather than shadowing it with an identical copy that would
-    // ignore every later household change.
-    await writePersonal(backend, null);
-    setLayers({ household: merged, personal: {} });
-  }, [backend]);
 
   /* ── writes: flip locally, then reconcile (or revert with a toast) ───────── */
   const call = useCallback(
@@ -469,9 +406,6 @@ export function HassProvider({
       config,
       updateConfig,
       resetConfig,
-      publishHousehold,
-      updateHousehold,
-      householdAvailable,
       status,
       ready: registries !== null && live,
       call,
@@ -487,9 +421,6 @@ export function HassProvider({
       config,
       updateConfig,
       resetConfig,
-      publishHousehold,
-      updateHousehold,
-      householdAvailable,
       status,
       live,
       call,
