@@ -131,11 +131,11 @@ function Editor({
 
   const states = hass.states;
   const sensors = useMemo(() => domainEntities(states, 'sensor'), [states]);
-  const mediaPlayers = useMemo(() => domainEntities(states, 'media_player'), [states]);
 
   const power: NonNullable<ConfigLayer['power']> = (config.power as ConfigLayer['power']) ?? {
     loads: [],
-    scale: 2000,
+    excludeLoads: [],
+    minWatts: 0,
   };
   const car: NonNullable<ConfigLayer['car']> = (config.car as ConfigLayer['car']) ?? {};
   const mediaEntity: NonNullable<ConfigLayer['mediaEntity']> =
@@ -157,24 +157,60 @@ function Editor({
       .filter(({ players }) => players.length > 0);
   }, [registries, states]);
 
+  /**
+   * The room card only ever plays one player per room (`mediaEntity[area]` ??
+   * the area's first candidate — the same pick `buildRooms` makes for the
+   * dashboard itself), so that is the set worth showing preset editors for.
+   * Every other `media_player.*` in the house is a picker option above, never
+   * a preset target.
+   */
+  const usedMediaPlayers = useMemo(() => {
+    const ids = new Set<string>();
+    for (const { area, players } of areasWithMedia) {
+      const selected = mediaEntity[area.area_id] ?? players[0];
+      if (selected) ids.add(selected);
+    }
+    return [...ids].sort();
+  }, [areasWithMedia, mediaEntity]);
+
   return (
     <div className="hdpe">
       <style>{EDITOR_STYLES}</style>
       <section className="hdpe__section">
         <h3 className="hdpe__title">Stroom</h3>
         <div className="hdpe__note">
-          Zon, verbruik, net en de top loads worden automatisch herkend (elke sensor met
+          Zon, verbruik, net en de apparatenlijst worden automatisch herkend (elke sensor met
           <code> device_class: power</code>) — hier hoeft niets gekozen te worden. Raadt de
           herkenning verkeerd, dan overschrijf je <code>power.solar</code>/<code>power.consumption</code>/
           <code>power.grid</code>/<code>power.loads</code> in de YAML van de kaart zelf.
         </div>
         <label className="hdpe__field">
-          <span className="hdpe__field-label">Schaal (W) — volle uitslag van de twee balken</span>
+          <span className="hdpe__field-label">Minimum vermogen (W) — apparaten eronder vallen weg uit "Apparaten nu"</span>
           <input
             type="number"
             min={0}
-            value={power.scale ?? 2000}
-            onChange={(event) => patch({ power: { scale: Number(event.target.value) || 0 } })}
+            value={power.minWatts ?? 0}
+            onChange={(event) => patch({ power: { minWatts: Number(event.target.value) || 0 } })}
+          />
+        </label>
+        <label className="hdpe__field">
+          <span className="hdpe__field-label">
+            Uitgesloten sensoren — één per regel, <code>*</code> als jokerteken (bv.
+            <code> sensor.*_apparent_power</code>, <code>sensor.grid_power</code>)
+          </span>
+          <textarea
+            rows={3}
+            value={(power.excludeLoads ?? []).join('\n')}
+            onChange={(event) =>
+              patch({
+                power: {
+                  excludeLoads: event.target.value
+                    .split('\n')
+                    .map((line) => line.trim())
+                    .filter(Boolean),
+                },
+              })
+            }
           />
         </label>
       </section>
@@ -232,7 +268,7 @@ function Editor({
 
       <section className="hdpe__section">
         <h3 className="hdpe__title">Media-presets</h3>
-        {mediaPlayers.map((entityId) => (
+        {usedMediaPlayers.map((entityId) => (
           <PresetRows
             key={entityId}
             entityId={entityId}
@@ -241,8 +277,8 @@ function Editor({
             onChange={(next) => patch({ mediaPresets: { [entityId]: next } })}
           />
         ))}
-        {mediaPlayers.length === 0 && (
-          <div className="hdpe__note">geen media_player-entiteiten gevonden</div>
+        {registries && usedMediaPlayers.length === 0 && (
+          <div className="hdpe__note">geen kamer heeft nog een media_player geselecteerd</div>
         )}
       </section>
     </div>
@@ -255,7 +291,7 @@ const EDITOR_STYLES = `
 .hdpe__title { margin: 0; font-size: 14px; font-weight: 600; color: var(--secondary-text-color, inherit); }
 .hdpe__field { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
 .hdpe__field-label { font-size: 13px; color: var(--secondary-text-color, inherit); }
-.hdpe__field select, .hdpe__field input {
+.hdpe__field select, .hdpe__field input, .hdpe__field textarea {
   font: inherit;
   color: var(--primary-text-color, inherit);
   background: var(--card-background-color, transparent);
@@ -263,6 +299,7 @@ const EDITOR_STYLES = `
   border-radius: 6px;
   padding: 6px 8px;
 }
+.hdpe__field textarea { resize: vertical; font-family: var(--code-font-family, monospace); font-size: 13px; }
 .hdpe__note { font-size: 13px; color: var(--secondary-text-color, inherit); }
 .hdpe__presets { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--divider-color, #ccc); border-radius: 8px; }
 .hdpe__preset-row { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 6px; }
