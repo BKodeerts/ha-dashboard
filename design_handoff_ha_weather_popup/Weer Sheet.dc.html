@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#0f1116; font-family:'Space Grotesk',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#f0eeea; text-decoration:none; }
+  a:hover { color:oklch(0.78 0.13 60); }
+</style>
+</helmet>
+
+<div style="background:#1b1e24; color:#f0eeea; font-family:'Space Grotesk',system-ui,sans-serif; border-radius:32px 32px 44px 44px; padding:20px 20px 30px; display:flex; flex-direction:column; gap:16px">
+
+  <div style="display:flex; align-items:center; gap:12px">
+    <div style="width:34px; height:34px; border-radius:11px; background:rgba(255,255,255,0.07); display:flex; align-items:center; justify-content:center; color:rgba(240,238,234,0.7); flex:0 0 auto">
+      <svg viewBox="0 0 24 24" style="width:19px; height:19px; display:block; fill:currentColor"><path d="M6,19A5,5 0 0,1 1,14A5,5 0 0,1 6,9C7,6.65 9.3,5 12,5C15.43,5 18.24,7.66 18.5,11.03L19,11A4,4 0 0,1 23,15A4,4 0 0,1 19,19H6M19,13H17V12A5,5 0 0,0 12,7C9.5,7 7.45,8.82 7.06,11.19C6.73,11.07 6.37,11 6,11A3,3 0 0,0 3,14A3,3 0 0,0 6,17H19A2,2 0 0,0 21,15A2,2 0 0,0 19,13Z"></path></svg>
+    </div>
+    <div style="flex:1; min-width:0">
+      <div style="font-size:19px; font-weight:500; letter-spacing:-0.015em; line-height:1.1">{{ place }}</div>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.07em; color:rgba(240,238,234,0.35); margin-top:3px">{{ sourceLine }}</div>
+    </div>
+    <div onClick="{{ onClose }}" style="width:34px; height:34px; border-radius:50%; background:rgba(255,255,255,0.08); display:flex; align-items:center; justify-content:center; cursor:pointer; color:rgba(240,238,234,0.6); flex:0 0 auto">
+      <svg viewBox="0 0 24 24" style="width:15px; height:15px; display:block; fill:currentColor"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"></path></svg>
+    </div>
+  </div>
+
+  <div style="display:flex; align-items:flex-end; gap:14px">
+    <span style="font-size:56px; font-weight:400; letter-spacing:-0.04em; line-height:0.86">{{ nowTemp }}</span>
+    <div style="flex:1; display:flex; flex-direction:column; gap:4px; padding-bottom:5px">
+      <div style="font-size:14px; font-weight:500; letter-spacing:-0.01em; color:rgba(240,238,234,0.8)">{{ conditionLabel }}</div>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.05em; color:rgba(240,238,234,0.4)">{{ nowSub }}</div>
+    </div>
+    <div style="text-align:right; padding-bottom:5px; display:flex; flex-direction:column; gap:4px">
+      <div style="font-size:15px; font-weight:500; letter-spacing:-0.02em">{{ todayRange }}</div>
+      <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.06em; color:oklch(0.7 0.1 250)">{{ rainNote }}</div>
+    </div>
+  </div>
+
+  <div style="display:flex; gap:4px; background:rgba(255,255,255,0.05); border-radius:11px; padding:4px">
+    <div onClick="{{ showDay }}" style="flex:1; text-align:center; padding:7px 0; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; cursor:pointer; background:{{ dayTabBg }}; color:{{ dayTabFg }}">Vandaag</div>
+    <div onClick="{{ showWeek }}" style="flex:1; text-align:center; padding:7px 0; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.12em; text-transform:uppercase; cursor:pointer; background:{{ weekTabBg }}; color:{{ weekTabFg }}">Week</div>
+  </div>
+
+  <sc-if value="{{ isDay }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-direction:column; gap:14px">
+
+      <div style="display:flex; align-items:center; gap:14px; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.1em; text-transform:uppercase; color:rgba(240,238,234,0.35)">
+        <span style="display:flex; align-items:center; gap:5px"><span style="width:14px; height:2px; background:oklch(0.78 0.13 60); border-radius:2px"></span>temperatuur</span>
+        <span style="display:flex; align-items:center; gap:5px"><span style="width:14px; height:0; border-top:2px dashed rgba(240,238,234,0.45)"></span>voelt als</span>
+        <span style="display:flex; align-items:center; gap:5px"><span style="width:7px; height:9px; background:oklch(0.68 0.1 250); border-radius:2px"></span>neerslag mm</span>
+      </div>
+
+      <div style="position:relative">
+        <svg viewBox="0 0 350 138" style="width:100%; height:auto; display:block; overflow:visible">
+          <path d="{{ gridPath }}" stroke="rgba(240,238,234,0.09)" stroke-width="1" stroke-dasharray="2 4" fill="none"></path>
+          <path d="{{ rainPath }}" fill="oklch(0.68 0.1 250)" opacity="0.85"></path>
+          <path d="{{ nowPath }}" stroke="rgba(240,238,234,0.3)" stroke-width="1" fill="none"></path>
+          <path d="{{ appLine }}" stroke="rgba(240,238,234,0.4)" stroke-width="1.5" stroke-dasharray="3 3" fill="none" stroke-linecap="round"></path>
+          <path d="{{ tempArea }}" fill="oklch(0.78 0.13 60)" opacity="0.1"></path>
+          <path d="{{ tempLine }}" stroke="oklch(0.78 0.13 60)" stroke-width="2.25" fill="none" stroke-linecap="round" stroke-linejoin="round"></path>
+          <circle cx="{{ nowX }}" cy="{{ nowY }}" r="4" fill="oklch(0.78 0.13 60)" stroke="#1b1e24" stroke-width="2"></circle>
+        </svg>
+        <div style="position:absolute; left:0; top:{{ axisHiPct }}; transform:translateY(-50%); font-family:'IBM Plex Mono',monospace; font-size:9px; color:rgba(240,238,234,0.3)">{{ axisHi }}</div>
+        <div style="position:absolute; left:0; top:{{ axisLoPct }}; transform:translateY(-50%); font-family:'IBM Plex Mono',monospace; font-size:9px; color:rgba(240,238,234,0.3)">{{ axisLo }}</div>
+      </div>
+
+      <div style="position:relative; height:12px; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.08em; color:rgba(240,238,234,0.3)">
+        <sc-for list="{{ hourTicks }}" as="t" hint-placeholder-count="8">
+          <span style="position:absolute; top:0; left:{{ t.left }}; transform:translateX(-50%); white-space:nowrap">{{ t.label }}</span>
+        </sc-for>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:8px">
+        <sc-for list="{{ metrics }}" as="m" hint-placeholder-count="9">
+          <div style="border-radius:12px; background:rgba(255,255,255,0.04); padding:9px 10px; display:flex; flex-direction:column; gap:4px">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:0.09em; text-transform:uppercase; color:rgba(240,238,234,0.35)">{{ m.k }}</span>
+            <span style="font-size:14px; font-weight:500; letter-spacing:-0.02em">{{ m.v }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isWeek }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex; flex-direction:column; gap:2px">
+      <div style="display:flex; align-items:center; gap:10px; font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:0.09em; text-transform:uppercase; color:rgba(240,238,234,0.3); padding:0 2px 6px">
+        <span style="width:30px">dag</span>
+        <span style="width:20px"></span>
+        <span style="flex:1">{{ weekScaleLabel }}</span>
+        <span style="width:58px; text-align:right">neerslag</span>
+      </div>
+      <sc-for list="{{ week }}" as="d" hint-placeholder-count="7">
+        <div style="display:flex; align-items:center; gap:10px; padding:8px 2px; border-top:1px solid rgba(255,255,255,0.05)">
+          <span style="width:30px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.08em; color:{{ d.dayFg }}">{{ d.day }}</span>
+          <svg viewBox="0 0 24 24" style="width:20px; height:20px; display:block; flex:0 0 auto; fill:rgba(240,238,234,0.55)"><path d="{{ d.ic }}"></path></svg>
+          <span style="width:26px; text-align:right; font-family:'IBM Plex Mono',monospace; font-size:11px; color:rgba(240,238,234,0.4)">{{ d.lo }}</span>
+          <div style="flex:1; height:6px; border-radius:3px; background:rgba(255,255,255,0.07); position:relative">
+            <div style="position:absolute; top:0; bottom:0; left:{{ d.barLeft }}; width:{{ d.barWidth }}; border-radius:3px; background:linear-gradient(90deg, oklch(0.62 0.11 250), oklch(0.78 0.13 60))"></div>
+          </div>
+          <span style="width:34px; font-size:14px; font-weight:500; letter-spacing:-0.02em">{{ d.hi }}</span>
+          <span style="width:58px; text-align:right; font-family:'IBM Plex Mono',monospace; font-size:10px; color:{{ d.rainFg }}">{{ d.rain }}</span>
+        </div>
+      </sc-for>
+      <div style="display:flex; gap:8px; margin-top:12px">
+        <sc-for list="{{ weekNotes }}" as="n" hint-placeholder-count="2">
+          <div style="flex:1; border-radius:12px; background:rgba(255,255,255,0.04); padding:10px 11px; display:flex; flex-direction:column; gap:4px">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:8.5px; letter-spacing:0.09em; text-transform:uppercase; color:rgba(240,238,234,0.35)">{{ n.k }}</span>
+            <span style="font-size:13px; font-weight:500; letter-spacing:-0.01em; color:rgba(240,238,234,0.85)">{{ n.v }}</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <div style="font-family:'IBM Plex Mono',monospace; font-size:9.5px; letter-spacing:0.08em; text-transform:uppercase; color:rgba(240,238,234,0.22); text-align:center">{{ footer }}</div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:620},&quot;place&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;KMI · Halle&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;initialView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;dag&quot;,&quot;options&quot;:[&quot;dag&quot;,&quot;week&quot;],&quot;tsType&quot;:&quot;'dag' | 'week'&quot;},&quot;onClose&quot;:{&quot;editor&quot;:null,&quot;tsType&quot;:&quot;() =&gt; void&quot;}}">
+const ICONS = {
+  cloudy: 'M6,19A5,5 0 0,1 1,14A5,5 0 0,1 6,9C7,6.65 9.3,5 12,5C15.43,5 18.24,7.66 18.5,11.03L19,11A4,4 0 0,1 23,15A4,4 0 0,1 19,19H6M19,13H17V12A5,5 0 0,0 12,7C9.5,7 7.45,8.82 7.06,11.19C6.73,11.07 6.37,11 6,11A3,3 0 0,0 3,14A3,3 0 0,0 6,17H19A2,2 0 0,0 21,15A2,2 0 0,0 19,13Z',
+  partly: 'M12.74,5.47C15.1,6.5 16.35,9.03 15.92,11.46C17.19,12.56 18,14.19 18,16V16.17C18.31,16.06 18.65,16 19,16A3,3 0 0,1 22,19A3,3 0 0,1 19,22H6A4,4 0 0,1 2,18A4,4 0 0,1 6,14H6.27C5,12.45 4.6,10.24 5.5,8.26C6.72,5.5 9.97,4.24 12.74,5.47M11.93,7.3C10.16,6.5 8.09,7.31 7.31,9.07C6.85,10.09 6.93,11.22 7.41,12.13C8.5,10.83 10.16,10 12,10C12.7,10 13.38,10.12 14,10.34C13.94,9.06 13.18,7.86 11.93,7.3M13.55,3.64C13,3.4 12.45,3.23 11.88,3.12L14.37,1.82L15.27,4.71C14.76,4.29 14.19,3.93 13.55,3.64M6.09,4.44C5.6,4.79 5.17,5.19 4.8,5.63L4.91,2.82L7.87,3.5C7.25,3.71 6.65,4.03 6.09,4.44M18,9.71C17.91,9.12 17.78,8.55 17.59,8L19.97,9.5L17.92,11.73C18.03,11.08 18.05,10.4 18,9.71M3.04,11.3C3.11,11.9 3.24,12.47 3.43,13L1.06,11.5L3.1,9.28C3,9.93 2.97,10.61 3.04,11.3M19,18H16V16A4,4 0 0,0 12,12A4,4 0 0,0 8,16H6A2,2 0 0,0 4,18A2,2 0 0,0 6,20H19A1,1 0 0,0 20,19A1,1 0 0,0 19,18Z',
+  rain: 'M9,12C9.53,12.14 9.85,12.69 9.71,13.22L8.41,18.05C8.27,18.59 7.72,18.9 7.19,18.76C6.65,18.62 6.34,18.07 6.5,17.54L7.78,12.71C7.92,12.17 8.47,11.86 9,12M13,12C13.53,12.14 13.85,12.69 13.71,13.22L11.64,20.95C11.5,21.5 10.95,21.8 10.41,21.66C9.88,21.5 9.56,20.97 9.7,20.43L11.78,12.71C11.92,12.17 12.47,11.86 13,12M17,12C17.53,12.14 17.85,12.69 17.71,13.22L16.41,18.05C16.27,18.59 15.72,18.9 15.19,18.76C14.65,18.62 14.34,18.07 14.5,17.54L15.78,12.71C15.92,12.17 16.47,11.86 17,12M17,10V9A5,5 0 0,0 12,4C9.5,4 7.45,5.82 7.06,8.19C6.73,8.07 6.37,8 6,8A3,3 0 0,0 3,11C3,12.11 3.6,13.08 4.5,13.6V13.59C5,13.87 5.14,14.5 4.87,14.96C4.59,15.43 4,15.6 3.5,15.32V15.33C2,14.47 1,12.85 1,11A5,5 0 0,1 6,6C7,3.65 9.3,2 12,2C15.43,2 18.24,4.66 18.5,8.03L19,8A4,4 0 0,1 23,12C23,13.5 22.2,14.77 21,15.46V15.46C20.5,15.73 19.91,15.57 19.63,15.09C19.36,14.61 19.5,14 20,13.72V13.73C20.6,13.39 21,12.74 21,12A2,2 0 0,0 19,10H17Z',
+  sunny: 'M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,2L14.39,5.42C13.65,5.15 12.84,5 12,5C11.16,5 10.35,5.15 9.61,5.42L12,2M3.34,7L7.5,6.65C6.9,7.16 6.36,7.78 5.94,8.5C5.5,9.24 5.25,10 5.11,10.79L3.34,7M3.36,17L5.12,13.23C5.26,14 5.53,14.78 5.95,15.5C6.37,16.24 6.91,16.86 7.5,17.37L3.36,17M20.65,7L18.88,10.79C18.74,10 18.47,9.23 18.05,8.5C17.63,7.78 17.1,7.15 16.5,6.64L20.65,7M20.64,17L16.5,17.36C17.09,16.85 17.62,16.22 18.04,15.5C18.46,14.77 18.73,14 18.87,13.21L20.64,17M12,22L9.59,18.56C10.33,18.83 11.14,19 12,19C12.82,19 13.63,18.83 14.37,18.56L12,22Z'
+};
+
+/** hourly forecast, 07:00 -> 06:00 (weather.get_forecasts type: hourly) */
+const TEMPS = [15.2,16.4,17.9,19.4,20.8,22.1,23.0,23.6,23.9,23.4,22.5,21.3,20.1,19.2,18.6,18.1,17.6,17.2,16.9,16.5,16.2,15.9,15.6,15.4];
+const APP   = [14.1,15.3,16.9,18.6,20.1,21.5,22.4,23.0,23.1,22.3,21.1,19.8,18.7,18.0,17.5,17.0,16.5,16.1,15.8,15.4,15.1,14.8,14.5,14.3];
+const MM    = {10:0.4, 11:1.2, 12:0.9, 13:0.3, 20:0.2};
+const NOW_I = 7;
+
+const nl = (n, d) => n.toFixed(d === undefined ? 0 : d).replace('.', ',');
+
+class Component extends DCLogic {
+  state = { view: null };
+
+  chart() {
+    const W = 350, x0 = 30, x1 = 344;
+    const tTop = 8, tBot = 88, tMin = 13, tMax = 26;
+    const rainBase = 122, rainMax = 32, mmMax = 1.5;
+    const x = i => x0 + i * (x1 - x0) / (TEMPS.length - 1);
+    const y = t => tBot - (t - tMin) / (tMax - tMin) * (tBot - tTop);
+    const line = arr => arr.map((t, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(t).toFixed(1)).join(' ');
+    let rain = '';
+    Object.keys(MM).forEach(k => {
+      const i = +k, h = MM[k] / mmMax * rainMax, cx = x(i);
+      rain += 'M' + (cx - 5).toFixed(1) + ' ' + (rainBase - h).toFixed(1) + ' h10 v' + h.toFixed(1) + ' h-10 Z ';
+    });
+    const grid = [20, 15].map(t => 'M' + x0 + ' ' + y(t).toFixed(1) + ' H' + x1).join(' ')
+      + ' M' + x0 + ' ' + rainBase + ' H' + x1;
+    return {
+      tempLine: line(TEMPS),
+      appLine: line(APP),
+      tempArea: line(TEMPS) + ' L' + x1 + ' ' + tBot + ' L' + x0 + ' ' + tBot + ' Z',
+      rainPath: rain.trim(),
+      gridPath: grid,
+      nowPath: 'M' + x(NOW_I).toFixed(1) + ' ' + tTop + ' V' + rainBase,
+      nowX: x(NOW_I).toFixed(1), nowY: y(TEMPS[NOW_I]).toFixed(1),
+      axisHi: '20°', axisLo: '15°',
+      axisHiPct: (y(20) / 138 * 100).toFixed(2) + '%',
+      axisLoPct: (y(15) / 138 * 100).toFixed(2) + '%',
+      tickLefts: [0, 3, 6, 9, 12, 15, 18, 21].map(i => (x(i) / W * 100).toFixed(2) + '%')
+    };
+  }
+
+  renderVals() {
+    const view = this.state.view || this.props.initialView || 'dag';
+    const on = 'rgba(255,255,255,0.11)';
+    const week = [
+      { day: 'WO', ic: ICONS.cloudy, lo: 16, hi: 23, mm: 2.6, p: 70, today: true },
+      { day: 'DO', ic: ICONS.partly, lo: 14, hi: 24, mm: 0, p: 10 },
+      { day: 'VR', ic: ICONS.sunny, lo: 15, hi: 26, mm: 0, p: 0 },
+      { day: 'ZA', ic: ICONS.partly, lo: 16, hi: 25, mm: 0.4, p: 20 },
+      { day: 'ZO', ic: ICONS.rain, lo: 17, hi: 21, mm: 6.2, p: 85 },
+      { day: 'MA', ic: ICONS.rain, lo: 14, hi: 19, mm: 3.1, p: 65 },
+      { day: 'DI', ic: ICONS.partly, lo: 13, hi: 22, mm: 0.2, p: 15 }
+    ];
+    const lo = Math.min(...week.map(d => d.lo)) - 1, hi = Math.max(...week.map(d => d.hi)) + 1;
+    const c = this.chart();
+    return {
+      place: this.props.place ?? 'KMI · Halle',
+      sourceLine: 'weather.kmi_halle · bijgewerkt 14:20',
+      nowTemp: '16,0°',
+      conditionLabel: 'Bewolkt',
+      nowSub: 'voelt als 15,2° · 78 % rv',
+      todayRange: '23° / 16°',
+      rainNote: 'regen vanaf 17 u',
+      onClose: this.props.onClose ?? (() => {}),
+      isDay: view === 'dag', isWeek: view === 'week',
+      showDay: () => this.setState({ view: 'dag' }),
+      showWeek: () => this.setState({ view: 'week' }),
+      dayTabBg: view === 'dag' ? on : 'transparent',
+      weekTabBg: view === 'week' ? on : 'transparent',
+      dayTabFg: view === 'dag' ? '#f0eeea' : 'rgba(240,238,234,0.45)',
+      weekTabFg: view === 'week' ? '#f0eeea' : 'rgba(240,238,234,0.45)',
+      ...c,
+      hourTicks: [0, 3, 6, 9, 12, 15, 18, 21].map((i, n) => ({ label: String((7 + i) % 24).padStart(2, '0') + 'u', left: c.tickLefts[n] })),
+      metrics: [
+        { k: 'voelt als', v: '15,2°' },
+        { k: 'dauwpunt', v: '12,4°' },
+        { k: 'vochtigheid', v: '78 %' },
+        { k: 'wind', v: '10 km/h ZW' },
+        { k: 'windstoten', v: '28 km/h' },
+        { k: 'druk', v: '1015 hPa' },
+        { k: 'uv-index', v: '4 · matig' },
+        { k: 'bewolking', v: '75 %' },
+        { k: 'zicht', v: '12 km' }
+      ],
+      weekScaleLabel: nl(lo) + '° — ' + nl(hi) + '°',
+      week: week.map(d => ({
+        day: d.day, ic: d.ic, lo: nl(d.lo) + '°', hi: nl(d.hi) + '°',
+        dayFg: d.today ? '#f0eeea' : 'rgba(240,238,234,0.5)',
+        barLeft: ((d.lo - lo) / (hi - lo) * 100).toFixed(1) + '%',
+        barWidth: ((d.hi - d.lo) / (hi - lo) * 100).toFixed(1) + '%',
+        rain: d.mm ? nl(d.p) + ' % · ' + nl(d.mm, 1) + ' mm' : '—',
+        rainFg: d.p >= 60 ? 'oklch(0.72 0.1 250)' : 'rgba(240,238,234,0.35)'
+      })),
+      weekNotes: [
+        { k: 'natste dag', v: 'zondag · 6,2 mm' },
+        { k: 'warmste dag', v: 'vrijdag · 26°' }
+      ],
+      footer: view === 'week' ? 'forecast_daily · 7 dagen' : 'forecast_hourly · 24 uur'
+    };
+  }
+}
+
+</script>
+</body>
+</html>
