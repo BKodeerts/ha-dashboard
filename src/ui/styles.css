@@ -162,15 +162,26 @@
    * `height: 100%` against an indefinite parent collapses to the content
    * height, which is what left the tab bar floating wherever the room grid
    * happened to end — a Lovelace panel-mode view stretches the card visually
-   * but does not necessarily give it a *resolvable* CSS height, so this can
-   * still happen for the card path, not just standalone/mock. `max-height`
-   * below is the guaranteed ceiling for all of them; `height: 100%` here is
-   * what lets a container that genuinely is smaller (a card-editor preview)
-   * win over that ceiling instead of being forced up to it.
+   * but does not necessarily give it a *resolvable* CSS height, so `height`
+   * alone is not enough for the card path either, not just standalone/mock.
+   *
+   * The min/max pair below pins this to *exactly* the viewport, floor and
+   * ceiling both, in every mode — not just a ceiling. A ceiling alone still
+   * lets the box track content between the two (shorter collapsed, taller
+   * once "meer" grows it, both under the cap), and `.tabbar`'s `bottom: 0` is
+   * measured against this box's edge, so any difference between those two
+   * heights reads as the tab bar visibly moving. Pinning both ends removes
+   * that instead of merely bounding it. The one thing this gives up: a
+   * genuinely smaller real container (a card-editor preview) no longer wins
+   * over it and gets forced up to full height — an admin-only, momentary
+   * cosmetic cost against a bar that visibly jumps on every real dashboard
+   * view.
    */
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   max-height: 100vh;
   max-height: 100dvh;
   background: var(--page);
@@ -178,18 +189,6 @@
   font-family: var(--font-ui);
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
-}
-
-/* Standalone and mock have no container to size against at all — `height: 100%`
-   above resolves to nothing, so they need a floor as well as the ceiling. A
-   `panel_custom` panel or a Lovelace card always has *something* real, even if
-   it's only the viewport by default, so a floor would just force them to full
-   height inside a container that's legitimately smaller (a card-editor
-   preview) — the ceiling above is all they get. */
-:host([mode='standalone']),
-:host([mode='mock']) {
-  min-height: 100vh;
-  min-height: 100dvh;
 }
 
 /*
@@ -330,19 +329,23 @@
   flex-direction: column;
   flex: 1 1 auto;
   /*
-   * A *definite* height, not just a minimum, so the column doesn't grow with
-   * the room grid, `.scroll` has something to scroll inside, and the tab bar
-   * can't be pushed off the bottom. `height: 100%` takes whatever `:host` is —
-   * `:host`'s own `max-height: 100dvh` should already make that definite, but
-   * this repeats the cap rather than trusting it: `:host`'s rules are only a
+   * A *definite* height, floor and ceiling both pinned to the viewport, not
+   * just a minimum or just a maximum. `height: 100%` takes whatever `:host`
+   * is — `:host`'s own min/max should already make that definite, but this
+   * repeats the pair rather than trusting it: `:host`'s rules are only a
    * *suggestion* the outer document can overrule (see the note above), this
-   * one is inside the shadow root where nothing outside can reach it. The
-   * min-height floor stays mode-scoped below — a real container (a
-   * `panel_custom` panel or a Lovelace card) might legitimately be smaller
-   * than the viewport (a card-editor preview), and only standalone/mock have
-   * no container at all to fall back from.
+   * one is inside the shadow root where nothing outside can reach it.
+   *
+   * Both ends matter, not just the ceiling: a ceiling alone still lets this
+   * box track content (shorter collapsed, taller once "meer" grows the room
+   * grid, both under the cap), and `.tabbar`'s `bottom: 0` is measured
+   * against this box's edge — so any difference between those two heights is
+   * the tab bar visibly moving between the two states, not just a runaway
+   * overflow. Pinning both ends removes that instead of merely bounding it.
    */
   height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   max-height: 100vh;
   max-height: 100dvh;
 
@@ -356,15 +359,6 @@
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
-}
-
-/* `element.tsx` sets `mode` on the host for these two only — everything else
-   (a real `panel_custom` panel, or a Lovelace card) leaves it unset and relies
-   on `.root`'s own `max-height` above with no floor. */
-:host([mode='standalone']) .root,
-:host([mode='mock']) .root {
-  min-height: 100vh;
-  min-height: 100dvh;
 }
 
 *,
