@@ -545,8 +545,11 @@ function mockHistory(entityId: string, points: number, endsAt: number): { s: str
     walk.push(Math.max(0.08, Math.min(0.92, value)));
   }
   const last = walk[walk.length - 1]!;
+  // The swing scales with the reading itself — a fixed ±3 reads fine against a
+  // ~20° room temperature but flatlines a several-hundred-watt power sensor.
+  const amplitude = Math.max(3, Math.abs(endsAt) * 0.35);
   return walk.map((v, i) => ({
-    s: (endsAt + (v - last) * 3).toFixed(1),
+    s: (endsAt + (v - last) * amplitude).toFixed(1),
     lu: (now - (points - i) * 3600_000 * (24 / points)) / 1000,
   }));
 }

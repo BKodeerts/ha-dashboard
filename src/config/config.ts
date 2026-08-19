@@ -56,8 +56,16 @@ export interface DashboardConfig {
     grid?: string;
     /** Sensors listed in the "top loads" block, sorted by value at render time. */
     loads: string[];
-    /** Full scale of the two bars on the Energie tab, in watts. */
-    scale: number;
+    /**
+     * Entity ids to drop from `loads` — a `*` wildcard matches anything, so
+     * `sensor.*_apparent_power` clears a whole class of sensors an energy
+     * monitoring integration (Shelly, Tasmota, …) publishes alongside the
+     * real one. Applies whether `loads` came from auto-detection or was
+     * hand-written, so it is also how to trim an explicit list down.
+     */
+    excludeLoads: string[];
+    /** Loads reading under this many watts drop off the "apparaten nu" list — the noise floor. */
+    minWatts: number;
   };
   /** The Auto tab's heading; the subtitle is built from whatever is set. */
   car: {
@@ -126,7 +134,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   mediaEntity: {},
   theme: 'auto',
   palette: 'ha',
-  power: { loads: [], scale: 2000 },
+  power: { loads: [], excludeLoads: [], minWatts: 0 },
   car: {},
   mediaPresets: {},
 };
@@ -141,7 +149,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
  * The dashboard stacks three: defaults ← the card's own YAML (household-wide,
  * hand-written or the visual editor) ← account. A layer must never materialise
  * the defaults, or setting a favourite on your account would silently shadow
- * the household's power scale with the default nobody chose. `power` is the
+ * the household's power sensors with the default nobody chose. `power` is the
  * only member that is not already all-optional, so it is the only one
  * restated here.
  */
@@ -194,6 +202,17 @@ const SOLAR_HINT = /(solar|zonnepane?l|pv|omvormer|inverter)/i;
 const CONSUMPTION_HINT = /(verbruik|consumption|huis|house|total|totaal|load)/i;
 const GRID_HINT = /(grid|net(to)?|injectie|afname|import|export)/i;
 
+/** `*` is the only wildcard — enough to write `sensor.*_apparent_power`
+    without pulling in a full glob library for one config field. */
+function globToRegExp(pattern: string): RegExp {
+  const escaped = pattern.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(`^${escaped}$`, 'i');
+}
+
+export function matchesAnyPattern(entityId: string, patterns: string[]): boolean {
+  return patterns.some((pattern) => globToRegExp(pattern).test(entityId));
+}
+
 /**
  * Power sensors are picked by name, because HA has no device class that says
  * "this is the solar production". Anything unmatched becomes a candidate for the
@@ -224,9 +243,16 @@ function derivePower(
   const loads =
     power.loads.length > 0
       ? power.loads
-      : candidates.filter((id) => id !== solar && id !== consumption && id !== grid).slice(0, 8);
+      : candidates
+          .filter((id) => id !== solar && id !== consumption && id !== grid)
+          .filter((id) => !matchesAnyPattern(id, power.excludeLoads))
+          .slice(0, 8);
 
-  const next: DashboardConfig['power'] = { loads, scale: power.scale };
+  const next: DashboardConfig['power'] = {
+    loads,
+    excludeLoads: power.excludeLoads,
+    minWatts: power.minWatts,
+  };
   if (solar) next.solar = solar;
   if (consumption) next.consumption = consumption;
   if (grid) next.grid = grid;

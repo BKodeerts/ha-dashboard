@@ -1,4 +1,4 @@
-import { MAX_TRACKED, personEntities, type DashboardConfig } from '../config/config';
+import { MAX_TRACKED, matchesAnyPattern, personEntities, type DashboardConfig } from '../config/config';
 import { bucketEntities } from './registry';
 import type { AlarmAction } from './services';
 import type {
@@ -636,9 +636,10 @@ export function powerInfo(states: HassEntities, config: DashboardConfig): PowerI
 
   const info: PowerInfo = {
     loads: config.power.loads
+      .filter((entityId) => !matchesAnyPattern(entityId, config.power.excludeLoads))
       .map((entityId) => {
         const value = watts(states, entityId);
-        return value === undefined
+        return value === undefined || value < config.power.minWatts
           ? null
           : { entityId, name: friendlyName(states, entityId), watts: value };
       })

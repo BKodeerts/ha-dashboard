@@ -43,6 +43,10 @@
   --accent-glyph: oklch(0.58 0.14 60);
   --accent-fill: oklch(0.72 0.13 60 / 0.55);
   --accent-star: oklch(0.72 0.13 60 / 0.28);
+  /* The Energie tab's solar line — a shade between `--accent` (the fill) and
+     `--accent-glyph` (the "now" dot), so all three read as one hue at three
+     weights rather than two unrelated oranges either side of it. */
+  --accent-line: oklch(0.62 0.14 60);
   --warn-bg: oklch(0.72 0.13 60 / 0.22);
   --warn-fg: oklch(0.45 0.11 60);
 
@@ -54,6 +58,10 @@
      its wash, so a checked row reads as a row and not as a tint. */
   --cool-border: oklch(0.68 0.13 250 / 0.35);
   --cool-fg: oklch(0.42 0.12 250);
+  /* The "apparaten nu" row glyph — a step quieter than `--cool`, the way
+     `--accent-glyph` sits a step under `--accent` for the same reason: a bare
+     icon on the card, not ink on a coloured plate. */
+  --cool-glyph: oklch(0.6 0.11 250);
   --heat: oklch(0.68 0.13 35);
   --heat-bg: oklch(0.68 0.13 35 / 0.2);
   --heat-fg: oklch(0.45 0.13 35);
@@ -220,10 +228,12 @@
   --warn-fg: oklch(0.8 0.12 60);
   --accent-glyph: oklch(0.8 0.12 60);
   --accent-star: oklch(0.72 0.13 60 / 0.26);
+  --accent-line: oklch(0.74 0.13 60);
   --cool-bg: oklch(0.68 0.13 250 / 0.22);
   --cool-wash: oklch(0.68 0.13 250 / 0.16);
   --cool-border: oklch(0.68 0.13 250 / 0.4);
   --cool-fg: oklch(0.76 0.11 250);
+  --cool-glyph: oklch(0.76 0.1 250);
   --heat-bg: oklch(0.68 0.13 35 / 0.22);
   --heat-fg: oklch(0.78 0.12 35);
   --dry-bg: oklch(0.7 0.12 95 / 0.22);
@@ -2177,136 +2187,230 @@ button {
 }
 
 /* ── Energie / Stroom ──────────────────────────────────────────────────── */
+/* Handoff: design_handoff_ha_energy_tab/README.md. Three stacked cards —
+   solar/now (today's curve + self-consumption), device trend (small
+   multiples), and the plain "apparaten nu" list. */
 
 .view--energy {
-  gap: 22px;
-  padding: 18px var(--gutter-v5) var(--bar-clearance);
-}
-
-.energy__cols {
-  display: flex;
   gap: 16px;
+  padding: 20px var(--gutter) var(--bar-clearance);
 }
 
-.energy__col {
+.solar-now,
+.device-trend {
+  border-radius: 20px;
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+
+.solar-now {
+  padding: 16px 16px 4px;
   display: flex;
   flex-direction: column;
   gap: 14px;
-  flex: 1;
-  min-width: 0;
-  border-radius: 24px;
-  background: var(--card);
-  padding: 20px 18px;
 }
 
-.energy__col-head {
+.solar-now__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 12px;
 }
 
-.energy__label {
+.solar-now__label {
   font-size: 10px;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.energy__col-icon--solar {
-  color: var(--accent);
-}
-
-.energy__col-icon--use {
-  color: var(--cool);
-}
-
-.energy__value-row {
+.solar-now__value-row {
   display: flex;
   align-items: baseline;
-  gap: 5px;
+  gap: 4px;
 }
 
-.energy__value {
-  font-size: 36px;
+.solar-now__value {
+  font-size: 28px;
   font-weight: 400;
-  letter-spacing: -0.04em;
-  line-height: 1;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
 }
 
-.energy__unit {
+.solar-now__unit {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--text-faint);
 }
 
-.energy__bar {
-  height: 6px;
-  border-radius: 3px;
-  background: var(--control);
-  overflow: hidden;
+.solar-now__stats {
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.7;
 }
 
-.energy__fill {
-  height: 6px;
-  border-radius: 3px;
+.solar-now__stat-value {
+  color: var(--text-faint);
 }
 
-.energy__fill--solar {
-  background: var(--accent);
-}
-
-.energy__fill--use {
-  background: var(--cool);
-}
-
-/* Same outline pattern as the header's windows chip, but neutral — nothing
-   here needs attention, it is just what the meter is doing right now. */
-.net-chip {
-  align-self: flex-start;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 22px;
-  box-shadow: inset 0 0 0 1px var(--divider);
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--text-body);
-}
-
-.net-chip__icon {
-  flex: 0 0 auto;
+.solar-now__stat-value--export {
   color: var(--export);
 }
 
-.energy__loads {
+.solar-now__stat-value--import {
+  color: var(--import);
+}
+
+.solar-now__chart {
+  position: relative;
+}
+
+.solar-now__chart-svg {
+  width: 100%;
+  height: 112px;
+  display: block;
+}
+
+.solar-now__chart-area {
+  fill: color-mix(in oklab, var(--accent) 16%, transparent);
+  stroke: none;
+}
+
+.solar-now__chart-solar {
+  fill: none;
+  stroke: var(--accent-line);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.solar-now__chart-consumption {
+  fill: none;
+  stroke: var(--glyph-idle);
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.solar-now__chart-nowline {
+  stroke: color-mix(in oklab, var(--text) 25%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.solar-now__chart-dot {
+  fill: var(--accent-glyph);
+}
+
+.solar-now__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 9px;
+  color: var(--text-faint);
+}
+
+.solar-now__ratio {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+
+.solar-now__ratio-track {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--cool) 16%, transparent);
+  overflow: hidden;
+}
+
+.solar-now__ratio-fill {
+  height: 5px;
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.solar-now__ratio-label {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--text-3);
+}
+
+.device-trend {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.device-trend__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.device-trend__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.device-trend__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.device-trend__chart {
+  width: 100%;
+  height: 50px;
+  display: block;
+}
+
+.apparaten {
   display: flex;
   flex-direction: column;
 }
 
-.energy__load {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  padding: 14px 0;
-  border-bottom: 1px solid var(--border);
+.apparaten__label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0 2px 2px;
 }
 
-.energy__load-name {
-  font-size: 16px;
-  font-weight: 500;
-  letter-spacing: -0.015em;
+.apparaten__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 2px;
+  border-top: 1px solid var(--border);
+}
+
+.apparaten__icon {
+  flex: 0 0 auto;
+  color: var(--cool-glyph);
+}
+
+.apparaten__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.energy__load-value {
-  font-size: 14px;
-  color: var(--text-body);
+.apparaten__value {
   flex: 0 0 auto;
+  font-size: 13px;
+  color: var(--text-body);
 }
 
 /* ── Netwerk ───────────────────────────────────────────────────────────── */
