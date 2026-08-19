@@ -172,7 +172,7 @@ export function buildRooms(
 
     const lights = entities.lights.map((id) => buildLight(id, area.name, states));
     const climateId = entities.climate[0];
-    const mediaId = entities.mediaPlayers[0];
+    const mediaId = config.mediaEntity[area.area_id] ?? entities.mediaPlayers[0];
 
     const room: Room = {
       id: area.area_id,

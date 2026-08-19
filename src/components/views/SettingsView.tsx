@@ -1,5 +1,12 @@
 import { useMemo, useState } from 'react';
-import { MAX_TRACKED, PALETTES, THEMES, TINT_CYCLE, weatherEntities } from '../../config/config';
+import {
+  MAX_TRACKED,
+  PALETTES,
+  THEMES,
+  TINT_CYCLE,
+  mediaPlayerEntities,
+  weatherEntities,
+} from '../../config/config';
 import { useHass } from '../../ha/HassProvider';
 import { friendlyName, type PersonInfo } from '../../ha/selectors';
 import type { Room } from '../../ha/types';
@@ -62,21 +69,23 @@ export function SettingsView({
     updateConfig,
     resetConfig,
     publishHousehold,
+    updateHousehold,
     householdAvailable,
     user,
     notify,
   } = useHass();
   const [panel, setPanel] = useState<
-    'weer' | 'thema' | 'kleuren' | 'tints' | 'opslag' | null
+    'weer' | 'thema' | 'kleuren' | 'tints' | 'media' | 'opslag' | null
   >(null);
   /** Publishing overwrites everyone's defaults, so it takes a second tap. */
   const [confirmPublish, setConfirmPublish] = useState(false);
   const [publishing, setPublishing] = useState(false);
 
   /* Only an admin may write HA's system store — a non-admin's attempt is
-     rejected by the server, so the button is not offered rather than offered
-     and then failing. */
-  const canPublish = householdAvailable && user?.is_admin === true;
+     rejected by the server, so the button (and the household-wide settings
+     below, like "Media per kamer") is not offered rather than offered and
+     then failing. */
+  const isHouseholdAdmin = householdAvailable && user?.is_admin === true;
 
   const publish = async () => {
     if (!confirmPublish) {
@@ -96,6 +105,21 @@ export function SettingsView({
   };
 
   const weathers = useMemo(() => weatherEntities(entities), [entities]);
+  const mediaPlayers = useMemo(() => mediaPlayerEntities(entities), [entities]);
+  const mediaOverrideCount = Object.values(config.mediaEntity).filter(Boolean).length;
+
+  const [mediaSaving, setMediaSaving] = useState<string | null>(null);
+
+  const setRoomMedia = async (roomId: string, entityId: string | undefined) => {
+    setMediaSaving(roomId);
+    try {
+      await updateHousehold({ mediaEntity: { [roomId]: entityId } });
+    } catch (error) {
+      notify(`media-keuze bewaren mislukt — ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setMediaSaving(null);
+    }
+  };
 
   const tracked = config.tracked;
   const atCap = tracked.length >= MAX_TRACKED;
@@ -347,6 +371,57 @@ export function SettingsView({
           ))}
         </MoreRow>
 
+        {isHouseholdAdmin && (
+          <MoreRow
+            name="Media per kamer"
+            meta={`${mediaOverrideCount} van ${rooms.length} aangepast`}
+            open={panel === 'media'}
+            onTap={() => setPanel((current) => (current === 'media' ? null : 'media'))}
+          >
+            {rooms.map((room) => {
+              const current = config.mediaEntity[room.id];
+              const auto = room.entities.mediaPlayers[0];
+              return (
+                <div className="media-room" key={room.id}>
+                  <span className="media-room__name">{room.name}</span>
+                  <div className="persons persons--stack">
+                    <button
+                      type="button"
+                      className={`person${!current ? ' person--on' : ''}`}
+                      aria-pressed={!current}
+                      disabled={mediaSaving === room.id}
+                      onClick={() => void setRoomMedia(room.id, undefined)}
+                    >
+                      <span className="person__name">automatisch</span>
+                      <span className="person__id">{auto ?? 'geen media_player in deze kamer'}</span>
+                    </button>
+                    {mediaPlayers.map((entityId) => (
+                      <button
+                        key={entityId}
+                        type="button"
+                        className={`person${current === entityId ? ' person--on' : ''}`}
+                        aria-pressed={current === entityId}
+                        disabled={mediaSaving === room.id}
+                        onClick={() => void setRoomMedia(room.id, entityId)}
+                      >
+                        <span className="person__name">{friendlyName(entities, entityId)}</span>
+                        <span className="person__id">{entityId}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+            {mediaPlayers.length === 0 && (
+              <div className="settings__note">geen media_player-entiteiten gevonden</div>
+            )}
+            <div className="settings__note">
+              admin-only, geldt voor iedereen — welke speler de kamerkaart toont in plaats van de
+              automatische keuze
+            </div>
+          </MoreRow>
+        )}
+
         <MoreRow
           name="Instellingen"
           meta={user ? 'in Home Assistant' : 'niet gekoppeld'}
@@ -362,7 +437,7 @@ export function SettingsView({
                 ' hetzelfde dashboard op elk toestel, en wie mee inlogt op dit scherm heeft zijn eigen'
               : 'geen account gevonden — instellingen blijven lokaal tot de verbinding er is'}
           </div>
-          {canPublish && (
+          {isHouseholdAdmin && (
             <>
               <button
                 type="button"

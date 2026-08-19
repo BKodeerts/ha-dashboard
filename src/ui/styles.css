@@ -2376,6 +2376,24 @@ button {
   border-color: var(--text);
 }
 
+/* One room's block in "Media per kamer" — the name above its own picker
+   list, rather than beside it like a tint row: the list can run to several
+   rows, and a name centred against that would drift from it. */
+.media-room {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.media-room__name {
+  padding: 0 4px;
+  font-size: 14px;
+}
+
+.media-room + .media-room {
+  margin-top: 10px;
+}
+
 /* ── connection banner + toasts ────────────────────────────────────────── */
 
 .banner {

@@ -87,6 +87,14 @@ interface HassContextValue {
    * `householdAvailable`, which the settings view gates the button on.
    */
   publishHousehold(): Promise<void>;
+  /**
+   * Writes straight into the household layer, for the settings a design wants
+   * shared and admin-only regardless of what any one account has chosen —
+   * "Media per kamer" is the first of these. The server rejects a non-admin's
+   * write, so this is only ever called from behind the same
+   * `householdAvailable && user.is_admin` gate `publishHousehold` uses.
+   */
+  updateHousehold(patch: ConfigLayer): Promise<void>;
   householdAvailable: boolean;
   status: ConnectionStatus;
   ready: boolean;
@@ -382,6 +390,15 @@ export function HassProvider({
     });
   }, [backend, notify]);
 
+  const updateHousehold = useCallback(
+    async (patch: ConfigLayer) => {
+      const household = mergeLayers(layersRef.current.household, patch);
+      await writeHousehold(backend, household);
+      setLayers((current) => ({ ...current, household }));
+    },
+    [backend],
+  );
+
   const publishHousehold = useCallback(async () => {
     // The stored layers, deliberately not the derived config: freezing today's
     // auto-detected alarm and power sensors into the household layer would stop
@@ -453,6 +470,7 @@ export function HassProvider({
       updateConfig,
       resetConfig,
       publishHousehold,
+      updateHousehold,
       householdAvailable,
       status,
       ready: registries !== null && live,
@@ -470,6 +488,7 @@ export function HassProvider({
       updateConfig,
       resetConfig,
       publishHousehold,
+      updateHousehold,
       householdAvailable,
       status,
       live,
