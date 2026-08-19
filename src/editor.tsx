@@ -159,54 +159,23 @@ function Editor({
 
   return (
     <div className="hdpe">
+      <style>{EDITOR_STYLES}</style>
       <section className="hdpe__section">
         <h3 className="hdpe__title">Stroom</h3>
-        <EntityPicker
-          label="Zon"
-          value={power.solar}
-          options={sensors}
-          states={states}
-          onChange={(value) => patch({ power: { solar: value } })}
-        />
-        <EntityPicker
-          label="Verbruik"
-          value={power.consumption}
-          options={sensors}
-          states={states}
-          onChange={(value) => patch({ power: { consumption: value } })}
-        />
-        <EntityPicker
-          label="Net"
-          value={power.grid}
-          options={sensors}
-          states={states}
-          onChange={(value) => patch({ power: { grid: value } })}
-        />
+        <div className="hdpe__note">
+          Zon, verbruik, net en de top loads worden automatisch herkend (elke sensor met
+          <code> device_class: power</code>) — hier hoeft niets gekozen te worden. Raadt de
+          herkenning verkeerd, dan overschrijf je <code>power.solar</code>/<code>power.consumption</code>/
+          <code>power.grid</code>/<code>power.loads</code> in de YAML van de kaart zelf.
+        </div>
         <label className="hdpe__field">
-          <span className="hdpe__field-label">Schaal (W)</span>
+          <span className="hdpe__field-label">Schaal (W) — volle uitslag van de twee balken</span>
           <input
             type="number"
             min={0}
             value={power.scale ?? 2000}
             onChange={(event) => patch({ power: { scale: Number(event.target.value) || 0 } })}
           />
-        </label>
-        <label className="hdpe__field">
-          <span className="hdpe__field-label">Top loads (ctrl/cmd-klik voor meerdere)</span>
-          <select
-            multiple
-            size={6}
-            value={power.loads ?? []}
-            onChange={(event) =>
-              patch({ power: { loads: Array.from(event.target.selectedOptions, (o) => o.value) } })
-            }
-          >
-            {sensors.map((id) => (
-              <option key={id} value={id}>
-                {entityLabel(states, id)}
-              </option>
-            ))}
-          </select>
         </label>
       </section>
 
@@ -318,21 +287,17 @@ const EDITOR_STYLES = `
 .hdpe__add { align-self: flex-start; }
 `;
 
-function ensureEditorStyles(): void {
-  if (document.querySelector('style[data-ha-dashboard-editor-styles]')) return;
-  const style = document.createElement('style');
-  style.dataset.haDashboardEditorStyles = 'true';
-  style.textContent = EDITOR_STYLES;
-  document.head.appendChild(style);
-}
-
 /**
  * HA mounts this as the "Edit card" dialog's GUI tab, per Lovelace's
  * `getConfigElement()` contract: it receives `hass` and `setConfig()` the
  * same way the card itself does, and reports changes by dispatching
  * `config-changed` — HA owns writing the result back into the dashboard's
  * storage. It renders in the light DOM (no shadow root) so the HA theme's
- * CSS custom properties reach the form controls directly.
+ * CSS custom properties reach the form controls directly — but the dialog
+ * *hosting* this element is itself inside a shadow root, so the stylesheet
+ * has to travel as part of this element's own render tree (the `<style>` in
+ * `Editor` below), not as a global `document.head` rule: a shadow boundary
+ * blocks that from reaching in.
  */
 class HaDashboardPanelEditor extends HTMLElement {
   #root: Root | null = null;
@@ -350,7 +315,6 @@ class HaDashboardPanelEditor extends HTMLElement {
   }
 
   connectedCallback(): void {
-    ensureEditorStyles();
     this.#render();
   }
 

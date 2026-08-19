@@ -21,7 +21,7 @@ household layer that lived in HA's system store.
 | v5 | v6 |
 | --- | --- |
 | Household defaults were a button in settings (admin, HA 2025.12+) that copied your layer into `frontend.system_data` | Household defaults are the card's own YAML — no version gate, no publish step |
-| The only way to set power sensors, the car and media presets was hand-written `panel_custom`/card YAML | A GUI editor (HA's "Edit card" dialog) covers those, plus "media per kamer" — hand-written YAML still works for anything the editor doesn't cover |
+| The only way to set the car, media presets and the energy bar's scale was hand-written `panel_custom`/card YAML | A GUI editor (HA's "Edit card" dialog) covers those, plus "media per kamer" — power sensors stay auto-detected, same as before, so the editor never asks for them |
 | "Media per kamer" was admin-only, written straight to the household layer from Settings | Set from the card's visual editor instead; the in-app Settings view no longer has an admin section |
 | Recommended install was a `panel_custom` sidebar panel | Recommended install is the Lovelace card — see "Three ways to run it" |
 
@@ -222,12 +222,20 @@ same one-time step as the card's own resource.
 
 The card in the snippet above (`type: custom:ha-dashboard-panel`) is a normal Lovelace card: press
 **Edit Dashboard**, click the card, and "Edit card" opens with a GUI tab instead of raw YAML. It
-covers the settings that used to require hand-written YAML and nothing else — power sensors, the
-car, media presets, and which media player each room's card shows ("media per kamer") — because
-those are the ones a household actually changes from time to time, not a config editor for every
-key. Everything else (`favouriteAreas`, `theme`, tints, …) is either better set from the in-app
-Settings view (it is personal, per account) or still just plain YAML in the card's "Edit as YAML"
-tab if you want a household-wide starting point for it.
+covers the household-wide settings that have no auto-detected default and used to require
+hand-written YAML — the car, media presets, the energy bars' scale, and which media player each
+room's card shows ("media per kamer") — because those are the ones a household actually changes
+from time to time, not a config editor for every key.
+
+**Power sensors are deliberately not in the editor.** `power.solar`/`.consumption`/`.grid`/`.loads`
+are already auto-detected from any `device_class: power` sensor (see the derived-defaults table
+below) — adding pickers for them would just be asking you to re-enter what the app already found on
+its own. If the auto-detection ever guesses wrong for your setup, override it in the card's "Edit as
+YAML" tab, the same as any key the GUI doesn't cover.
+
+Everything else (`favouriteAreas`, `theme`, tints, …) is either better set from the in-app Settings
+view (it is personal, per account) or still just plain YAML in the card's "Edit as YAML" tab if you
+want a household-wide starting point for it.
 
 The editor only exists for the Lovelace card — `panel_custom` has no such hook, so a panel-mounted
 install keeps editing `config:` by hand in `configuration.yaml`.
@@ -378,9 +386,10 @@ Everything that is left blank is derived from the state machine on first run:
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
 
 The keys the in-app settings view does not expose — power, the car, media presets, and media per
-kamer — are household-wide, and are set on the card itself: through the visual editor ("Editing it
-visually" above), or by hand in its YAML (or the `panel_custom` snippet's `config:` block, for a
-panel-mounted install):
+kamer — are household-wide, and are set on the card itself. The car, media presets, `power.scale`
+and media per kamer have a GUI for that ("Editing it visually" above); `power.solar`/`.consumption`/
+`.grid`/`.loads` are auto-detected and only need touching if that guess is wrong, by hand in the
+card's YAML (or the `panel_custom` snippet's `config:` block, for a panel-mounted install):
 
 ```yaml
 type: custom:ha-dashboard-panel
