@@ -28,10 +28,9 @@ export interface DashboardConfig {
    */
   palette: PaletteSetting;
   /**
-   * The `person.*` entities whose chips sit at the top right, **at most two**.
-   * The cap is a layout constraint, not a taste: a third chip takes the space
-   * the weather's hi/lo range needs, and that range is what the v3 header was
-   * reshaped to buy.
+   * The `person.*` entity whose chip sits at the top right — **at most one**:
+   * the v5 header (`TopLine`) only ever renders `people[0]`, so a second entry
+   * here would be stored but never shown.
    *
    * Who *you* are is not stored — v4 reads it off the logged-in Home Assistant
    * account (see `currentPerson` in `ha/selectors.ts`). A household of five
@@ -234,10 +233,11 @@ function derivePower(
 }
 
 /**
- * How many person chips the header holds. Two, and it is not a preference: a
- * third chip costs the weather's hi/lo range the space it needs.
+ * How many person chips the header holds. One — `TopLine` only ever renders
+ * `people[0]` — so this is what both the settings picker and the default
+ * auto-pick cap themselves to.
  */
-export const MAX_TRACKED = 2;
+export const MAX_TRACKED = 1;
 
 /** Every `person.*` entity, sorted so the settings buttons keep a stable order. */
 export const personEntities = (states: HassEntities): string[] =>
@@ -249,16 +249,6 @@ export const personEntities = (states: HassEntities): string[] =>
 export const weatherEntities = (states: HassEntities): string[] =>
   Object.keys(states)
     .filter((id) => id.startsWith('weather.'))
-    .sort();
-
-/**
- * Every `media_player.*` entity, for the "Media per kamer" picker. Global
- * rather than scoped to the room's own area: the point of the picker is
- * offering a device HA's own area assignment would not have auto-picked.
- */
-export const mediaPlayerEntities = (states: HassEntities): string[] =>
-  Object.keys(states)
-    .filter((id) => id.startsWith('media_player.'))
     .sort();
 
 /**

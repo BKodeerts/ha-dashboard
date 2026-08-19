@@ -1,12 +1,5 @@
 import { useMemo, useState } from 'react';
-import {
-  MAX_TRACKED,
-  PALETTES,
-  THEMES,
-  TINT_CYCLE,
-  mediaPlayerEntities,
-  weatherEntities,
-} from '../../config/config';
+import { PALETTES, THEMES, TINT_CYCLE, weatherEntities } from '../../config/config';
 import { useHass } from '../../ha/HassProvider';
 import { friendlyName, type PersonInfo } from '../../ha/selectors';
 import type { Room } from '../../ha/types';
@@ -105,7 +98,10 @@ export function SettingsView({
   };
 
   const weathers = useMemo(() => weatherEntities(entities), [entities]);
-  const mediaPlayers = useMemo(() => mediaPlayerEntities(entities), [entities]);
+  const mediaRooms = useMemo(
+    () => rooms.filter((room) => room.entities.mediaPlayers.length > 0),
+    [rooms],
+  );
   const mediaOverrideCount = Object.values(config.mediaEntity).filter(Boolean).length;
 
   const [mediaSaving, setMediaSaving] = useState<string | null>(null);
@@ -122,19 +118,11 @@ export function SettingsView({
   };
 
   const tracked = config.tracked;
-  const atCap = tracked.length >= MAX_TRACKED;
 
-  /**
-   * At the cap, a further tap does nothing rather than silently evicting
-   * somebody: which of the two would go is not a question a tap can answer.
-   * The note under the list changes to say so.
-   */
-  const toggleTracked = (entityId: string) => {
-    if (tracked.includes(entityId)) {
-      updateConfig({ tracked: tracked.filter((id) => id !== entityId) });
-    } else if (!atCap) {
-      updateConfig({ tracked: [...tracked, entityId] });
-    }
+  /** Radio, not checkbox: the header only ever shows one chip, so picking a
+   * new person replaces whoever was tracked rather than adding to them. */
+  const selectTracked = (entityId: string) => {
+    updateConfig({ tracked: tracked.includes(entityId) ? [] : [entityId] });
   };
 
   const toggleFavourite = (roomId: string) => {
@@ -195,7 +183,7 @@ export function SettingsView({
 
       <div className="settings__section">
         <div className="settings__label">Wie volg je bovenaan</div>
-        <div className="track">
+        <div className="radio-list" role="radiogroup" aria-label="Wie volg je bovenaan">
           {persons
             .filter((entityId) => entityId !== me.entityId)
             .map((entityId) => {
@@ -205,16 +193,17 @@ export function SettingsView({
                 <button
                   key={entityId}
                   type="button"
-                  className={`track__row${on ? ' track__row--on' : ''}`}
-                  aria-pressed={on}
-                  onClick={() => toggleTracked(entityId)}
+                  className={`radio-row${on ? ' radio-row--on' : ''}`}
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => selectTracked(entityId)}
                 >
-                  <span className="track__box">{on && <Icon name="check" size={13} />}</span>
-                  <span className="track__names">
-                    <span className="track__name">{friendlyName(entities, entityId)}</span>
-                    <span className="track__id">{entityId}</span>
+                  <span className="radio-dot" />
+                  <span className="radio-names">
+                    <span className="radio-name">{friendlyName(entities, entityId)}</span>
+                    <span className="radio-id">{entityId}</span>
                   </span>
-                  <span className="track__state">{home ? 'thuis' : 'weg'}</span>
+                  <span className="radio-state">{home ? 'thuis' : 'weg'}</span>
                 </button>
               );
             })}
@@ -222,9 +211,7 @@ export function SettingsView({
             <div className="settings__note">geen andere person-entiteiten gevonden</div>
           )}
         </div>
-        <div className="settings__note">
-          {atCap ? 'maximum twee — zet er een uit' : 'maximaal twee chips bovenaan'}
-        </div>
+        <div className="settings__note">tik nogmaals om niemand te volgen</div>
       </div>
 
       <div className="settings__section">
@@ -374,50 +361,58 @@ export function SettingsView({
         {isHouseholdAdmin && (
           <MoreRow
             name="Media per kamer"
-            meta={`${mediaOverrideCount} van ${rooms.length} aangepast`}
+            meta={`${mediaOverrideCount} van ${mediaRooms.length} aangepast`}
             open={panel === 'media'}
             onTap={() => setPanel((current) => (current === 'media' ? null : 'media'))}
           >
-            {rooms.map((room) => {
+            {mediaRooms.map((room) => {
               const current = config.mediaEntity[room.id];
-              const auto = room.entities.mediaPlayers[0];
+              const auto = room.entities.mediaPlayers[0]!;
               return (
                 <div className="media-room" key={room.id}>
                   <span className="media-room__name">{room.name}</span>
-                  <div className="persons persons--stack">
+                  <div className="radio-list" role="radiogroup" aria-label={room.name}>
                     <button
                       type="button"
-                      className={`person${!current ? ' person--on' : ''}`}
-                      aria-pressed={!current}
+                      className={`radio-row${!current ? ' radio-row--on' : ''}`}
+                      role="radio"
+                      aria-checked={!current}
                       disabled={mediaSaving === room.id}
                       onClick={() => void setRoomMedia(room.id, undefined)}
                     >
-                      <span className="person__name">automatisch</span>
-                      <span className="person__id">{auto ?? 'geen media_player in deze kamer'}</span>
+                      <span className="radio-dot" />
+                      <span className="radio-names">
+                        <span className="radio-name">automatisch</span>
+                        <span className="radio-id">{auto}</span>
+                      </span>
                     </button>
-                    {mediaPlayers.map((entityId) => (
+                    {room.entities.mediaPlayers.map((entityId) => (
                       <button
                         key={entityId}
                         type="button"
-                        className={`person${current === entityId ? ' person--on' : ''}`}
-                        aria-pressed={current === entityId}
+                        className={`radio-row${current === entityId ? ' radio-row--on' : ''}`}
+                        role="radio"
+                        aria-checked={current === entityId}
                         disabled={mediaSaving === room.id}
                         onClick={() => void setRoomMedia(room.id, entityId)}
                       >
-                        <span className="person__name">{friendlyName(entities, entityId)}</span>
-                        <span className="person__id">{entityId}</span>
+                        <span className="radio-dot" />
+                        <span className="radio-names">
+                          <span className="radio-name">{friendlyName(entities, entityId)}</span>
+                          <span className="radio-id">{entityId}</span>
+                        </span>
                       </button>
                     ))}
                   </div>
                 </div>
               );
             })}
-            {mediaPlayers.length === 0 && (
-              <div className="settings__note">geen media_player-entiteiten gevonden</div>
+            {mediaRooms.length === 0 && (
+              <div className="settings__note">geen kamers met media_player-entiteiten</div>
             )}
             <div className="settings__note">
               admin-only, geldt voor iedereen — welke speler de kamerkaart toont in plaats van de
-              automatische keuze
+              automatische keuze. Enkel kamers met een eigen media_player staan hier.
             </div>
           </MoreRow>
         )}

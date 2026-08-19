@@ -197,10 +197,9 @@ it takes `hass.user` (or `auth/current_user` in standalone mode) and matches it 
 entity whose `user_id` attribute is that account's id. A household of five people has five accounts,
 and asking each of them to pick themselves out of a list is a setting that can be wrong.
 
-The chips at the top right are the people you chose to *follow* — **at most two**, and the cap is a
-layout constraint rather than a taste: a third chip takes exactly the space the weather's hi/lo range
-needs, and that range is what the v3 header was reshaped to buy. One followed person shows their
-name; two drop to glyph and dot. The logged-in user is never one of them.
+The chip at the top right is the one person you chose to *follow* — the header only ever renders the
+first entry in `tracked`, so the settings picker is a radio list, not a multi-select: picking someone
+replaces whoever was tracked before. The logged-in user is never an option.
 
 ### The alarm
 
@@ -232,16 +231,19 @@ cached for five minutes).
 
 ### Netwerk: what has gone quiet
 
-The Netwerk tab is **not** a card page. It compares each entity's `last_updated` to now and lists
-what has not reported in over 24 hours — dead batteries, dropped Zigbee nodes, offline bridges.
-Entities are **grouped by device**, so one silent sensor produces one row rather than five, and a
-device counts as silent only when *none* of its entities has reported. The battery percentage comes
-from the `device_class: battery` sensor on the same device. Past 48 h the badge turns amber and the
-tab grows a dot.
+The Netwerk tab is **not** a card page, and it does not decide what counts as disconnected itself —
+that judgement lives in Home Assistant, in a template sensor: `sensor.disconnected_devices`. Its
+`entities` attribute lists whichever connectivity-tracking entities it considers gone (see the
+sensor's own YAML for the exact rule), and this tab just turns that list into rows: **grouped by
+device**, so two silent trackers on one device produce one row rather than two, with the longest
+silence in the group deciding the row's age. The battery percentage comes from the
+`device_class: battery` sensor on the same device. Past 48 h the badge turns amber and the tab grows
+a dot.
 
-Entities belonging to a disabled device are skipped, as are the domains that are legitimately quiet
-for months (`automation`, `script`, `scene`, the `input_*` helpers, `zone`, …) — listing them would
-bury the devices that are actually broken.
+An earlier version compared every entity's `last_updated` to now directly, which flagged far too
+much — a closed door or a steady temperature reading are silent for entirely innocent reasons, not
+because anything is broken. Delegating to a hand-picked sensor is what keeps the list to devices that
+are actually worth checking on.
 
 ## Configuration
 
@@ -292,7 +294,7 @@ Everything that is left blank is derived from the state machine on first run:
 | `roomOrder` | `string[]` | area registry order (favourites always sort first) |
 | `theme` | `'auto' \| 'light' \| 'dark'` | `auto` — follows Home Assistant's own light/dark setting |
 | `palette` | `'ha' \| 'design'` | `ha` — surfaces and text come from HA's active theme, see below |
-| `tracked` | `string[]` | every `person.*` except your own account's, capped at two |
+| `tracked` | `string[]` | the first other `person.*` found, capped at one |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | a `device_class: power` sensor matched by name |
@@ -529,7 +531,7 @@ src/
     mock.ts          a stand-in Home Assistant, same interface as the live socket
     registry.ts      area/device/entity registries → per-area device buckets
     selectors.ts     rooms, lamps, climate, openings, alarm, people, weather, power; formatting
-    stale.ts         the Netwerk list: entities grouped by device, silent over 24 h
+    stale.ts         the Netwerk list: sensor.disconnected_devices' entities, grouped by device
     services.ts      every write, each with its optimistic patch
     history.ts       sparkline fetch, downsample, polyline points
     HassProvider.tsx the one subscription, the optimistic overlay, config resolution

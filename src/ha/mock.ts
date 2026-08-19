@@ -378,9 +378,9 @@ function buildStates(globals: MockGlobals): HassEntities {
       supported_features: 1 | 2 | 4 | 8,
     }),
   );
-  // Three people, so "Wie volg je bovenaan" has a real choice and the two-chip
-  // cap is reachable. `user_id` on Bart is what makes him the logged-in
-  // account — see MOCK_USER and `currentPerson`.
+  // Three people, so "Wie volg je bovenaan" has more than one option to pick
+  // between in its radio list. `user_id` on Bart is what makes him the
+  // logged-in account — see MOCK_USER and `currentPerson`.
   add(entity('person.bart', 'home', { friendly_name: 'Bart', user_id: MOCK_USER.id }, 45));
   add(entity('person.leen', globals.person, { friendly_name: 'Leen' }, 60));
   add(entity('person.nora', 'not_home', { friendly_name: 'Nora' }, 120));
@@ -402,6 +402,12 @@ function buildStates(globals: MockGlobals): HassEntities {
       );
     }
   }
+  add(
+    entity('sensor.disconnected_devices', String(QUIET.length), {
+      friendly_name: 'Disconnected Devices',
+      entities: QUIET.map((quiet) => quiet.entityId),
+    }),
+  );
   add(
     entity('weather.kmi', 'cloudy', {
       friendly_name: 'KMI Halle',
