@@ -3,21 +3,17 @@ import { isRecord } from '../config/config';
 import type { HaBackend } from './types';
 
 /**
- * Where the dashboard's settings live: Home Assistant's own frontend storage,
- * not the browser.
+ * Where the dashboard's personal settings live: Home Assistant's own frontend
+ * storage, not the browser.
  *
- * HA keeps two stores behind the `frontend/*_data` websocket commands, and this
- * module is the only place that talks to them:
+ * **user data** — `frontend.user_data_{user_id}` on the server, scoped to the
+ * logged-in account. Any user may read and write their own; available in every
+ * HA this dashboard supports. It is a keyed dictionary, so the whole config
+ * sits under one key.
  *
- * - **user data** — `frontend.user_data_{user_id}` on the server, scoped to the
- *   logged-in account. Any user may read and write their own; available in every
- *   HA this dashboard supports.
- * - **system data** — `frontend.system_data`, one per installation. Everyone
- *   reads it, only admins write it, and it only exists on HA 2025.12+. It backs
- *   "publish as household default", and its absence is not an error: the
- *   `panel_custom` YAML block is the household layer on older installs.
- *
- * Both stores are keyed dictionaries, so the whole config sits under one key.
+ * The household layer lives in the card's own YAML instead (edited visually
+ * or by hand in the Lovelace card editor) — there is no server-side household
+ * store here any more.
  */
 const STORE_KEY = 'ha-dashboard';
 
@@ -46,22 +42,11 @@ const LAST_USER_KEY = 'ha-dashboard.lastUser';
 /** Pre-v5 storage: one un-namespaced blob for whoever held the browser. */
 const LEGACY_KEY = 'ha-dashboard.config.v2';
 
-export interface ConfigLayers {
-  /** Shared across the household — `frontend.system_data`. */
-  household: ConfigLayer;
-  /** This account's own — `frontend.user_data_{user_id}`. */
-  personal: ConfigLayer;
-}
-
-export const EMPTY_LAYERS: ConfigLayers = { household: {}, personal: {} };
-
-/* ── talking to HA ─────────────────────────────────────────────────────── */
-
 /**
  * A read either reached the store or it did not, and the difference matters:
  * "HA says you have nothing stored" is what triggers the migration of a legacy
- * blob upward, while "HA cannot answer" (an older install that has never heard
- * of `frontend/get_system_data`) must leave everything alone.
+ * blob upward, while "HA cannot answer" (an install that has never heard of
+ * `frontend/get_user_data`, vanishingly rare) must leave everything alone.
  */
 export type StoreRead =
   | { ok: true; config: ConfigLayer | undefined }
@@ -104,10 +89,6 @@ async function read(backend: HaBackend, type: string): Promise<StoreRead> {
 export const readPersonal = (backend: HaBackend): Promise<StoreRead> =>
   read(backend, 'frontend/get_user_data');
 
-/** The household defaults, when this HA is new enough to have a system store. */
-export const readHousehold = (backend: HaBackend): Promise<StoreRead> =>
-  read(backend, 'frontend/get_system_data');
-
 /** Rejects on failure — the caller turns that into a toast. */
 export const writePersonal = (
   backend: HaBackend,
@@ -117,17 +98,6 @@ export const writePersonal = (
     type: 'frontend/set_user_data',
     key: STORE_KEY,
     value: config === null ? null : envelope(config),
-  });
-
-/** Rejects for a non-admin, so the UI gates this on `user.is_admin`. */
-export const writeHousehold = (
-  backend: HaBackend,
-  config: ConfigLayer,
-): Promise<unknown> =>
-  backend.sendMessagePromise({
-    type: 'frontend/set_system_data',
-    key: STORE_KEY,
-    value: envelope(config),
   });
 
 /**
@@ -158,37 +128,32 @@ export const subscribePersonal = (
   cb: (config: ConfigLayer | undefined) => void,
 ): Promise<() => void> => subscribe(backend, 'frontend/subscribe_user_data', cb);
 
-export const subscribeHousehold = (
-  backend: HaBackend,
-  cb: (config: ConfigLayer | undefined) => void,
-): Promise<() => void> => subscribe(backend, 'frontend/subscribe_system_data', cb);
-
 /* ── the local cache ───────────────────────────────────────────────────── */
 
 /**
  * Cached per account, so a tablet several people log into never paints one
  * person's room order for another.
+ *
+ * Old caches may still carry a `{ household, personal }` envelope from before
+ * the household store was removed — only `personal` is read out of it.
  */
-export function readCache(userId: string | undefined): ConfigLayers | undefined {
+export function readCache(userId: string | undefined): ConfigLayer | undefined {
   if (!userId) return undefined;
   try {
     const raw = localStorage.getItem(CACHE_PREFIX + userId);
     if (!raw) return undefined;
     const parsed: unknown = JSON.parse(raw);
     if (!isRecord(parsed)) return undefined;
-    return {
-      household: isRecord(parsed.household) ? (parsed.household as ConfigLayer) : {},
-      personal: isRecord(parsed.personal) ? (parsed.personal as ConfigLayer) : {},
-    };
+    return isRecord(parsed.personal) ? (parsed.personal as ConfigLayer) : undefined;
   } catch {
     return undefined;
   }
 }
 
-export function writeCache(userId: string | undefined, layers: ConfigLayers): void {
+export function writeCache(userId: string | undefined, personal: ConfigLayer): void {
   if (!userId) return;
   try {
-    localStorage.setItem(CACHE_PREFIX + userId, JSON.stringify(layers));
+    localStorage.setItem(CACHE_PREFIX + userId, JSON.stringify(personal));
     localStorage.setItem(LAST_USER_KEY, userId);
   } catch {
     /* private mode / quota — the cache is an optimisation, not a requirement */

@@ -44,8 +44,9 @@ export interface DashboardConfig {
   /**
    * Media player per area id, overriding the auto-pick (the first
    * `media_player.*` the area's registry happens to list — a TV can easily
-   * beat a Sonos this way). Admin-only, household-wide: see "Media per kamer"
-   * in settings. `undefined` for a room clears the override.
+   * beat a Sonos this way). Household-wide: set from the card's visual editor
+   * ("Media per kamer"), not the in-app settings view. `undefined` for a room
+   * clears the override.
    */
   mediaEntity: Record<string, string | undefined>;
   power: {
@@ -137,11 +138,12 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * One layer of the config, holding only what was explicitly set on it.
  *
- * The dashboard stacks four: defaults ← `panel_custom` YAML ← household ←
- * account. A layer must never materialise the defaults, or setting a favourite
- * on your account would silently shadow the household's power scale with the
- * default nobody chose. `power` is the only member that is not already
- * all-optional, so it is the only one restated here.
+ * The dashboard stacks three: defaults ← the card's own YAML (household-wide,
+ * hand-written or the visual editor) ← account. A layer must never materialise
+ * the defaults, or setting a favourite on your account would silently shadow
+ * the household's power scale with the default nobody chose. `power` is the
+ * only member that is not already all-optional, so it is the only one
+ * restated here.
  */
 export type ConfigLayer = Omit<Partial<DashboardConfig>, 'power'> & {
   power?: Partial<DashboardConfig['power']>;
@@ -167,8 +169,7 @@ export function mergeConfig(
 /**
  * Merges two layers into one, keeping it a layer — the nested objects merge, but
  * nothing absent on both sides is invented. This is what a settings tap does to
- * your account's layer, and what "publish as household default" does to fold an
- * account's layer into the household's.
+ * your account's layer, and what the card's visual editor does to its own YAML.
  */
 export function mergeLayers(base: ConfigLayer, patch: ConfigLayer): ConfigLayer {
   const next: ConfigLayer = { ...base, ...patch };
