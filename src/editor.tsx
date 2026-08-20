@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { mergeLayers, type ConfigLayer, type LovelaceCardConfig, type MediaPreset } from './config/config';
 import { panelBackend } from './ha/backend';
+import { browseMedia, type BrowseMediaItem } from './ha/media';
 import { bucketEntities, fetchRegistries, resolveAreaEntities } from './ha/registry';
 import { friendlyName } from './ha/selectors';
 import type { HassEntities, HomeAssistant, Registries } from './ha/types';
@@ -41,23 +42,141 @@ function EntityPicker({
   );
 }
 
+/** One level of the "Bladeren" breadcrumb — enough to browse back into. */
+type BrowseCrumb = { title: string; media_content_id: string; media_content_type: string };
+
+/**
+ * Walks a media player's own browse tree (Favorites, Playlists, …) instead of
+ * asking someone to type a `media_content_id`/`media_content_type` by hand —
+ * the values that trips people up most (e.g. copying the resolved, session-
+ * bound stream URL off "currently playing" instead of a stable favourite id).
+ * Picking a playable item hands its real id/type straight to the caller.
+ */
+function MediaBrowser({
+  hass,
+  entityId,
+  onPick,
+  onClose,
+}: {
+  hass: HomeAssistant;
+  entityId: string;
+  onPick(preset: MediaPreset): void;
+  onClose(): void;
+}) {
+  const hassRef = useRef(hass);
+  hassRef.current = hass;
+  const [path, setPath] = useState<BrowseCrumb[]>([]);
+  const [items, setItems] = useState<BrowseMediaItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setItems(null);
+    setError(null);
+    const backend = panelBackend(() => hassRef.current);
+    const target = path[path.length - 1];
+    browseMedia(backend, entityId, target)
+      .then((node) => {
+        if (!cancelled) setItems(node.children ?? []);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [entityId, path]);
+
+  const pick = (item: BrowseMediaItem) =>
+    onPick({
+      name: item.title,
+      media_content_id: item.media_content_id,
+      media_content_type: item.media_content_type,
+    });
+
+  return (
+    <div className="hdpe__browser">
+      <div className="hdpe__browser-crumbs">
+        <button type="button" onClick={() => setPath([])} disabled={path.length === 0}>
+          begin
+        </button>
+        {path.map((crumb, index) => (
+          <span key={crumb.media_content_id}>
+            {' › '}
+            <button
+              type="button"
+              onClick={() => setPath(path.slice(0, index + 1))}
+              disabled={index === path.length - 1}
+            >
+              {crumb.title}
+            </button>
+          </span>
+        ))}
+        <button type="button" className="hdpe__browser-close" onClick={onClose} aria-label="bladeren sluiten">
+          ✕
+        </button>
+      </div>
+      {error && <div className="hdpe__note">bladeren mislukt — {error}</div>}
+      {!error && items === null && <div className="hdpe__note">laden…</div>}
+      {items && items.length === 0 && <div className="hdpe__note">niets gevonden</div>}
+      {items && items.length > 0 && (
+        <ul className="hdpe__browser-list">
+          {items.map((item) => (
+            <li key={`${item.media_content_type}:${item.media_content_id}`} className="hdpe__browser-row">
+              <button
+                type="button"
+                className="hdpe__browser-item"
+                onClick={() =>
+                  item.can_expand
+                    ? setPath([
+                        ...path,
+                        {
+                          title: item.title,
+                          media_content_id: item.media_content_id,
+                          media_content_type: item.media_content_type,
+                        },
+                      ])
+                    : pick(item)
+                }
+              >
+                {item.title}
+                {item.can_expand ? ' ›' : ''}
+              </button>
+              {item.can_play && item.can_expand && (
+                <button type="button" className="hdpe__browser-pick" onClick={() => pick(item)}>
+                  kies
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function PresetRows({
+  hass,
   entityId,
   states,
   presets,
   onChange,
 }: {
+  hass: HomeAssistant;
   entityId: string;
   states: HassEntities;
   presets: MediaPreset[];
-  onChange(next: MediaPreset[]): void;
+  /** `immediate` is set for structural edits (add/remove), unset for typing. */
+  onChange(next: MediaPreset[], immediate?: boolean): void;
 }) {
+  const [browsing, setBrowsing] = useState(false);
+
   const update = (index: number, patch: Partial<MediaPreset>) => {
     onChange(presets.map((preset, i) => (i === index ? { ...preset, ...patch } : preset)));
   };
-  const remove = (index: number) => onChange(presets.filter((_, i) => i !== index));
+  const remove = (index: number) => onChange(presets.filter((_, i) => i !== index), true);
   const add = () =>
-    onChange([...presets, { name: '', media_content_id: '', media_content_type: 'music' }]);
+    onChange([...presets, { name: '', media_content_id: '', media_content_type: 'music' }], true);
 
   return (
     <div className="hdpe__presets">
@@ -69,27 +188,43 @@ function PresetRows({
             placeholder="naam"
             value={preset.name}
             onChange={(event) => update(index, { name: event.target.value })}
+            onBlur={() => onChange(presets, true)}
           />
           <input
             type="text"
             placeholder="media_content_id"
             value={preset.media_content_id}
             onChange={(event) => update(index, { media_content_id: event.target.value })}
+            onBlur={() => onChange(presets, true)}
           />
           <input
             type="text"
             placeholder="media_content_type"
             value={preset.media_content_type}
             onChange={(event) => update(index, { media_content_type: event.target.value })}
+            onBlur={() => onChange(presets, true)}
           />
           <button type="button" className="hdpe__remove" onClick={() => remove(index)} aria-label="preset verwijderen">
             ✕
           </button>
         </div>
       ))}
-      <button type="button" className="hdpe__add" onClick={add}>
-        + preset toevoegen
-      </button>
+      <div className="hdpe__preset-actions">
+        <button type="button" className="hdpe__add" onClick={add}>
+          + preset toevoegen
+        </button>
+        <button type="button" className="hdpe__add" onClick={() => setBrowsing((value) => !value)}>
+          {browsing ? 'bladeren sluiten' : 'bladeren…'}
+        </button>
+      </div>
+      {browsing && (
+        <MediaBrowser
+          hass={hass}
+          entityId={entityId}
+          onClose={() => setBrowsing(false)}
+          onPick={(preset) => onChange([...presets, preset], true)}
+        />
+      )}
     </div>
   );
 }
@@ -103,6 +238,9 @@ function PresetRows({
  * box. Personal preferences (theme, favourites, tracked person, …) stay in
  * the dashboard's own Settings view — they are not here.
  */
+/** How long a burst of keystrokes must go quiet before it's sent upstream. */
+const COMMIT_DEBOUNCE_MS = 400;
+
 function Editor({
   hass,
   config,
@@ -132,17 +270,64 @@ function Editor({
   const states = hass.states;
   const sensors = useMemo(() => domainEntities(states, 'sensor'), [states]);
 
-  const power: NonNullable<ConfigLayer['power']> = (config.power as ConfigLayer['power']) ?? {
+  /*
+   * `onChange` round-trips through HA's edit-card dialog and back down as a
+   * new `config` prop (see `HaDashboardPanelEditor` below) — dispatching it
+   * on every keystroke made every character retrigger that whole trip, which
+   * is what made typing feel laggy. So typing updates `local` straight away
+   * for a responsive form, and only *emits* upstream once a field has gone
+   * quiet for `COMMIT_DEBOUNCE_MS`. Structural edits (selects, add/remove
+   * preset) still emit immediately — there is no "burst" to coalesce there.
+   */
+  const [local, setLocal] = useState<LovelaceCardConfig>(config);
+  const localRef = useRef(local);
+  localRef.current = local;
+  const lastEmitted = useRef(config);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    // Adopt config changes that aren't just HA echoing what we just emitted —
+    // e.g. switching to the raw YAML tab and back.
+    if (config !== lastEmitted.current) {
+      lastEmitted.current = config;
+      localRef.current = config;
+      setLocal(config);
+    }
+  }, [config]);
+
+  const flush = () => {
+    if (timer.current !== undefined) {
+      clearTimeout(timer.current);
+      timer.current = undefined;
+    }
+    if (lastEmitted.current === localRef.current) return;
+    lastEmitted.current = localRef.current;
+    onChange(localRef.current);
+  };
+
+  // Flush a still-pending edit if the dialog closes before the debounce fires.
+  useEffect(() => flush, []);
+
+  const power: NonNullable<ConfigLayer['power']> = (local.power as ConfigLayer['power']) ?? {
     minWatts: 0,
   };
-  const car: NonNullable<ConfigLayer['car']> = (config.car as ConfigLayer['car']) ?? {};
+  const car: NonNullable<ConfigLayer['car']> = (local.car as ConfigLayer['car']) ?? {};
   const mediaEntity: NonNullable<ConfigLayer['mediaEntity']> =
-    (config.mediaEntity as ConfigLayer['mediaEntity']) ?? {};
+    (local.mediaEntity as ConfigLayer['mediaEntity']) ?? {};
   const mediaPresets: NonNullable<ConfigLayer['mediaPresets']> =
-    (config.mediaPresets as ConfigLayer['mediaPresets']) ?? {};
+    (local.mediaPresets as ConfigLayer['mediaPresets']) ?? {};
 
-  const patch = (next: ConfigLayer) =>
-    onChange(mergeLayers(config as ConfigLayer, next) as LovelaceCardConfig);
+  const patch = (next: ConfigLayer, options?: { immediate?: boolean }) => {
+    localRef.current = mergeLayers(localRef.current as ConfigLayer, next) as LovelaceCardConfig;
+    setLocal(localRef.current);
+    if (timer.current !== undefined) clearTimeout(timer.current);
+    if (options?.immediate) {
+      timer.current = undefined;
+      flush();
+    } else {
+      timer.current = setTimeout(flush, COMMIT_DEBOUNCE_MS);
+    }
+  };
 
   const areasWithMedia = useMemo(() => {
     if (!registries) return [];
@@ -192,6 +377,7 @@ function Editor({
             min={0}
             value={power.minWatts ?? 0}
             onChange={(event) => patch({ power: { minWatts: Number(event.target.value) || 0 } })}
+            onBlur={flush}
           />
         </label>
       </section>
@@ -204,6 +390,7 @@ function Editor({
             type="text"
             value={car.name ?? ''}
             onChange={(event) => patch({ car: { name: event.target.value || undefined } })}
+            onBlur={flush}
           />
         </label>
         <EntityPicker
@@ -211,14 +398,14 @@ function Editor({
           value={car.battery}
           options={sensors}
           states={states}
-          onChange={(value) => patch({ car: { battery: value } })}
+          onChange={(value) => patch({ car: { battery: value } }, { immediate: true })}
         />
         <EntityPicker
           label="Bereik"
           value={car.range}
           options={sensors}
           states={states}
-          onChange={(value) => patch({ car: { range: value } })}
+          onChange={(value) => patch({ car: { range: value } }, { immediate: true })}
         />
       </section>
 
@@ -230,7 +417,10 @@ function Editor({
             <select
               value={mediaEntity[area.area_id] ?? ''}
               onChange={(event) =>
-                patch({ mediaEntity: { [area.area_id]: event.target.value || undefined } })
+                patch(
+                  { mediaEntity: { [area.area_id]: event.target.value || undefined } },
+                  { immediate: true },
+                )
               }
             >
               <option value="">automatisch</option>
@@ -252,10 +442,13 @@ function Editor({
         {usedMediaPlayers.map((entityId) => (
           <PresetRows
             key={entityId}
+            hass={hass}
             entityId={entityId}
             states={states}
             presets={mediaPresets[entityId] ?? []}
-            onChange={(next) => patch({ mediaPresets: { [entityId]: next } })}
+            onChange={(next, immediate) =>
+              patch({ mediaPresets: { [entityId]: next } }, { immediate })
+            }
           />
         ))}
         {registries && usedMediaPlayers.length === 0 && (
@@ -302,7 +495,41 @@ const EDITOR_STYLES = `
   cursor: pointer;
   padding: 6px 10px;
 }
+.hdpe__preset-actions { display: flex; gap: 6px; }
 .hdpe__add { align-self: flex-start; }
+.hdpe__browser {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px dashed var(--divider-color, #ccc);
+  border-radius: 8px;
+}
+.hdpe__browser-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; }
+.hdpe__browser-crumbs button {
+  font: inherit;
+  color: var(--primary-color, inherit);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.hdpe__browser-crumbs button:disabled { color: var(--primary-text-color, inherit); cursor: default; }
+.hdpe__browser-close { margin-left: auto; }
+.hdpe__browser-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
+.hdpe__browser-row { display: flex; align-items: center; gap: 6px; }
+.hdpe__browser-item, .hdpe__browser-pick {
+  font: inherit;
+  color: var(--primary-text-color, inherit);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 4px;
+  text-align: left;
+}
+.hdpe__browser-item { flex: 1; border-radius: 6px; }
+.hdpe__browser-item:hover { background: var(--secondary-background-color, rgba(127, 127, 127, 0.1)); }
+.hdpe__browser-pick { border: 1px solid var(--divider-color, #ccc); border-radius: 6px; padding: 4px 8px; }
 `;
 
 /**
