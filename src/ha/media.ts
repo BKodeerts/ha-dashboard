@@ -30,6 +30,10 @@ export async function browseMedia(
   return backend.sendMessagePromise<BrowseMediaNode>({
     type: 'media_player/browse_media',
     entity_id: entityId,
-    ...(target ?? {}),
+    // Only the two keys HA's schema allows — a caller's object (e.g. a
+    // breadcrumb) may carry more (`title`, …) and HA rejects unknown keys.
+    ...(target
+      ? { media_content_id: target.media_content_id, media_content_type: target.media_content_type }
+      : {}),
   });
 }
