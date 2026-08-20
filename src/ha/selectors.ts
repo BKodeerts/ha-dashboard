@@ -725,6 +725,15 @@ export const formatNumber = (
 export const formatPlain = (value: number | null | undefined, digits = 0): string =>
   formatNumber(value, digits, false);
 
+/** A wattage reading, switching to kW above 1000 W so a chart's scale label
+    stays short (e.g. a "4,2 kW" axis max) rather than "4200 W". */
+export const formatWatts = (value: number | null | undefined): string =>
+  isNumber(value)
+    ? Math.abs(value) >= 1000
+      ? `${formatNumber(value / 1000, 1)} kW`
+      : `${formatNumber(value)} W`
+    : NO_READING;
+
 /** Card reading: rounded, no decimal. Sheet reading: one decimal. */
 export const formatTemp = (value: number | null | undefined, digits = 0): string =>
   isNumber(value) ? `${formatNumber(value, digits)}°` : NO_READING;
