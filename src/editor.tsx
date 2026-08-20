@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { mergeLayers, type ConfigLayer, type LovelaceCardConfig, type MediaPreset } from './config/config';
 import { panelBackend } from './ha/backend';
+import { browseMedia, type BrowseMediaItem } from './ha/media';
 import { bucketEntities, fetchRegistries, resolveAreaEntities } from './ha/registry';
 import { friendlyName } from './ha/selectors';
 import type { HassEntities, HomeAssistant, Registries } from './ha/types';
@@ -41,18 +42,135 @@ function EntityPicker({
   );
 }
 
+/** One level of the "Bladeren" breadcrumb — enough to browse back into. */
+type BrowseCrumb = { title: string; media_content_id: string; media_content_type: string };
+
+/**
+ * Walks a media player's own browse tree (Favorites, Playlists, …) instead of
+ * asking someone to type a `media_content_id`/`media_content_type` by hand —
+ * the values that trips people up most (e.g. copying the resolved, session-
+ * bound stream URL off "currently playing" instead of a stable favourite id).
+ * Picking a playable item hands its real id/type straight to the caller.
+ */
+function MediaBrowser({
+  hass,
+  entityId,
+  onPick,
+  onClose,
+}: {
+  hass: HomeAssistant;
+  entityId: string;
+  onPick(preset: MediaPreset): void;
+  onClose(): void;
+}) {
+  const hassRef = useRef(hass);
+  hassRef.current = hass;
+  const [path, setPath] = useState<BrowseCrumb[]>([]);
+  const [items, setItems] = useState<BrowseMediaItem[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setItems(null);
+    setError(null);
+    const backend = panelBackend(() => hassRef.current);
+    const target = path[path.length - 1];
+    browseMedia(backend, entityId, target)
+      .then((node) => {
+        if (!cancelled) setItems(node.children ?? []);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [entityId, path]);
+
+  const pick = (item: BrowseMediaItem) =>
+    onPick({
+      name: item.title,
+      media_content_id: item.media_content_id,
+      media_content_type: item.media_content_type,
+    });
+
+  return (
+    <div className="hdpe__browser">
+      <div className="hdpe__browser-crumbs">
+        <button type="button" onClick={() => setPath([])} disabled={path.length === 0}>
+          begin
+        </button>
+        {path.map((crumb, index) => (
+          <span key={crumb.media_content_id}>
+            {' › '}
+            <button
+              type="button"
+              onClick={() => setPath(path.slice(0, index + 1))}
+              disabled={index === path.length - 1}
+            >
+              {crumb.title}
+            </button>
+          </span>
+        ))}
+        <button type="button" className="hdpe__browser-close" onClick={onClose} aria-label="bladeren sluiten">
+          ✕
+        </button>
+      </div>
+      {error && <div className="hdpe__note">bladeren mislukt — {error}</div>}
+      {!error && items === null && <div className="hdpe__note">laden…</div>}
+      {items && items.length === 0 && <div className="hdpe__note">niets gevonden</div>}
+      {items && items.length > 0 && (
+        <ul className="hdpe__browser-list">
+          {items.map((item) => (
+            <li key={`${item.media_content_type}:${item.media_content_id}`} className="hdpe__browser-row">
+              <button
+                type="button"
+                className="hdpe__browser-item"
+                onClick={() =>
+                  item.can_expand
+                    ? setPath([
+                        ...path,
+                        {
+                          title: item.title,
+                          media_content_id: item.media_content_id,
+                          media_content_type: item.media_content_type,
+                        },
+                      ])
+                    : pick(item)
+                }
+              >
+                {item.title}
+                {item.can_expand ? ' ›' : ''}
+              </button>
+              {item.can_play && item.can_expand && (
+                <button type="button" className="hdpe__browser-pick" onClick={() => pick(item)}>
+                  kies
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function PresetRows({
+  hass,
   entityId,
   states,
   presets,
   onChange,
 }: {
+  hass: HomeAssistant;
   entityId: string;
   states: HassEntities;
   presets: MediaPreset[];
   /** `immediate` is set for structural edits (add/remove), unset for typing. */
   onChange(next: MediaPreset[], immediate?: boolean): void;
 }) {
+  const [browsing, setBrowsing] = useState(false);
+
   const update = (index: number, patch: Partial<MediaPreset>) => {
     onChange(presets.map((preset, i) => (i === index ? { ...preset, ...patch } : preset)));
   };
@@ -91,9 +209,22 @@ function PresetRows({
           </button>
         </div>
       ))}
-      <button type="button" className="hdpe__add" onClick={add}>
-        + preset toevoegen
-      </button>
+      <div className="hdpe__preset-actions">
+        <button type="button" className="hdpe__add" onClick={add}>
+          + preset toevoegen
+        </button>
+        <button type="button" className="hdpe__add" onClick={() => setBrowsing((value) => !value)}>
+          {browsing ? 'bladeren sluiten' : 'bladeren…'}
+        </button>
+      </div>
+      {browsing && (
+        <MediaBrowser
+          hass={hass}
+          entityId={entityId}
+          onClose={() => setBrowsing(false)}
+          onPick={(preset) => onChange([...presets, preset], true)}
+        />
+      )}
     </div>
   );
 }
@@ -311,6 +442,7 @@ function Editor({
         {usedMediaPlayers.map((entityId) => (
           <PresetRows
             key={entityId}
+            hass={hass}
             entityId={entityId}
             states={states}
             presets={mediaPresets[entityId] ?? []}
@@ -363,7 +495,41 @@ const EDITOR_STYLES = `
   cursor: pointer;
   padding: 6px 10px;
 }
+.hdpe__preset-actions { display: flex; gap: 6px; }
 .hdpe__add { align-self: flex-start; }
+.hdpe__browser {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px dashed var(--divider-color, #ccc);
+  border-radius: 8px;
+}
+.hdpe__browser-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; font-size: 13px; }
+.hdpe__browser-crumbs button {
+  font: inherit;
+  color: var(--primary-color, inherit);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.hdpe__browser-crumbs button:disabled { color: var(--primary-text-color, inherit); cursor: default; }
+.hdpe__browser-close { margin-left: auto; }
+.hdpe__browser-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 220px; overflow-y: auto; }
+.hdpe__browser-row { display: flex; align-items: center; gap: 6px; }
+.hdpe__browser-item, .hdpe__browser-pick {
+  font: inherit;
+  color: var(--primary-text-color, inherit);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px 4px;
+  text-align: left;
+}
+.hdpe__browser-item { flex: 1; border-radius: 6px; }
+.hdpe__browser-item:hover { background: var(--secondary-background-color, rgba(127, 127, 127, 0.1)); }
+.hdpe__browser-pick { border: 1px solid var(--divider-color, #ccc); border-radius: 6px; padding: 4px 8px; }
 `;
 
 /**
