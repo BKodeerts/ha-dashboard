@@ -46,6 +46,21 @@ function EntityPicker({
 type BrowseCrumb = { title: string; media_content_id: string; media_content_type: string };
 
 /**
+ * `sendMessagePromise` (and so `browseMedia`) rejects with HA's raw WebSocket
+ * error frame — a plain `{ code, message }` object, never an `Error` — so
+ * `String(err)` on it prints `"[object Object]"` instead of the reason.
+ */
+function describeBrowseError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'object' && err !== null) {
+    const { message, code } = err as { message?: unknown; code?: unknown };
+    if (typeof message === 'string' && message) return message;
+    if (typeof code === 'string' && code) return code;
+  }
+  return String(err);
+}
+
+/**
  * Walks a media player's own browse tree (Favorites, Playlists, …) instead of
  * asking someone to type a `media_content_id`/`media_content_type` by hand —
  * the values that trips people up most (e.g. copying the resolved, session-
@@ -80,7 +95,7 @@ function MediaBrowser({
         if (!cancelled) setItems(node.children ?? []);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(describeBrowseError(err));
       });
     return () => {
       cancelled = true;
