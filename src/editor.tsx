@@ -50,14 +50,15 @@ function PresetRows({
   entityId: string;
   states: HassEntities;
   presets: MediaPreset[];
-  onChange(next: MediaPreset[]): void;
+  /** `immediate` is set for structural edits (add/remove), unset for typing. */
+  onChange(next: MediaPreset[], immediate?: boolean): void;
 }) {
   const update = (index: number, patch: Partial<MediaPreset>) => {
     onChange(presets.map((preset, i) => (i === index ? { ...preset, ...patch } : preset)));
   };
-  const remove = (index: number) => onChange(presets.filter((_, i) => i !== index));
+  const remove = (index: number) => onChange(presets.filter((_, i) => i !== index), true);
   const add = () =>
-    onChange([...presets, { name: '', media_content_id: '', media_content_type: 'music' }]);
+    onChange([...presets, { name: '', media_content_id: '', media_content_type: 'music' }], true);
 
   return (
     <div className="hdpe__presets">
@@ -69,18 +70,21 @@ function PresetRows({
             placeholder="naam"
             value={preset.name}
             onChange={(event) => update(index, { name: event.target.value })}
+            onBlur={() => onChange(presets, true)}
           />
           <input
             type="text"
             placeholder="media_content_id"
             value={preset.media_content_id}
             onChange={(event) => update(index, { media_content_id: event.target.value })}
+            onBlur={() => onChange(presets, true)}
           />
           <input
             type="text"
             placeholder="media_content_type"
             value={preset.media_content_type}
             onChange={(event) => update(index, { media_content_type: event.target.value })}
+            onBlur={() => onChange(presets, true)}
           />
           <button type="button" className="hdpe__remove" onClick={() => remove(index)} aria-label="preset verwijderen">
             ✕
@@ -103,6 +107,9 @@ function PresetRows({
  * box. Personal preferences (theme, favourites, tracked person, …) stay in
  * the dashboard's own Settings view — they are not here.
  */
+/** How long a burst of keystrokes must go quiet before it's sent upstream. */
+const COMMIT_DEBOUNCE_MS = 400;
+
 function Editor({
   hass,
   config,
@@ -132,17 +139,64 @@ function Editor({
   const states = hass.states;
   const sensors = useMemo(() => domainEntities(states, 'sensor'), [states]);
 
-  const power: NonNullable<ConfigLayer['power']> = (config.power as ConfigLayer['power']) ?? {
+  /*
+   * `onChange` round-trips through HA's edit-card dialog and back down as a
+   * new `config` prop (see `HaDashboardPanelEditor` below) — dispatching it
+   * on every keystroke made every character retrigger that whole trip, which
+   * is what made typing feel laggy. So typing updates `local` straight away
+   * for a responsive form, and only *emits* upstream once a field has gone
+   * quiet for `COMMIT_DEBOUNCE_MS`. Structural edits (selects, add/remove
+   * preset) still emit immediately — there is no "burst" to coalesce there.
+   */
+  const [local, setLocal] = useState<LovelaceCardConfig>(config);
+  const localRef = useRef(local);
+  localRef.current = local;
+  const lastEmitted = useRef(config);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => {
+    // Adopt config changes that aren't just HA echoing what we just emitted —
+    // e.g. switching to the raw YAML tab and back.
+    if (config !== lastEmitted.current) {
+      lastEmitted.current = config;
+      localRef.current = config;
+      setLocal(config);
+    }
+  }, [config]);
+
+  const flush = () => {
+    if (timer.current !== undefined) {
+      clearTimeout(timer.current);
+      timer.current = undefined;
+    }
+    if (lastEmitted.current === localRef.current) return;
+    lastEmitted.current = localRef.current;
+    onChange(localRef.current);
+  };
+
+  // Flush a still-pending edit if the dialog closes before the debounce fires.
+  useEffect(() => flush, []);
+
+  const power: NonNullable<ConfigLayer['power']> = (local.power as ConfigLayer['power']) ?? {
     minWatts: 0,
   };
-  const car: NonNullable<ConfigLayer['car']> = (config.car as ConfigLayer['car']) ?? {};
+  const car: NonNullable<ConfigLayer['car']> = (local.car as ConfigLayer['car']) ?? {};
   const mediaEntity: NonNullable<ConfigLayer['mediaEntity']> =
-    (config.mediaEntity as ConfigLayer['mediaEntity']) ?? {};
+    (local.mediaEntity as ConfigLayer['mediaEntity']) ?? {};
   const mediaPresets: NonNullable<ConfigLayer['mediaPresets']> =
-    (config.mediaPresets as ConfigLayer['mediaPresets']) ?? {};
+    (local.mediaPresets as ConfigLayer['mediaPresets']) ?? {};
 
-  const patch = (next: ConfigLayer) =>
-    onChange(mergeLayers(config as ConfigLayer, next) as LovelaceCardConfig);
+  const patch = (next: ConfigLayer, options?: { immediate?: boolean }) => {
+    localRef.current = mergeLayers(localRef.current as ConfigLayer, next) as LovelaceCardConfig;
+    setLocal(localRef.current);
+    if (timer.current !== undefined) clearTimeout(timer.current);
+    if (options?.immediate) {
+      timer.current = undefined;
+      flush();
+    } else {
+      timer.current = setTimeout(flush, COMMIT_DEBOUNCE_MS);
+    }
+  };
 
   const areasWithMedia = useMemo(() => {
     if (!registries) return [];
@@ -192,6 +246,7 @@ function Editor({
             min={0}
             value={power.minWatts ?? 0}
             onChange={(event) => patch({ power: { minWatts: Number(event.target.value) || 0 } })}
+            onBlur={flush}
           />
         </label>
       </section>
@@ -204,6 +259,7 @@ function Editor({
             type="text"
             value={car.name ?? ''}
             onChange={(event) => patch({ car: { name: event.target.value || undefined } })}
+            onBlur={flush}
           />
         </label>
         <EntityPicker
@@ -211,14 +267,14 @@ function Editor({
           value={car.battery}
           options={sensors}
           states={states}
-          onChange={(value) => patch({ car: { battery: value } })}
+          onChange={(value) => patch({ car: { battery: value } }, { immediate: true })}
         />
         <EntityPicker
           label="Bereik"
           value={car.range}
           options={sensors}
           states={states}
-          onChange={(value) => patch({ car: { range: value } })}
+          onChange={(value) => patch({ car: { range: value } }, { immediate: true })}
         />
       </section>
 
@@ -230,7 +286,10 @@ function Editor({
             <select
               value={mediaEntity[area.area_id] ?? ''}
               onChange={(event) =>
-                patch({ mediaEntity: { [area.area_id]: event.target.value || undefined } })
+                patch(
+                  { mediaEntity: { [area.area_id]: event.target.value || undefined } },
+                  { immediate: true },
+                )
               }
             >
               <option value="">automatisch</option>
@@ -255,7 +314,9 @@ function Editor({
             entityId={entityId}
             states={states}
             presets={mediaPresets[entityId] ?? []}
-            onChange={(next) => patch({ mediaPresets: { [entityId]: next } })}
+            onChange={(next, immediate) =>
+              patch({ mediaPresets: { [entityId]: next } }, { immediate })
+            }
           />
         ))}
         {registries && usedMediaPlayers.length === 0 && (
