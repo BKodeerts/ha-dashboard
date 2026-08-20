@@ -15,8 +15,9 @@ import { useLongPress } from '../../ui/useLongPress';
 /**
  * Handoff: `design_handoff_ha_energy_tab/README.md`. Three stacked cards —
  * solar/now with today's curve and the self-consumption ratio, a per-device
- * trend card (small multiples, each line normalised to its own daily max),
- * and the plain "apparaten nu" list the v5 tab already had.
+ * trend card (one shared y-axis across all devices, so the lines stay
+ * comparable — which one draws more should be readable at a glance), and the
+ * plain "apparaten nu" list the v5 tab already had.
  */
 
 const CHART_W = 280;
@@ -200,25 +201,33 @@ function SolarNowCard({
 function DeviceTrendCard({ loads }: { loads: PowerInfo['loads'] }) {
   const buckets = useDayBuckets(loads.map((load) => load.entityId));
 
+  // One shared max across every device, not each line normalised to its own
+  // — the point of putting them on one chart is comparing which device
+  // actually draws more, and that's invisible if a 30 W device and a 4 kW
+  // device are both stretched to fill the same height.
+  const max = useMemo(
+    () =>
+      Math.max(
+        1,
+        ...loads.flatMap((load) =>
+          (buckets.get(load.entityId) ?? []).filter((v): v is number => v !== undefined),
+        ),
+      ),
+    [loads, buckets],
+  );
+
   const lines = useMemo(
     () =>
       loads.map((load, index) => {
         const values = buckets.get(load.entityId) ?? [];
-        const defined = values.filter((v): v is number => v !== undefined);
-        const max = Math.max(1, ...defined);
         return {
           entityId: load.entityId,
           name: load.name,
           color: deviceColor(index),
-          // Each line is normalised to its own daily max (small multiples,
-          // not a shared y-axis — see the module doc comment), so the peak
-          // has to ride along in the legend or the chart would show identical
-          // shapes for a 30 W and a 4 kW device with no way to tell them apart.
-          peak: defined.length > 0 ? formatWatts(max) : undefined,
           line: bucketPath(values, { width: CHART_W, height: TREND_H, max, pad: 2 }).line,
         };
       }),
-    [loads, buckets],
+    [loads, buckets, max],
   );
 
   if (loads.length === 0) return null;
@@ -230,31 +239,35 @@ function DeviceTrendCard({ loads }: { loads: PowerInfo['loads'] }) {
           <span className="device-trend__legend-item mono" key={line.entityId}>
             <span className="device-trend__dot" style={{ background: line.color }} />
             {line.name}
-            {line.peak && <span className="device-trend__peak">· {line.peak} piek</span>}
           </span>
         ))}
       </div>
-      <svg
-        viewBox={`0 0 ${CHART_W} ${TREND_H}`}
-        className="device-trend__chart"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        {lines.map(
-          (line) =>
-            line.line && (
-              <path
-                key={line.entityId}
-                d={line.line}
-                fill="none"
-                stroke={line.color}
-                strokeWidth={1.4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            ),
-        )}
-      </svg>
+      <div className="device-trend__chart-wrap">
+        <div className="device-trend__scale mono" aria-hidden="true">
+          0 – {formatWatts(max)}
+        </div>
+        <svg
+          viewBox={`0 0 ${CHART_W} ${TREND_H}`}
+          className="device-trend__chart"
+          preserveAspectRatio="none"
+          aria-hidden="true"
+        >
+          {lines.map(
+            (line) =>
+              line.line && (
+                <path
+                  key={line.entityId}
+                  d={line.line}
+                  fill="none"
+                  stroke={line.color}
+                  strokeWidth={1.4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              ),
+          )}
+        </svg>
+      </div>
     </div>
   );
 }

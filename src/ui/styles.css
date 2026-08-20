@@ -2368,8 +2368,18 @@ button {
   color: var(--text-muted);
 }
 
-.device-trend__peak {
+.device-trend__chart-wrap {
+  position: relative;
+}
+
+.device-trend__scale {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 9px;
+  line-height: 1;
   color: var(--text-faint);
+  pointer-events: none;
 }
 
 .device-trend__dot {
