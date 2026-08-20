@@ -263,6 +263,7 @@ function DeviceTrendCard({ loads }: { loads: PowerInfo['loads'] }) {
                   strokeWidth={1.4}
                   strokeLinecap="round"
                   strokeLinejoin="round"
+                  strokeOpacity={0.75}
                 />
               ),
           )}
