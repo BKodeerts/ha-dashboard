@@ -8,7 +8,7 @@ import {
   selfConsumptionRatio,
 } from '../../ha/energyChart';
 import { fetchDayBuckets } from '../../ha/history';
-import { formatNumber, type PowerInfo } from '../../ha/selectors';
+import { formatNumber, formatWatts, type PowerInfo } from '../../ha/selectors';
 import { Icon } from '../../ui/Icon';
 import { useLongPress } from '../../ui/useLongPress';
 
@@ -90,6 +90,7 @@ function SolarNowCard({
     if (!solarPath.lastPoint) return null;
     const nowX = nowFraction() * CHART_W;
     return {
+      max,
       solarArea: solarPath.area,
       solarLine: solarPath.line,
       consumptionLine: consumptionPath.line,
@@ -148,6 +149,9 @@ function SolarNowCard({
 
       {chart && (
         <div className="solar-now__chart">
+          <div className="solar-now__scale mono" aria-hidden="true">
+            0 – {formatWatts(chart.max)}
+          </div>
           <svg
             viewBox={`0 0 ${CHART_W} ${CHART_H}`}
             className="solar-now__chart-svg"
@@ -200,11 +204,17 @@ function DeviceTrendCard({ loads }: { loads: PowerInfo['loads'] }) {
     () =>
       loads.map((load, index) => {
         const values = buckets.get(load.entityId) ?? [];
-        const max = Math.max(1, ...values.filter((v): v is number => v !== undefined));
+        const defined = values.filter((v): v is number => v !== undefined);
+        const max = Math.max(1, ...defined);
         return {
           entityId: load.entityId,
           name: load.name,
           color: deviceColor(index),
+          // Each line is normalised to its own daily max (small multiples,
+          // not a shared y-axis — see the module doc comment), so the peak
+          // has to ride along in the legend or the chart would show identical
+          // shapes for a 30 W and a 4 kW device with no way to tell them apart.
+          peak: defined.length > 0 ? formatWatts(max) : undefined,
           line: bucketPath(values, { width: CHART_W, height: TREND_H, max, pad: 2 }).line,
         };
       }),
@@ -220,6 +230,7 @@ function DeviceTrendCard({ loads }: { loads: PowerInfo['loads'] }) {
           <span className="device-trend__legend-item mono" key={line.entityId}>
             <span className="device-trend__dot" style={{ background: line.color }} />
             {line.name}
+            {line.peak && <span className="device-trend__peak">· {line.peak} piek</span>}
           </span>
         ))}
       </div>
