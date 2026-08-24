@@ -276,9 +276,12 @@ the card's own YAML by hand.
 Tracked and "on right now" are different things, though: the trend chart always draws every tracked
 device, at every wattage, including a flat 0 W line while it's simply off — that's the point of naming
 one explicitly, seeing its whole day's shape even when it's idle right now. "Apparaten nu" stays a
-snapshot of what's actually drawing power: `power.minWatts` (in the editor too) still trims that list,
-the same for a tracked device as for an auto-detected one — being on the trend chart doesn't exempt an
-idle device from it.
+snapshot of what's actually drawing power, and it draws from a *wider* pool than the trend chart does:
+every tracked device, plus every entity in HA's own "Individual devices" list when there is one — so
+trimming `power.devices` down to just the appliances worth graphing (a TV plug's day-shape is rarely
+interesting) does not also hide that TV from "apparaten nu" while it's genuinely drawing power.
+`power.minWatts` (in the editor too) still trims that list, the same for a tracked device as for an
+auto-detected one — being on the trend chart doesn't exempt an idle device from it.
 
 Each row also has a name field, for when the entity's own friendly name is too long for the row —
 "TV" instead of "TV power". Left blank, the entity's own name is used, same as before. There is no
@@ -432,7 +435,7 @@ Everything that is left blank is derived from the state machine on first run:
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | `energy/get_prefs`' solar source for `.solar`; otherwise a `device_class: power` sensor matched by name |
-| `power.devices` | `(string \| {entityId, name?})[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the trend chart shows exactly that list in that order, at every wattage; `name` overrides the entity's own friendly name |
+| `power.devices` | `(string \| {entityId, name?})[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the trend chart shows exactly that list in that order, at every wattage; "apparaten nu" still pools in the rest of the HA list too; `name` overrides the entity's own friendly name |
 | `power.minWatts` | `number` | `0` — loads reading under this many watts (or reading exactly 0) drop off "Apparaten nu", tracked or auto-detected alike; the trend chart ignores it |
 | `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
