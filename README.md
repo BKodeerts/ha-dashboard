@@ -264,15 +264,21 @@ table below) — adding pickers for them would just be asking you to re-enter wh
 on its own. If the auto-detection ever guesses wrong for your setup, override it in the card's "Edit
 as YAML" tab, the same as any key the GUI doesn't cover.
 
-The editor does carry the devices list ("apparaten nu" and its trend chart) — `power.devices` — but
-only as a pick from Settings → Dashboards → Energy's own "Individual devices" list, not any sensor in
-the house: a device has to be added there first before the editor can offer it here. Left empty, it
-still follows that HA list wholesale, sorted by current draw; pick a subset to show a different set on
-this dashboard specifically, in exactly the order chosen — an explicit list is never re-sorted by live
-wattage, and `power.minWatts` (in the editor too) no longer trims it either, so a named device stays on
-the list at 0 W rather than dropping off while it's simply switched off. Naming a sensor that was never
-added to HA's Energy config still works, just not from the editor — write it into the card's own YAML
-by hand.
+The editor does carry the tracked-devices list (the trend chart, and "apparaten nu" when they're
+actually drawing something) — `power.devices` — but only as a pick from Settings → Dashboards →
+Energy's own "Individual devices" list, not any sensor in the house: a device has to be added there
+first before the editor can offer it here. Left empty, it still follows that HA list wholesale, sorted
+by current draw; pick a subset to track a different set on this dashboard specifically, in exactly the
+order chosen for the trend chart — an explicit list is never re-sorted by live wattage there. Naming a
+sensor that was never added to HA's Energy config still works, just not from the editor — write it into
+the card's own YAML by hand.
+
+Tracked and "on right now" are different things, though: the trend chart always draws every tracked
+device, at every wattage, including a flat 0 W line while it's simply off — that's the point of naming
+one explicitly, seeing its whole day's shape even when it's idle right now. "Apparaten nu" stays a
+snapshot of what's actually drawing power: `power.minWatts` (in the editor too) still trims that list,
+the same for a tracked device as for an auto-detected one — being on the trend chart doesn't exempt an
+idle device from it.
 
 Each row also has a name field, for when the entity's own friendly name is too long for the row —
 "TV" instead of "TV power". Left blank, the entity's own name is used, same as before. There is no
@@ -426,8 +432,8 @@ Everything that is left blank is derived from the state machine on first run:
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | `energy/get_prefs`' solar source for `.solar`; otherwise a `device_class: power` sensor matched by name |
-| `power.devices` | `(string \| {entityId, name?})[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the list shows in exactly that order and ignores `.minWatts`; `name` overrides the entity's own friendly name |
-| `power.minWatts` | `number` | `0` — loads reading under this many watts drop off the *auto-detected* "Apparaten nu" list; ignored once `power.devices` is set |
+| `power.devices` | `(string \| {entityId, name?})[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the trend chart shows exactly that list in that order, at every wattage; `name` overrides the entity's own friendly name |
+| `power.minWatts` | `number` | `0` — loads reading under this many watts (or reading exactly 0) drop off "Apparaten nu", tracked or auto-detected alike; the trend chart ignores it |
 | `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
 

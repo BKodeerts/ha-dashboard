@@ -624,7 +624,17 @@ export interface PowerInfo {
   consumption?: number;
   /** Positive = exporting to the grid. */
   net?: number;
+  /** "Apparaten nu" — only devices actually drawing power right now. */
   loads: PowerLoad[];
+  /**
+   * The device-trend chart's lines — every configured/auto-detected device
+   * with a reading at all, including 0 W while it's simply off. Deliberately
+   * not the same set as `loads`: the trend chart is tracking specific
+   * devices across the whole day, so an idle one still belongs on it, but
+   * "Apparaten nu" is a snapshot of what's on *now* and has no use for an
+   * entry reading 0 W.
+   */
+  trend: PowerLoad[];
 }
 
 /** Normalises a power sensor to watts, so kW sensors don't blow up the bar. */
@@ -638,22 +648,21 @@ function watts(states: HassEntities, entityId: string | undefined): number | und
 }
 
 /**
- * The devices list comes from `config.power.devices` — a household's own
+ * The devices tracked come from `config.power.devices` — a household's own
  * hand-written entity-id list, each optionally carrying its own display name
- * — when set, otherwise it falls back to Home Assistant's own Energy
- * dashboard config (`energyPrefs.deviceRates`, see `ha/energyPrefs.ts`), the
- * household's curated "Individual devices" list. Either way each load also
- * carries whatever `icon` the entity itself reports, so "Apparaten nu" shows
- * the device's own glyph instead of one generic bolt for everything.
+ * — when set, otherwise from Home Assistant's own Energy dashboard config
+ * (`energyPrefs.deviceRates`, see `ha/energyPrefs.ts`), the household's
+ * curated "Individual devices" list. Either way each load also carries
+ * whatever `icon` the entity itself reports, so "Apparaten nu" shows the
+ * device's own glyph instead of one generic bolt for everything.
  *
- * Both `minWatts` (the noise floor) and the biggest-draw-first sort only
- * apply to the auto-detected list. A household that names its devices
- * explicitly has already made both calls — which ones matter, and in what
- * order — so that list stays exactly as written: every entry shown at every
- * wattage (including 0 W while it's simply off), never reordered by how much
- * it happens to be drawing right now. An entity with no reading at all
- * (unavailable, or the id doesn't exist) is still dropped either way — there
- * is no wattage to show.
+ * That candidate set feeds two different views, on purpose (see `trend` and
+ * `loads` on `PowerInfo`): the trend chart wants every one of them, at every
+ * wattage; "Apparaten nu" wants only the ones actually drawing something
+ * right now, sorted biggest first, whether the household named the device
+ * explicitly or it came from the auto-detected list — being on the tracked
+ * list is not the same as being on right now. An entity with no reading at
+ * all (unavailable, or the id doesn't exist) is dropped from both.
  */
 export function powerInfo(
   states: HassEntities,
@@ -664,13 +673,12 @@ export function powerInfo(
   const consumption = watts(states, config.power.consumption);
   const gridSensor = watts(states, config.power.grid);
   const explicitDevices = config.power.devices;
-  const minWatts = explicitDevices ? 0 : config.power.minWatts;
 
-  const loads = (explicitDevices ?? energyPrefs?.deviceRates ?? [])
+  const tracked = (explicitDevices ?? energyPrefs?.deviceRates ?? [])
     .map((entry) => {
       const { entityId, name } = normalizePowerDevice(entry);
       const value = watts(states, entityId);
-      if (value === undefined || value < minWatts) return null;
+      if (value === undefined) return null;
       const load: PowerLoad = { entityId, name: name ?? friendlyName(states, entityId), watts: value };
       const icon = states[entityId]?.attributes?.icon;
       if (typeof icon === 'string' && icon) load.icon = icon;
@@ -679,7 +687,13 @@ export function powerInfo(
     .filter((load): load is PowerLoad => load !== null);
 
   const info: PowerInfo = {
-    loads: explicitDevices ? loads : loads.sort((a, b) => b.watts - a.watts),
+    // Explicit order is the household's own choice and stays as written;
+    // the auto-detected list has never had one of its own, so it sorts by
+    // current draw the same way `loads` below does.
+    trend: explicitDevices ? tracked : [...tracked].sort((a, b) => b.watts - a.watts),
+    loads: tracked
+      .filter((load) => load.watts > 0 && load.watts >= config.power.minWatts)
+      .sort((a, b) => b.watts - a.watts),
   };
   if (solar !== undefined) info.solar = solar;
   // A grid sensor is authoritative when present (positive = import, so negate).

@@ -64,28 +64,30 @@ function useDayBuckets(entityIds: (string | undefined)[]): Map<string, (number |
 }
 
 /**
- * Today's remaining solar production forecast, as the same day-bucket shape
- * `useDayBuckets` gives the actual reading — see `ha/solarForecast.ts` and
- * `forecastBuckets`. A forecast integration answers far less often than a
- * power sensor updates, so this refetches every half hour rather than
- * `useDayBuckets`' five minutes. `undefined` — no forecast source configured,
- * or the call failed — draws no line at all rather than a flat one.
+ * Today's solar production forecast, in Wh per wall-clock hour — see
+ * `ha/solarForecast.ts`. Left as hours rather than day-buckets here: turning
+ * it into buckets (`forecastBuckets`) needs the actual solar reading to
+ * anchor the curve to, which only `SolarNowCard` has. A forecast integration
+ * answers far less often than a power sensor updates, so this refetches
+ * every half hour rather than `useDayBuckets`' five minutes. `undefined` — no
+ * forecast source configured, or the call failed — draws no line at all
+ * rather than a flat one.
  */
-function useSolarForecast(configEntryIds: string[]): (number | undefined)[] | undefined {
+function useSolarForecast(configEntryIds: string[]): Record<string, number> | undefined {
   const { backend } = useHass();
   const key = configEntryIds.join('|');
-  const [buckets, setBuckets] = useState<(number | undefined)[] | undefined>(undefined);
+  const [hours, setHours] = useState<Record<string, number> | undefined>(undefined);
 
   useEffect(() => {
     if (!key) {
-      setBuckets(undefined);
+      setHours(undefined);
       return;
     }
     let cancelled = false;
     const load = () => {
       fetchSolarForecast(backend, key.split('|')).then((whHours) => {
         if (cancelled) return;
-        setBuckets(whHours ? forecastBuckets(whHours) : undefined);
+        setHours(whHours);
       });
     };
     load();
@@ -96,7 +98,7 @@ function useSolarForecast(configEntryIds: string[]): (number | undefined)[] | un
     };
   }, [backend, key]);
 
-  return buckets;
+  return hours;
 }
 
 function SolarNowCard({
@@ -113,7 +115,7 @@ function SolarNowCard({
   solarForecastConfigEntries: string[];
 }) {
   const buckets = useDayBuckets([solarEntity, consumptionEntity, gridEntity]);
-  const forecast = useSolarForecast(solarForecastConfigEntries);
+  const forecastHours = useSolarForecast(solarForecastConfigEntries);
   const solar = solarEntity ? (buckets.get(solarEntity) ?? []) : [];
   const grid = gridEntity ? (buckets.get(gridEntity) ?? []) : [];
   // Most households have no whole-home sensor of their own — see
@@ -124,6 +126,13 @@ function SolarNowCard({
     : deriveConsumptionSeries(solar, grid);
 
   const chart = useMemo(() => {
+    // The forecast is anchored to solar's own last reading — not just its
+    // own hourly average for this moment — so the dashed line picks up
+    // exactly at the dot instead of jumping to wherever the forecast itself
+    // expected production to be right now.
+    const lastSolar = solar.reduce<number | undefined>((last, v) => v ?? last, undefined);
+    const forecast = forecastHours ? forecastBuckets(forecastHours, solar.length, new Date(), lastSolar) : undefined;
+
     const max = Math.max(
       1,
       ...[...solar, ...consumption, ...(forecast ?? [])].filter((v): v is number => v !== undefined),
@@ -142,7 +151,7 @@ function SolarNowCard({
       nowX,
       nowY: solarPath.lastPoint.y,
     };
-  }, [solar, consumption, forecast]);
+  }, [solar, consumption, forecastHours]);
 
   const ratio = useMemo(() => selfConsumptionRatio(solar, consumption), [solar, consumption]);
 
@@ -245,7 +254,7 @@ function SolarNowCard({
   );
 }
 
-function DeviceTrendCard({ loads }: { loads: PowerInfo['loads'] }) {
+function DeviceTrendCard({ loads }: { loads: PowerInfo['trend'] }) {
   const buckets = useDayBuckets(loads.map((load) => load.entityId));
 
   // One shared max across every device, not each line normalised to its own
@@ -354,7 +363,7 @@ export function EnergyView({ power }: { power: PowerInfo }) {
         solarForecastConfigEntries={energyPrefs?.solarForecastConfigEntries ?? []}
       />
 
-      <DeviceTrendCard loads={power.loads} />
+      <DeviceTrendCard loads={power.trend} />
 
       {power.loads.length > 0 && (
         <div className="apparaten">

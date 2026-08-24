@@ -56,14 +56,21 @@ export interface DashboardConfig {
     /** Positive = importing from grid. Optional: derived from solar − consumption. */
     grid?: string;
     /**
-     * The "apparaten nu" list and its trend chart, as an explicit list of live
-     * power-sensor entity ids, in the order they should be shown. Set here to
-     * override the default of reading the "Individual devices" set up under
-     * Settings → Dashboards → Energy live through `energy/get_prefs` (see
-     * `ha/energyPrefs.ts`) — useful for a household that wants a subset of
-     * that list shown, in a different order, on this dashboard specifically.
-     * The card's GUI editor only offers entities already in that HA list; any
-     * live power sensor is fair game hand-written in the card's own YAML.
+     * The devices tracked by the trend chart and, when they're actually
+     * drawing something, "apparaten nu" — an explicit list of live
+     * power-sensor entity ids, in the order the trend chart should draw
+     * them. Set here to override the default of reading the "Individual
+     * devices" set up under Settings → Dashboards → Energy live through
+     * `energy/get_prefs` (see `ha/energyPrefs.ts`) — useful for a household
+     * that wants a subset of that list tracked, in a different order, on
+     * this dashboard specifically. The card's GUI editor only offers
+     * entities already in that HA list; any live power sensor is fair game
+     * hand-written in the card's own YAML.
+     *
+     * Being tracked is not the same as being on "apparaten nu" — see
+     * `PowerInfo.trend` vs `.loads` in `selectors.ts`: the trend chart shows
+     * every tracked device at every wattage, but the "now" list only shows
+     * the ones actually drawing something, same as the auto-detected list.
      *
      * An entry is either just the entity id, or `{ entityId, name }` to show
      * something shorter than the entity's own friendly name — "TV" instead of
@@ -71,12 +78,7 @@ export interface DashboardConfig {
      * icon the entity itself carries (see `PowerLoad.icon` in `selectors.ts`).
      */
     devices?: PowerDeviceEntry[];
-    /**
-     * Loads reading under this many watts drop off the "apparaten nu" list —
-     * the noise floor for the *auto-detected* list only. A household that
-     * names its devices explicitly via `devices` above has already curated
-     * that list, so those stay shown at every wattage, including 0 W.
-     */
+    /** Loads reading under this many watts drop off "apparaten nu" — the noise floor. */
     minWatts: number;
   };
   /** The Auto tab's heading; the subtitle is built from whatever is set. */
