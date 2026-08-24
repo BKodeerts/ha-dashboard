@@ -624,15 +624,19 @@ export interface PowerInfo {
   consumption?: number;
   /** Positive = exporting to the grid. */
   net?: number;
-  /** "Apparaten nu" — only devices actually drawing power right now. */
+  /**
+   * "Apparaten nu" — every entity in HA's own Energy "Individual devices"
+   * list that is actually drawing power right now. Independent of `trend`
+   * below on purpose: which devices are tracked for the chart has nothing to
+   * do with which ones can show up here as "on".
+   */
   loads: PowerLoad[];
   /**
-   * The device-trend chart's lines — every configured/auto-detected device
-   * with a reading at all, including 0 W while it's simply off. Deliberately
-   * not the same set as `loads`: the trend chart is tracking specific
-   * devices across the whole day, so an idle one still belongs on it, but
-   * "Apparaten nu" is a snapshot of what's on *now* and has no use for an
-   * entry reading 0 W.
+   * The device-trend chart's lines — every *tracked* device with a reading
+   * at all, including 0 W while it's simply off. Deliberately not the same
+   * set as `loads`: the trend chart is tracking specific devices across the
+   * whole day, so an idle one still belongs on it, but "Apparaten nu" is a
+   * snapshot of what's on *now* and has no use for an entry reading 0 W.
    */
   trend: PowerLoad[];
 }
@@ -648,21 +652,24 @@ function watts(states: HassEntities, entityId: string | undefined): number | und
 }
 
 /**
- * The devices tracked come from `config.power.devices` — a household's own
+ * The trend chart tracks `config.power.devices` — a household's own
  * hand-written entity-id list, each optionally carrying its own display name
- * — when set, otherwise from Home Assistant's own Energy dashboard config
+ * — when set, otherwise Home Assistant's own Energy dashboard config
  * (`energyPrefs.deviceRates`, see `ha/energyPrefs.ts`), the household's
  * curated "Individual devices" list. Either way each load also carries
  * whatever `icon` the entity itself reports, so "Apparaten nu" shows the
  * device's own glyph instead of one generic bolt for everything.
  *
- * That candidate set feeds two different views, on purpose (see `trend` and
- * `loads` on `PowerInfo`): the trend chart wants every one of them, at every
- * wattage; "Apparaten nu" wants only the ones actually drawing something
- * right now, sorted biggest first, whether the household named the device
- * explicitly or it came from the auto-detected list — being on the tracked
- * list is not the same as being on right now. An entity with no reading at
- * all (unavailable, or the id doesn't exist) is dropped from both.
+ * "Apparaten nu" does not care which of those are tracked at all — it is
+ * simply every entity in HA's own "Individual devices" list, filtered to the
+ * ones actually drawing something. `power.devices` is a curated *subset* of
+ * that list for the trend chart's sake (which day-shapes are worth graphing,
+ * and in what order), not a separate set of "real" devices, so trimming it
+ * must not trim "Apparaten nu" too. Only a household with no Energy
+ * dashboard configured at all — nothing for `energyPrefs` to read — falls
+ * back to the tracked list there, so the app still has something to show.
+ * Sorted biggest first; an entity with no reading at all (unavailable, or
+ * the id doesn't exist) is dropped from both.
  */
 export function powerInfo(
   states: HassEntities,
@@ -674,16 +681,26 @@ export function powerInfo(
   const gridSensor = watts(states, config.power.grid);
   const explicitDevices = config.power.devices;
 
-  const tracked = (explicitDevices ?? energyPrefs?.deviceRates ?? [])
-    .map((entry) => {
-      const { entityId, name } = normalizePowerDevice(entry);
-      const value = watts(states, entityId);
-      if (value === undefined) return null;
-      const load: PowerLoad = { entityId, name: name ?? friendlyName(states, entityId), watts: value };
-      const icon = states[entityId]?.attributes?.icon;
-      if (typeof icon === 'string' && icon) load.icon = icon;
-      return load;
-    })
+  const buildLoad = (entityId: string, name: string | undefined): PowerLoad | null => {
+    const value = watts(states, entityId);
+    if (value === undefined) return null;
+    const load: PowerLoad = { entityId, name: name ?? friendlyName(states, entityId), watts: value };
+    const icon = states[entityId]?.attributes?.icon;
+    if (typeof icon === 'string' && icon) load.icon = icon;
+    return load;
+  };
+
+  const trackedEntries = (explicitDevices ?? energyPrefs?.deviceRates ?? []).map(normalizePowerDevice);
+  const tracked = trackedEntries
+    .map((entry) => buildLoad(entry.entityId, entry.name))
+    .filter((load): load is PowerLoad => load !== null);
+
+  // A tracked device's own name override still applies when it also shows
+  // up on "Apparaten nu".
+  const nameOverrides = new Map(trackedEntries.map((entry) => [entry.entityId, entry.name]));
+  const allDeviceIds = energyPrefs?.deviceRates ?? trackedEntries.map((entry) => entry.entityId);
+  const all = allDeviceIds
+    .map((entityId) => buildLoad(entityId, nameOverrides.get(entityId)))
     .filter((load): load is PowerLoad => load !== null);
 
   const info: PowerInfo = {
@@ -691,7 +708,7 @@ export function powerInfo(
     // the auto-detected list has never had one of its own, so it sorts by
     // current draw the same way `loads` below does.
     trend: explicitDevices ? tracked : [...tracked].sort((a, b) => b.watts - a.watts),
-    loads: tracked
+    loads: all
       .filter((load) => load.watts > 0 && load.watts >= config.power.minWatts)
       .sort((a, b) => b.watts - a.watts),
   };
