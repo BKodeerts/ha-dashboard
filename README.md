@@ -256,11 +256,13 @@ table below) — adding pickers for them would just be asking you to re-enter wh
 on its own. If the auto-detection ever guesses wrong for your setup, override it in the card's "Edit
 as YAML" tab, the same as any key the GUI doesn't cover.
 
-The editor does carry the devices list ("apparaten nu" and its trend chart), as an ordered pick of
-power sensors — `power.devices`. Left empty, it still follows Settings → Dashboards → Energy's
-"Individual devices" live, the same as before; fill it in to show a different (or differently
-ordered) set on this dashboard than the one HA's own Energy tab tracks. `power.minWatts`, the noise
-floor beneath that list, is in the editor too.
+The editor does carry the devices list ("apparaten nu" and its trend chart) — `power.devices` — but
+only as a pick from Settings → Dashboards → Energy's own "Individual devices" list, not any sensor in
+the house: a device has to be added there first before the editor can offer it here. Left empty, it
+still follows that HA list wholesale, the same as before; pick a subset or reorder it to show a
+different set on this dashboard specifically. Naming a sensor that was never added to HA's Energy
+config still works, just not from the editor — write it into the card's own YAML by hand.
+`power.minWatts`, the noise floor beneath that list, is in the editor too.
 
 Everything else (`favouriteAreas`, `theme`, tints, …) is either better set from the in-app Settings
 view (it is personal, per account) or still just plain YAML in the card's "Edit as YAML" tab if you

@@ -60,9 +60,10 @@ export interface DashboardConfig {
      * power-sensor entity ids, in the order they should be shown. Set here to
      * override the default of reading the "Individual devices" set up under
      * Settings → Dashboards → Energy live through `energy/get_prefs` (see
-     * `ha/energyPrefs.ts`) — useful for a household that wants a different
-     * subset shown on this dashboard than the one HA's own Energy tab tracks,
-     * or that has no Energy dashboard configured at all.
+     * `ha/energyPrefs.ts`) — useful for a household that wants a subset of
+     * that list shown, in a different order, on this dashboard specifically.
+     * The card's GUI editor only offers entities already in that HA list; any
+     * live power sensor is fair game hand-written in the card's own YAML.
      */
     devices?: string[];
     /**
