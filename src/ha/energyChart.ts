@@ -142,11 +142,20 @@ export function bucketPath(
  * Only buckets at or after `from` (typically "now") are filled; the ones
  * before stay `undefined`, so the forecast never redraws over hours the
  * actual line already covers — it picks up exactly where that line stops.
+ *
+ * `anchor`, when given, is the actual solar reading at `from` — a forecast
+ * is a prediction, not a live reading, so its own implied value for this
+ * exact moment rarely matches what the panels are doing right now. Seeding
+ * the curve with the real reading there, then ramping from it to the
+ * forecast's next hourly point, is what keeps the dashed line picking up
+ * exactly at the solid line's own dot instead of jumping to wherever the
+ * forecast expected production to be.
  */
 export function forecastBuckets(
   whHours: Record<string, number>,
   buckets = 96,
   from: Date = new Date(),
+  anchor?: number,
 ): (number | undefined)[] {
   const dayStart = new Date(from);
   dayStart.setHours(0, 0, 0, 0);
@@ -160,8 +169,12 @@ export function forecastBuckets(
       const hourIndex = Math.round((time - dayStart.getTime()) / 3600e3);
       return { index: hourIndex * bucketsPerHour + bucketsPerHour / 2, value: wh, time };
     })
-    .filter((anchor) => Number.isFinite(anchor.time))
-    .sort((a, b) => a.index - b.index);
+    .filter((point) => Number.isFinite(point.time) && point.index !== fromIndex);
+
+  if (anchor !== undefined) {
+    anchors.push({ index: fromIndex, value: anchor, time: from.getTime() });
+  }
+  anchors.sort((a, b) => a.index - b.index);
 
   const out = new Array<number | undefined>(buckets).fill(undefined);
   for (let i = 0; i < anchors.length - 1; i += 1) {
