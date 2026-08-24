@@ -245,7 +245,7 @@ function SolarNowCard({
   );
 }
 
-function DeviceTrendCard({ loads }: { loads: PowerInfo['loads'] }) {
+function DeviceTrendCard({ loads }: { loads: PowerInfo['trend'] }) {
   const buckets = useDayBuckets(loads.map((load) => load.entityId));
 
   // One shared max across every device, not each line normalised to its own
@@ -354,7 +354,7 @@ export function EnergyView({ power }: { power: PowerInfo }) {
         solarForecastConfigEntries={energyPrefs?.solarForecastConfigEntries ?? []}
       />
 
-      <DeviceTrendCard loads={power.loads} />
+      <DeviceTrendCard loads={power.trend} />
 
       {power.loads.length > 0 && (
         <div className="apparaten">
