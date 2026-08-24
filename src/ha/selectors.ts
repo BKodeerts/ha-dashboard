@@ -1,4 +1,9 @@
-import { MAX_TRACKED, personEntities, type DashboardConfig } from '../config/config';
+import {
+  MAX_TRACKED,
+  normalizePowerDevice,
+  personEntities,
+  type DashboardConfig,
+} from '../config/config';
 import type { EnergyPrefs } from './energyPrefs';
 import { bucketEntities } from './registry';
 import type { AlarmAction } from './services';
@@ -610,6 +615,8 @@ export interface PowerLoad {
   entityId: string;
   name: string;
   watts: number;
+  /** The entity's own `icon` attribute (e.g. `mdi:washing-machine`), when it has one. */
+  icon?: string;
 }
 
 export interface PowerInfo {
@@ -632,9 +639,12 @@ function watts(states: HassEntities, entityId: string | undefined): number | und
 
 /**
  * The devices list comes from `config.power.devices` — a household's own
- * hand-written entity-id list — when set, otherwise it falls back to Home
- * Assistant's own Energy dashboard config (`energyPrefs.deviceRates`, see
- * `ha/energyPrefs.ts`), the household's curated "Individual devices" list.
+ * hand-written entity-id list, each optionally carrying its own display name
+ * — when set, otherwise it falls back to Home Assistant's own Energy
+ * dashboard config (`energyPrefs.deviceRates`, see `ha/energyPrefs.ts`), the
+ * household's curated "Individual devices" list. Either way each load also
+ * carries whatever `icon` the entity itself reports, so "Apparaten nu" shows
+ * the device's own glyph instead of one generic bolt for everything.
  *
  * Both `minWatts` (the noise floor) and the biggest-draw-first sort only
  * apply to the auto-detected list. A household that names its devices
@@ -657,11 +667,14 @@ export function powerInfo(
   const minWatts = explicitDevices ? 0 : config.power.minWatts;
 
   const loads = (explicitDevices ?? energyPrefs?.deviceRates ?? [])
-    .map((entityId) => {
+    .map((entry) => {
+      const { entityId, name } = normalizePowerDevice(entry);
       const value = watts(states, entityId);
-      return value === undefined || value < minWatts
-        ? null
-        : { entityId, name: friendlyName(states, entityId), watts: value };
+      if (value === undefined || value < minWatts) return null;
+      const load: PowerLoad = { entityId, name: name ?? friendlyName(states, entityId), watts: value };
+      const icon = states[entityId]?.attributes?.icon;
+      if (typeof icon === 'string' && icon) load.icon = icon;
+      return load;
     })
     .filter((load): load is PowerLoad => load !== null);
 

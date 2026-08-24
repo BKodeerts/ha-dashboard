@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { mergeLayers, type ConfigLayer, type LovelaceCardConfig, type MediaPreset } from './config/config';
+import {
+  mergeLayers,
+  normalizePowerDevice,
+  type ConfigLayer,
+  type LovelaceCardConfig,
+  type MediaPreset,
+  type PowerDeviceEntry,
+} from './config/config';
 import { panelBackend } from './ha/backend';
 import { fetchEnergyPrefs, type EnergyPrefs } from './ha/energyPrefs';
 import { browseMedia, type BrowseMediaItem } from './ha/media';
@@ -250,9 +257,12 @@ function PresetRows({
  * hand-typed entity id, but a selection of — the household's own
  * "Individual devices" set under Settings → Dashboards → Energy (see
  * `power.devices` in `config/config.ts`). Choosing a subset or a different
- * order here overrides following that list wholesale. Add/remove are
- * structural edits and emit immediately; there is no free text here, so
- * every change already is one.
+ * order here overrides following that list wholesale. Each row also carries
+ * an optional display-name override — "TV" instead of "TV power" — for when
+ * the entity's own friendly name runs long; left blank, that name is used.
+ * Picking or removing a row is a structural edit and emits immediately;
+ * typing a name debounces like any other text field, via `onChange`'s
+ * `immediate` flag.
  */
 function DeviceListRows({
   devices,
@@ -260,22 +270,39 @@ function DeviceListRows({
   states,
   onChange,
 }: {
-  devices: string[];
+  devices: PowerDeviceEntry[];
   options: string[];
   states: HassEntities;
-  onChange(next: string[]): void;
+  onChange(next: PowerDeviceEntry[], immediate?: boolean): void;
 }) {
-  const update = (index: number, value: string) =>
-    onChange(devices.map((id, i) => (i === index ? value : id)));
-  const remove = (index: number) => onChange(devices.filter((_, i) => i !== index));
-  const add = () => onChange([...devices, options.find((id) => !devices.includes(id)) ?? '']);
+  const entries = devices.map(normalizePowerDevice);
+
+  const emit = (next: { entityId: string; name?: string }[], immediate?: boolean) =>
+    onChange(
+      next.map((entry) => (entry.name ? entry : entry.entityId)),
+      immediate,
+    );
+
+  const updateEntity = (index: number, entityId: string) =>
+    emit(
+      entries.map((entry, i) => (i === index ? { ...entry, entityId } : entry)),
+      true,
+    );
+  const updateName = (index: number, name: string) =>
+    emit(entries.map((entry, i) => (i === index ? { ...entry, name: name || undefined } : entry)));
+  const remove = (index: number) => emit(entries.filter((_, i) => i !== index), true);
+  const add = () =>
+    emit(
+      [...entries, { entityId: options.find((id) => !entries.some((e) => e.entityId === id)) ?? '' }],
+      true,
+    );
 
   return (
     <div className="hdpe__field">
       <span className="hdpe__field-label">Apparaten</span>
-      {devices.map((entityId, index) => (
-        <div className="hdpe__preset-row" key={index} style={{ gridTemplateColumns: '1fr auto' }}>
-          <select value={entityId} onChange={(event) => update(index, event.target.value)}>
+      {entries.map((entry, index) => (
+        <div className="hdpe__preset-row" key={index} style={{ gridTemplateColumns: '1fr 1fr auto' }}>
+          <select value={entry.entityId} onChange={(event) => updateEntity(index, event.target.value)}>
             <option value="">— kies —</option>
             {options.map((id) => (
               <option key={id} value={id}>
@@ -283,6 +310,13 @@ function DeviceListRows({
               </option>
             ))}
           </select>
+          <input
+            type="text"
+            placeholder={entry.entityId ? friendlyName(states, entry.entityId) : 'naam'}
+            value={entry.name ?? ''}
+            onChange={(event) => updateName(index, event.target.value)}
+            onBlur={() => emit(entries, true)}
+          />
           <button
             type="button"
             className="hdpe__remove"
@@ -446,13 +480,15 @@ function Editor({
           devices={power.devices ?? []}
           options={energyPrefs?.deviceRates ?? []}
           states={states}
-          onChange={(next) => patch({ power: { devices: next } }, { immediate: true })}
+          onChange={(next, immediate) => patch({ power: { devices: next } }, { immediate })}
         />
         <div className="hdpe__note">
           Kiest uit de lijst "Individuele apparaten" onder Instellingen → Dashboards → Energie — een
           apparaat toevoegen daar maakt het hier beschikbaar. Leeg volgt die lijst in zijn geheel, op
           actueel verbruik gesorteerd. Eenmaal hier gekozen blijven ze altijd zichtbaar, ook op 0 W, in
-          precies deze volgorde — het minimum vermogen hieronder geldt dan niet meer.
+          precies deze volgorde — het minimum vermogen hieronder geldt dan niet meer. Het tekstveld
+          ernaast toont een kortere naam op de Energie-tab in plaats van de eigen naam van het apparaat
+          (leeg = eigen naam). Het icoon komt altijd van het apparaat zelf.
         </div>
         <label className="hdpe__field">
           <span className="hdpe__field-label">Minimum vermogen (W) — geldt alleen zonder eigen apparatenlijst hierboven</span>

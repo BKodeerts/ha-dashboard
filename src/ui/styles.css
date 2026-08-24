@@ -2419,6 +2419,9 @@ button {
 .apparaten__icon {
   flex: 0 0 auto;
   color: var(--cool-glyph);
+  /* Sizes the injected `<ha-icon>` when the row uses the device's own icon
+     (`ui/HaIcon.tsx`) instead of the generic bolt — see `.tile__glyph-bg`. */
+  --mdc-icon-size: 18px;
 }
 
 .apparaten__name {
