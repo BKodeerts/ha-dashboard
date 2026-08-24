@@ -131,9 +131,13 @@ export function bucketPath(
  * Spreads an hourly Wh solar forecast (see `ha/solarForecast.ts`) onto the
  * same 96-slice day-bucket shape `fetchDayBuckets` returns, so it can share
  * `bucketPath`'s axis with the actual solar line. Wh produced over a
- * wall-clock hour is numerically an average W for that hour, so every
- * 15-minute bucket within it gets that same value — finer than that, a
- * forecast integration doesn't answer.
+ * wall-clock hour is numerically an average W for that hour — treated as the
+ * reading at that hour's *centre* bucket, with the buckets between one
+ * hour's centre and the next ramped linearly between the two. A forecast
+ * integration doesn't answer any finer than hourly, but flat-filling every
+ * bucket in the hour instead draws a staircase: a real solar curve has no
+ * such shelves, and `bucketPath`'s own curve-smoothing only softens a
+ * staircase's corners, it doesn't undo the steps.
  *
  * Only buckets at or after `from` (typically "now") are filled; the ones
  * before stay `undefined`, so the forecast never redraws over hours the
@@ -150,15 +154,24 @@ export function forecastBuckets(
   const bucketsPerHour = buckets / 24;
   const fromIndex = Math.floor((from.getTime() - dayStart.getTime()) / msPerBucket);
 
+  const anchors = Object.entries(whHours)
+    .map(([iso, wh]) => {
+      const time = new Date(iso).getTime();
+      const hourIndex = Math.round((time - dayStart.getTime()) / 3600e3);
+      return { index: hourIndex * bucketsPerHour + bucketsPerHour / 2, value: wh, time };
+    })
+    .filter((anchor) => Number.isFinite(anchor.time))
+    .sort((a, b) => a.index - b.index);
+
   const out = new Array<number | undefined>(buckets).fill(undefined);
-  for (const [iso, wh] of Object.entries(whHours)) {
-    const time = new Date(iso).getTime();
-    if (!Number.isFinite(time)) continue;
-    const index = Math.floor((time - dayStart.getTime()) / msPerBucket);
-    if (index < 0 || index >= buckets) continue;
-    const hourStart = Math.floor(index / bucketsPerHour) * bucketsPerHour;
-    for (let i = hourStart; i < hourStart + bucketsPerHour && i < buckets; i += 1) {
-      if (i >= fromIndex) out[i] = wh;
+  for (let i = 0; i < anchors.length - 1; i += 1) {
+    const a = anchors[i]!;
+    const b = anchors[i + 1]!;
+    const start = Math.max(fromIndex, 0, Math.ceil(a.index));
+    const end = Math.min(buckets - 1, Math.floor(b.index));
+    for (let idx = start; idx <= end; idx += 1) {
+      const t = (idx - a.index) / (b.index - a.index);
+      out[idx] = a.value + (b.value - a.value) * t;
     }
   }
   return out;
