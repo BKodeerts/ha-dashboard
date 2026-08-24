@@ -450,11 +450,12 @@ function Editor({
         />
         <div className="hdpe__note">
           Kiest uit de lijst "Individuele apparaten" onder Instellingen → Dashboards → Energie — een
-          apparaat toevoegen daar maakt het hier beschikbaar. Leeg volgt die lijst in zijn geheel, in
-          zijn eigen volgorde.
+          apparaat toevoegen daar maakt het hier beschikbaar. Leeg volgt die lijst in zijn geheel, op
+          actueel verbruik gesorteerd. Eenmaal hier gekozen blijven ze altijd zichtbaar, ook op 0 W, in
+          precies deze volgorde — het minimum vermogen hieronder geldt dan niet meer.
         </div>
         <label className="hdpe__field">
-          <span className="hdpe__field-label">Minimum vermogen (W) — apparaten eronder vallen weg uit "Apparaten nu"</span>
+          <span className="hdpe__field-label">Minimum vermogen (W) — geldt alleen zonder eigen apparatenlijst hierboven</span>
           <input
             type="number"
             min={0}

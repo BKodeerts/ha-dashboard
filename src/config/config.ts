@@ -68,7 +68,9 @@ export interface DashboardConfig {
     devices?: string[];
     /**
      * Loads reading under this many watts drop off the "apparaten nu" list —
-     * the noise floor.
+     * the noise floor for the *auto-detected* list only. A household that
+     * names its devices explicitly via `devices` above has already curated
+     * that list, so those stay shown at every wattage, including 0 W.
      */
     minWatts: number;
   };

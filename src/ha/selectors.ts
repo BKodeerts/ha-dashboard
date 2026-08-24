@@ -635,6 +635,15 @@ function watts(states: HassEntities, entityId: string | undefined): number | und
  * hand-written entity-id list — when set, otherwise it falls back to Home
  * Assistant's own Energy dashboard config (`energyPrefs.deviceRates`, see
  * `ha/energyPrefs.ts`), the household's curated "Individual devices" list.
+ *
+ * Both `minWatts` (the noise floor) and the biggest-draw-first sort only
+ * apply to the auto-detected list. A household that names its devices
+ * explicitly has already made both calls — which ones matter, and in what
+ * order — so that list stays exactly as written: every entry shown at every
+ * wattage (including 0 W while it's simply off), never reordered by how much
+ * it happens to be drawing right now. An entity with no reading at all
+ * (unavailable, or the id doesn't exist) is still dropped either way — there
+ * is no wattage to show.
  */
 export function powerInfo(
   states: HassEntities,
@@ -644,17 +653,20 @@ export function powerInfo(
   const solar = watts(states, config.power.solar);
   const consumption = watts(states, config.power.consumption);
   const gridSensor = watts(states, config.power.grid);
+  const explicitDevices = config.power.devices;
+  const minWatts = explicitDevices ? 0 : config.power.minWatts;
+
+  const loads = (explicitDevices ?? energyPrefs?.deviceRates ?? [])
+    .map((entityId) => {
+      const value = watts(states, entityId);
+      return value === undefined || value < minWatts
+        ? null
+        : { entityId, name: friendlyName(states, entityId), watts: value };
+    })
+    .filter((load): load is PowerLoad => load !== null);
 
   const info: PowerInfo = {
-    loads: (config.power.devices ?? energyPrefs?.deviceRates ?? [])
-      .map((entityId) => {
-        const value = watts(states, entityId);
-        return value === undefined || value < config.power.minWatts
-          ? null
-          : { entityId, name: friendlyName(states, entityId), watts: value };
-      })
-      .filter((load): load is PowerLoad => load !== null)
-      .sort((a, b) => b.watts - a.watts),
+    loads: explicitDevices ? loads : loads.sort((a, b) => b.watts - a.watts),
   };
   if (solar !== undefined) info.solar = solar;
   // A grid sensor is authoritative when present (positive = import, so negate).

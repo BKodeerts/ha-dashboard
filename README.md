@@ -259,10 +259,12 @@ as YAML" tab, the same as any key the GUI doesn't cover.
 The editor does carry the devices list ("apparaten nu" and its trend chart) — `power.devices` — but
 only as a pick from Settings → Dashboards → Energy's own "Individual devices" list, not any sensor in
 the house: a device has to be added there first before the editor can offer it here. Left empty, it
-still follows that HA list wholesale, the same as before; pick a subset or reorder it to show a
-different set on this dashboard specifically. Naming a sensor that was never added to HA's Energy
-config still works, just not from the editor — write it into the card's own YAML by hand.
-`power.minWatts`, the noise floor beneath that list, is in the editor too.
+still follows that HA list wholesale, sorted by current draw; pick a subset to show a different set on
+this dashboard specifically, in exactly the order chosen — an explicit list is never re-sorted by live
+wattage, and `power.minWatts` (in the editor too) no longer trims it either, so a named device stays on
+the list at 0 W rather than dropping off while it's simply switched off. Naming a sensor that was never
+added to HA's Energy config still works, just not from the editor — write it into the card's own YAML
+by hand.
 
 Everything else (`favouriteAreas`, `theme`, tints, …) is either better set from the in-app Settings
 view (it is personal, per account) or still just plain YAML in the card's "Edit as YAML" tab if you
@@ -411,8 +413,8 @@ Everything that is left blank is derived from the state machine on first run:
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | `energy/get_prefs`' solar source for `.solar`; otherwise a `device_class: power` sensor matched by name |
-| `power.devices` | `string[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs` |
-| `power.minWatts` | `number` | `0` — loads reading under this many watts drop off "Apparaten nu" |
+| `power.devices` | `string[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the list shows in exactly that order and ignores `.minWatts` |
+| `power.minWatts` | `number` | `0` — loads reading under this many watts drop off the *auto-detected* "Apparaten nu" list; ignored once `power.devices` is set |
 | `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
 
