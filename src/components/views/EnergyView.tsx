@@ -4,11 +4,14 @@ import {
   bucketPath,
   deriveConsumptionSeries,
   deviceColor,
+  forecastBuckets,
   nowFraction,
   selfConsumptionRatio,
 } from '../../ha/energyChart';
 import { fetchDayBuckets } from '../../ha/history';
 import { formatNumber, formatWatts, type PowerInfo } from '../../ha/selectors';
+import { fetchSolarForecast } from '../../ha/solarForecast';
+import { HaIcon } from '../../ui/HaIcon';
 import { Icon } from '../../ui/Icon';
 import { useLongPress } from '../../ui/useLongPress';
 
@@ -60,18 +63,57 @@ function useDayBuckets(entityIds: (string | undefined)[]): Map<string, (number |
   return data;
 }
 
+/**
+ * Today's remaining solar production forecast, as the same day-bucket shape
+ * `useDayBuckets` gives the actual reading — see `ha/solarForecast.ts` and
+ * `forecastBuckets`. A forecast integration answers far less often than a
+ * power sensor updates, so this refetches every half hour rather than
+ * `useDayBuckets`' five minutes. `undefined` — no forecast source configured,
+ * or the call failed — draws no line at all rather than a flat one.
+ */
+function useSolarForecast(configEntryIds: string[]): (number | undefined)[] | undefined {
+  const { backend } = useHass();
+  const key = configEntryIds.join('|');
+  const [buckets, setBuckets] = useState<(number | undefined)[] | undefined>(undefined);
+
+  useEffect(() => {
+    if (!key) {
+      setBuckets(undefined);
+      return;
+    }
+    let cancelled = false;
+    const load = () => {
+      fetchSolarForecast(backend, key.split('|')).then((whHours) => {
+        if (cancelled) return;
+        setBuckets(whHours ? forecastBuckets(whHours) : undefined);
+      });
+    };
+    load();
+    const interval = setInterval(load, 30 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [backend, key]);
+
+  return buckets;
+}
+
 function SolarNowCard({
   power,
   solarEntity,
   consumptionEntity,
   gridEntity,
+  solarForecastConfigEntries,
 }: {
   power: PowerInfo;
   solarEntity: string | undefined;
   consumptionEntity: string | undefined;
   gridEntity: string | undefined;
+  solarForecastConfigEntries: string[];
 }) {
   const buckets = useDayBuckets([solarEntity, consumptionEntity, gridEntity]);
+  const forecast = useSolarForecast(solarForecastConfigEntries);
   const solar = solarEntity ? (buckets.get(solarEntity) ?? []) : [];
   const grid = gridEntity ? (buckets.get(gridEntity) ?? []) : [];
   // Most households have no whole-home sensor of their own — see
@@ -84,10 +126,11 @@ function SolarNowCard({
   const chart = useMemo(() => {
     const max = Math.max(
       1,
-      ...[...solar, ...consumption].filter((v): v is number => v !== undefined),
+      ...[...solar, ...consumption, ...(forecast ?? [])].filter((v): v is number => v !== undefined),
     );
     const solarPath = bucketPath(solar, { width: CHART_W, height: CHART_H, max });
     const consumptionPath = bucketPath(consumption, { width: CHART_W, height: CHART_H, max });
+    const forecastPath = forecast ? bucketPath(forecast, { width: CHART_W, height: CHART_H, max }) : null;
     if (!solarPath.lastPoint) return null;
     const nowX = nowFraction() * CHART_W;
     return {
@@ -95,10 +138,11 @@ function SolarNowCard({
       solarArea: solarPath.area,
       solarLine: solarPath.line,
       consumptionLine: consumptionPath.line,
+      forecastLine: forecastPath?.line,
       nowX,
       nowY: solarPath.lastPoint.y,
     };
-  }, [solar, consumption]);
+  }, [solar, consumption, forecast]);
 
   const ratio = useMemo(() => selfConsumptionRatio(solar, consumption), [solar, consumption]);
 
@@ -162,6 +206,9 @@ function SolarNowCard({
             <path d={chart.solarArea} className="solar-now__chart-area" />
             {chart.consumptionLine && (
               <path d={chart.consumptionLine} className="solar-now__chart-consumption" />
+            )}
+            {chart.forecastLine && (
+              <path d={chart.forecastLine} className="solar-now__chart-forecast" />
             )}
             <path d={chart.solarLine} className="solar-now__chart-solar" />
             <line
@@ -283,7 +330,11 @@ function LoadRow({ load }: { load: PowerInfo['loads'][number] }) {
       onPointerUp={longPress.onPointerUp}
       onPointerCancel={longPress.onPointerCancel}
     >
-      <Icon name="power" size={18} className="apparaten__icon" />
+      {load.icon ? (
+        <HaIcon icon={load.icon} className="apparaten__icon" />
+      ) : (
+        <Icon name="power" size={18} className="apparaten__icon" />
+      )}
       <span className="apparaten__name">{load.name}</span>
       <span className="apparaten__value mono">{`${formatNumber(load.watts)} W`}</span>
     </div>
@@ -291,7 +342,7 @@ function LoadRow({ load }: { load: PowerInfo['loads'][number] }) {
 }
 
 export function EnergyView({ power }: { power: PowerInfo }) {
-  const { config } = useHass();
+  const { config, energyPrefs } = useHass();
 
   return (
     <div className="view view--energy">
@@ -300,6 +351,7 @@ export function EnergyView({ power }: { power: PowerInfo }) {
         solarEntity={config.power.solar}
         consumptionEntity={config.power.consumption}
         gridEntity={config.power.grid}
+        solarForecastConfigEntries={energyPrefs?.solarForecastConfigEntries ?? []}
       />
 
       <DeviceTrendCard loads={power.loads} />

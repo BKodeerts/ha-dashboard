@@ -715,7 +715,11 @@ export function mockBackend(): HaBackend {
         case 'energy/get_prefs':
           return {
             energy_sources: [
-              { type: 'solar', stat_rate: 'sensor.zonnepanelen_vermogen' },
+              {
+                type: 'solar',
+                stat_rate: 'sensor.zonnepanelen_vermogen',
+                config_entry_solar_forecast: ['mock_solar_forecast'],
+              },
             ],
             device_consumption: [
               { name: 'Keukenboiler', stat_rate: 'sensor.keukenboiler_vermogen' },
@@ -723,6 +727,19 @@ export function mockBackend(): HaBackend {
               { name: 'TV', stat_rate: 'sensor.tv_vermogen' },
             ],
           } as unknown as T;
+        // A smooth midday-peaked curve for the rest of today, so the
+        // forecast line has something to draw in the standalone preview.
+        case 'energy/solar_forecast': {
+          const whHours: Record<string, number> = {};
+          const dayStart = new Date();
+          dayStart.setHours(0, 0, 0, 0);
+          for (let hour = 0; hour < 24; hour += 1) {
+            const shaped = Math.cos(((hour - 13) / 8) * (Math.PI / 2));
+            whHours[new Date(dayStart.getTime() + hour * 3600e3).toISOString()] =
+              Math.max(0, Math.round(shaped ** 2 * 2400));
+          }
+          return { mock_solar_forecast: { wh_hours: whHours } } as unknown as T;
+        }
         case 'history/history_during_period': {
           const ids = (message.entity_ids as string[]) ?? [];
           const result: Record<string, { s: string; lu: number }[]> = {};

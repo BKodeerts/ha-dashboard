@@ -20,6 +20,14 @@ v7 replaces the Energie tab's two-bar comparison with the
 today's production-vs-consumption curve and a self-consumption ratio, a per-device trend card (each
 line normalised to its own daily max), and the "apparaten nu" list.
 
+The solar/now card's curve also carries a forecast: a dashed line picks up right where today's actual
+solar line stops (at "now") and continues through the rest of the day, whenever a forecast integration
+(Forecast.Solar, Solcast, …) is wired to the household's Energy dashboard solar source. Nothing to
+configure — it reads `energy/solar_forecast`, the same call HA's own Energy dashboard draws its
+forecast from, keyed by whatever `config_entry_solar_forecast` the solar source in `energy/get_prefs`
+already names. No forecast integration configured, or an HA too old to answer the call, both mean no
+dashed line rather than a broken chart.
+
 It also moves the devices list off name-guessing entirely. `power.loads` (a hand-written list) and
 `power.excludeLoads` (patterns to trim it) briefly existed and are gone again — a name-matching guess
 at "which sensors are individual devices" turned out to reliably catch a smart meter's own internal
@@ -266,6 +274,11 @@ the list at 0 W rather than dropping off while it's simply switched off. Naming 
 added to HA's Energy config still works, just not from the editor — write it into the card's own YAML
 by hand.
 
+Each row also has a name field, for when the entity's own friendly name is too long for the row —
+"TV" instead of "TV power". Left blank, the entity's own name is used, same as before. There is no
+icon override anywhere: the row already shows whatever icon the entity itself carries in Home
+Assistant, in place of the generic bolt, whenever it has one.
+
 Everything else (`favouriteAreas`, `theme`, tints, …) is either better set from the in-app Settings
 view (it is personal, per account) or still just plain YAML in the card's "Edit as YAML" tab if you
 want a household-wide starting point for it.
@@ -413,7 +426,7 @@ Everything that is left blank is derived from the state machine on first run:
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | `energy/get_prefs`' solar source for `.solar`; otherwise a `device_class: power` sensor matched by name |
-| `power.devices` | `string[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the list shows in exactly that order and ignores `.minWatts` |
+| `power.devices` | `(string \| {entityId, name?})[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the list shows in exactly that order and ignores `.minWatts`; `name` overrides the entity's own friendly name |
 | `power.minWatts` | `number` | `0` — loads reading under this many watts drop off the *auto-detected* "Apparaten nu" list; ignored once `power.devices` is set |
 | `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
@@ -431,7 +444,8 @@ power:
   consumption: sensor.verbruik_vermogen
   devices:
     - sensor.vaatwasser_vermogen
-    - sensor.wasmachine_vermogen
+    - entityId: sensor.wasmachine_vermogen
+      name: Wasmachine
     - sensor.droogkast_vermogen
 car:
   name: Kona electric

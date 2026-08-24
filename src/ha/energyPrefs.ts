@@ -10,11 +10,20 @@ export interface EnergyPrefs {
    * app shows instantaneous wattage, not an energy total.
    */
   deviceRates: string[];
+  /**
+   * Config entry ids of whichever forecast integration (Forecast.Solar,
+   * Solcast, …) each solar source has wired up under "Forecast production" —
+   * what `energy/solar_forecast` (see `ha/solarForecast.ts`) is keyed by.
+   * Flattened across every solar source; a household with more than one
+   * array can have more than one, each contributing its own forecast.
+   */
+  solarForecastConfigEntries: string[];
 }
 
 interface RawEnergySource {
   type: string;
   stat_rate?: string | null;
+  config_entry_solar_forecast?: string[] | null;
 }
 
 interface RawDeviceConsumption {
@@ -43,16 +52,19 @@ export async function fetchEnergyPrefs(backend: HaBackend): Promise<EnergyPrefs 
   try {
     const raw = await backend.sendMessagePromise<RawEnergyPrefs>({ type: 'energy/get_prefs' });
 
-    const solarSource = raw.energy_sources?.find(
-      (source) => source.type === 'solar' && typeof source.stat_rate === 'string',
-    );
+    const solarSources = raw.energy_sources?.filter((source) => source.type === 'solar') ?? [];
+    const solarSource = solarSources.find((source) => typeof source.stat_rate === 'string');
 
     const deviceRates: string[] = [];
     for (const device of raw.device_consumption ?? []) {
       if (typeof device.stat_rate === 'string') deviceRates.push(device.stat_rate);
     }
 
-    const prefs: EnergyPrefs = { deviceRates };
+    const solarForecastConfigEntries = [
+      ...new Set(solarSources.flatMap((source) => source.config_entry_solar_forecast ?? [])),
+    ];
+
+    const prefs: EnergyPrefs = { deviceRates, solarForecastConfigEntries };
     if (solarSource) prefs.solarRate = solarSource.stat_rate as string;
     return prefs;
   } catch {
