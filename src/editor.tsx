@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { mergeLayers, type ConfigLayer, type LovelaceCardConfig, type MediaPreset } from './config/config';
 import { panelBackend } from './ha/backend';
+import { fetchEnergyPrefs, type EnergyPrefs } from './ha/energyPrefs';
 import { browseMedia, type BrowseMediaItem } from './ha/media';
 import { bucketEntities, fetchRegistries, resolveAreaEntities } from './ha/registry';
 import { friendlyName } from './ha/selectors';
@@ -245,10 +246,13 @@ function PresetRows({
 }
 
 /**
- * The "apparaten nu" list, as an explicit ordered pick of power sensors —
- * overrides HA's own "Individual devices" Energy config (see `power.devices`
- * in `config/config.ts`). Add/remove are structural edits and emit
- * immediately; there is no free text here, so every change already is one.
+ * The "apparaten nu" list, as an explicit ordered pick from — not a
+ * hand-typed entity id, but a selection of — the household's own
+ * "Individual devices" set under Settings → Dashboards → Energy (see
+ * `power.devices` in `config/config.ts`). Choosing a subset or a different
+ * order here overrides following that list wholesale. Add/remove are
+ * structural edits and emit immediately; there is no free text here, so
+ * every change already is one.
  */
 function DeviceListRows({
   devices,
@@ -268,7 +272,7 @@ function DeviceListRows({
 
   return (
     <div className="hdpe__field">
-      <span className="hdpe__field-label">Apparaten (leeg = HA's Energie-config volgen)</span>
+      <span className="hdpe__field-label">Apparaten</span>
       {devices.map((entityId, index) => (
         <div className="hdpe__preset-row" key={index} style={{ gridTemplateColumns: '1fr auto' }}>
           <select value={entityId} onChange={(event) => update(index, event.target.value)}>
@@ -289,7 +293,7 @@ function DeviceListRows({
           </button>
         </div>
       ))}
-      <button type="button" className="hdpe__add" onClick={add}>
+      <button type="button" className="hdpe__add" onClick={add} disabled={options.length === 0}>
         + apparaat toevoegen
       </button>
     </div>
@@ -318,6 +322,7 @@ function Editor({
   onChange(config: LovelaceCardConfig): void;
 }) {
   const [registries, setRegistries] = useState<Registries | null>(null);
+  const [energyPrefs, setEnergyPrefs] = useState<EnergyPrefs | undefined>(undefined);
   const hassRef = useRef(hass);
   hassRef.current = hass;
 
@@ -329,6 +334,9 @@ function Editor({
         if (!cancelled) setRegistries(next);
       })
       .catch(() => undefined);
+    fetchEnergyPrefs(backend).then((next) => {
+      if (!cancelled) setEnergyPrefs(next);
+    });
     return () => {
       cancelled = true;
     };
@@ -436,15 +444,18 @@ function Editor({
         </div>
         <DeviceListRows
           devices={power.devices ?? []}
-          options={sensors}
+          options={energyPrefs?.deviceRates ?? []}
           states={states}
           onChange={(next) => patch({ power: { devices: next } }, { immediate: true })}
         />
         <div className="hdpe__note">
-          Leeg volgt de lijst "Individuele apparaten" onder Instellingen → Dashboards → Energie.
+          Kiest uit de lijst "Individuele apparaten" onder Instellingen → Dashboards → Energie — een
+          apparaat toevoegen daar maakt het hier beschikbaar. Leeg volgt die lijst in zijn geheel, op
+          actueel verbruik gesorteerd. Eenmaal hier gekozen blijven ze altijd zichtbaar, ook op 0 W, in
+          precies deze volgorde — het minimum vermogen hieronder geldt dan niet meer.
         </div>
         <label className="hdpe__field">
-          <span className="hdpe__field-label">Minimum vermogen (W) — apparaten eronder vallen weg uit "Apparaten nu"</span>
+          <span className="hdpe__field-label">Minimum vermogen (W) — geldt alleen zonder eigen apparatenlijst hierboven</span>
           <input
             type="number"
             min={0}
