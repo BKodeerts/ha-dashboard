@@ -631,10 +631,10 @@ function watts(states: HassEntities, entityId: string | undefined): number | und
 }
 
 /**
- * The devices list comes from Home Assistant's own Energy dashboard config
- * (`energyPrefs.deviceRates`, see `ha/energyPrefs.ts`) rather than anything
- * stored on this card — that is the household's own curated "Individual
- * devices" list, not a guess this app has to make from sensor names.
+ * The devices list comes from `config.power.devices` — a household's own
+ * hand-written entity-id list — when set, otherwise it falls back to Home
+ * Assistant's own Energy dashboard config (`energyPrefs.deviceRates`, see
+ * `ha/energyPrefs.ts`), the household's curated "Individual devices" list.
  */
 export function powerInfo(
   states: HassEntities,
@@ -646,7 +646,7 @@ export function powerInfo(
   const gridSensor = watts(states, config.power.grid);
 
   const info: PowerInfo = {
-    loads: (energyPrefs?.deviceRates ?? [])
+    loads: (config.power.devices ?? energyPrefs?.deviceRates ?? [])
       .map((entityId) => {
         const value = watts(states, entityId);
         return value === undefined || value < config.power.minWatts

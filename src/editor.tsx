@@ -245,6 +245,58 @@ function PresetRows({
 }
 
 /**
+ * The "apparaten nu" list, as an explicit ordered pick of power sensors —
+ * overrides HA's own "Individual devices" Energy config (see `power.devices`
+ * in `config/config.ts`). Add/remove are structural edits and emit
+ * immediately; there is no free text here, so every change already is one.
+ */
+function DeviceListRows({
+  devices,
+  options,
+  states,
+  onChange,
+}: {
+  devices: string[];
+  options: string[];
+  states: HassEntities;
+  onChange(next: string[]): void;
+}) {
+  const update = (index: number, value: string) =>
+    onChange(devices.map((id, i) => (i === index ? value : id)));
+  const remove = (index: number) => onChange(devices.filter((_, i) => i !== index));
+  const add = () => onChange([...devices, options.find((id) => !devices.includes(id)) ?? '']);
+
+  return (
+    <div className="hdpe__field">
+      <span className="hdpe__field-label">Apparaten (leeg = HA's Energie-config volgen)</span>
+      {devices.map((entityId, index) => (
+        <div className="hdpe__preset-row" key={index} style={{ gridTemplateColumns: '1fr auto' }}>
+          <select value={entityId} onChange={(event) => update(index, event.target.value)}>
+            <option value="">— kies —</option>
+            {options.map((id) => (
+              <option key={id} value={id}>
+                {entityLabel(states, id)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="hdpe__remove"
+            onClick={() => remove(index)}
+            aria-label="apparaat verwijderen"
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      <button type="button" className="hdpe__add" onClick={add}>
+        + apparaat toevoegen
+      </button>
+    </div>
+  );
+}
+
+/**
  * The GUI half of the Lovelace card editor, covering exactly the settings
  * that used to require hand-written YAML with no in-app alternative — power,
  * the car, media presets — plus "media per kamer", which used to be an
@@ -381,9 +433,15 @@ function Editor({
           <code> device_class: power</code>) — hier hoeft niets gekozen te worden. Raadt de
           herkenning verkeerd, dan overschrijf je <code>power.solar</code>/<code>power.consumption</code>/
           <code>power.grid</code> in de YAML van de kaart zelf.
-          <br />
-          De apparatenlijst ("Apparaten nu" en de trendgrafiek) komt niet van hier: het is de lijst
-          "Individuele apparaten" onder Instellingen → Dashboards → Energie — beheer die daar.
+        </div>
+        <DeviceListRows
+          devices={power.devices ?? []}
+          options={sensors}
+          states={states}
+          onChange={(next) => patch({ power: { devices: next } }, { immediate: true })}
+        />
+        <div className="hdpe__note">
+          Leeg volgt de lijst "Individuele apparaten" onder Instellingen → Dashboards → Energie.
         </div>
         <label className="hdpe__field">
           <span className="hdpe__field-label">Minimum vermogen (W) — apparaten eronder vallen weg uit "Apparaten nu"</span>

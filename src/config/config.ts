@@ -56,12 +56,18 @@ export interface DashboardConfig {
     /** Positive = importing from grid. Optional: derived from solar − consumption. */
     grid?: string;
     /**
+     * The "apparaten nu" list and its trend chart, as an explicit list of live
+     * power-sensor entity ids, in the order they should be shown. Set here to
+     * override the default of reading the "Individual devices" set up under
+     * Settings → Dashboards → Energy live through `energy/get_prefs` (see
+     * `ha/energyPrefs.ts`) — useful for a household that wants a different
+     * subset shown on this dashboard than the one HA's own Energy tab tracks,
+     * or that has no Energy dashboard configured at all.
+     */
+    devices?: string[];
+    /**
      * Loads reading under this many watts drop off the "apparaten nu" list —
-     * the noise floor. The list itself is not configured here: it is the
-     * "Individual devices" set up under Settings → Dashboards → Energy, read
-     * live through `energy/get_prefs` (see `ha/energyPrefs.ts`). That is
-     * curation Home Assistant's own UI already does well — a device picker,
-     * not a hand-written entity-id list this card would have to duplicate.
+     * the noise floor.
      */
     minWatts: number;
   };
