@@ -254,10 +254,13 @@ from time to time, not a config editor for every key.
 `.grid` are already auto-detected from any `device_class: power` sensor (see the derived-defaults
 table below) — adding pickers for them would just be asking you to re-enter what the app already found
 on its own. If the auto-detection ever guesses wrong for your setup, override it in the card's "Edit
-as YAML" tab, the same as any key the GUI doesn't cover. The devices list ("apparaten nu" and its
-trend chart) isn't here either, and never will be — it comes from Settings → Dashboards → Energy's
-"Individual devices", not from this card at all. `power.minWatts`, the noise floor beneath that list,
-is the one power field the editor does carry.
+as YAML" tab, the same as any key the GUI doesn't cover.
+
+The editor does carry the devices list ("apparaten nu" and its trend chart), as an ordered pick of
+power sensors — `power.devices`. Left empty, it still follows Settings → Dashboards → Energy's
+"Individual devices" live, the same as before; fill it in to show a different (or differently
+ordered) set on this dashboard than the one HA's own Energy tab tracks. `power.minWatts`, the noise
+floor beneath that list, is in the editor too.
 
 Everything else (`favouriteAreas`, `theme`, tints, …) is either better set from the in-app Settings
 view (it is personal, per account) or still just plain YAML in the card's "Edit as YAML" tab if you
@@ -406,24 +409,26 @@ Everything that is left blank is derived from the state machine on first run:
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
 | `power.solar` / `.consumption` / `.grid` | `string` | `energy/get_prefs`' solar source for `.solar`; otherwise a `device_class: power` sensor matched by name |
+| `power.devices` | `string[]` | Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs` |
 | `power.minWatts` | `number` | `0` — loads reading under this many watts drop off "Apparaten nu" |
 | `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
 
-The devices list ("apparaten nu" and its trend chart) is not a config key at all — it reads
-Settings → Dashboards → Energy's "Individual devices" live, over `energy/get_prefs`.
-
 The keys the in-app settings view does not expose — power, the car, media presets, and media per
-kamer — are household-wide, and are set on the card itself. The car, media presets, `power.minWatts`
-and media per kamer have a GUI for that ("Editing it visually" above); `power.solar`/`.consumption`/
-`.grid` are auto-detected and only need touching if that guess is wrong, by hand in the card's YAML
-(or the `panel_custom` snippet's `config:` block, for a panel-mounted install):
+kamer — are household-wide, and are set on the card itself. The car, media presets, `power.devices`,
+`power.minWatts` and media per kamer have a GUI for that ("Editing it visually" above); `power.solar`/
+`.consumption`/`.grid` are auto-detected and only need touching if that guess is wrong, by hand in the
+card's YAML (or the `panel_custom` snippet's `config:` block, for a panel-mounted install):
 
 ```yaml
 type: custom:ha-dashboard-panel
 power:
   solar: sensor.zonnepanelen_vermogen
   consumption: sensor.verbruik_vermogen
+  devices:
+    - sensor.vaatwasser_vermogen
+    - sensor.wasmachine_vermogen
+    - sensor.droogkast_vermogen
 car:
   name: Kona electric
   battery: sensor.kona_battery
