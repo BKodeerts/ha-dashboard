@@ -625,10 +625,10 @@ export interface PowerInfo {
   /** Positive = exporting to the grid. */
   net?: number;
   /**
-   * "Apparaten nu" — only devices actually drawing power right now, from
-   * every tracked device plus, when configured, HA's own Energy "Individual
-   * devices" list — a wider pool than `trend` below, deliberately: trimming
-   * the trend chart to a subset must not also hide a device from this list.
+   * "Apparaten nu" — every entity in HA's own Energy "Individual devices"
+   * list that is actually drawing power right now. Independent of `trend`
+   * below on purpose: which devices are tracked for the chart has nothing to
+   * do with which ones can show up here as "on".
    */
   loads: PowerLoad[];
   /**
@@ -660,14 +660,16 @@ function watts(states: HassEntities, entityId: string | undefined): number | und
  * whatever `icon` the entity itself reports, so "Apparaten nu" shows the
  * device's own glyph instead of one generic bolt for everything.
  *
- * "Apparaten nu" pulls from a *wider* pool than the trend chart on purpose:
- * every tracked device plus, when there is one, every entity in HA's own
- * Energy "Individual devices" list — trimming which devices the trend chart
- * draws (a household wanting a TV plug's day-shape off the graph, say) must
- * not also trim which ones can show up as "on" right now. Only the ones
- * actually drawing something, at or above `minWatts`, make that list, sorted
- * biggest first. An entity with no reading at all (unavailable, or the id
- * doesn't exist) is dropped from both.
+ * "Apparaten nu" does not care which of those are tracked at all — it is
+ * simply every entity in HA's own "Individual devices" list, filtered to the
+ * ones actually drawing something. `power.devices` is a curated *subset* of
+ * that list for the trend chart's sake (which day-shapes are worth graphing,
+ * and in what order), not a separate set of "real" devices, so trimming it
+ * must not trim "Apparaten nu" too. Only a household with no Energy
+ * dashboard configured at all — nothing for `energyPrefs` to read — falls
+ * back to the tracked list there, so the app still has something to show.
+ * Sorted biggest first; an entity with no reading at all (unavailable, or
+ * the id doesn't exist) is dropped from both.
  */
 export function powerInfo(
   states: HassEntities,
@@ -694,13 +696,10 @@ export function powerInfo(
     .filter((load): load is PowerLoad => load !== null);
 
   // A tracked device's own name override still applies when it also shows
-  // up on "Apparaten nu" via the wider pool below.
+  // up on "Apparaten nu".
   const nameOverrides = new Map(trackedEntries.map((entry) => [entry.entityId, entry.name]));
-  const poolIds = new Set([
-    ...trackedEntries.map((entry) => entry.entityId),
-    ...(energyPrefs?.deviceRates ?? []),
-  ]);
-  const pool = [...poolIds]
+  const allDeviceIds = energyPrefs?.deviceRates ?? trackedEntries.map((entry) => entry.entityId);
+  const all = allDeviceIds
     .map((entityId) => buildLoad(entityId, nameOverrides.get(entityId)))
     .filter((load): load is PowerLoad => load !== null);
 
@@ -709,7 +708,7 @@ export function powerInfo(
     // the auto-detected list has never had one of its own, so it sorts by
     // current draw the same way `loads` below does.
     trend: explicitDevices ? tracked : [...tracked].sort((a, b) => b.watts - a.watts),
-    loads: pool
+    loads: all
       .filter((load) => load.watts > 0 && load.watts >= config.power.minWatts)
       .sort((a, b) => b.watts - a.watts),
   };
