@@ -2302,6 +2302,19 @@ button {
   stroke-linejoin: round;
 }
 
+/* The rest of today's solar production, from whichever forecast integration
+   is wired to HA's own Energy dashboard — dashed and translucent, picking up
+   where the solid `.solar-now__chart-solar` line stops at "now". */
+.solar-now__chart-forecast {
+  fill: none;
+  stroke: var(--accent-line);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 3 3;
+  opacity: 0.5;
+}
+
 .solar-now__chart-nowline {
   stroke: color-mix(in oklab, var(--text) 25%, transparent);
   stroke-width: 1;

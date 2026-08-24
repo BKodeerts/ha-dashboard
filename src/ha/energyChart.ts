@@ -128,6 +128,43 @@ export function bucketPath(
 }
 
 /**
+ * Spreads an hourly Wh solar forecast (see `ha/solarForecast.ts`) onto the
+ * same 96-slice day-bucket shape `fetchDayBuckets` returns, so it can share
+ * `bucketPath`'s axis with the actual solar line. Wh produced over a
+ * wall-clock hour is numerically an average W for that hour, so every
+ * 15-minute bucket within it gets that same value — finer than that, a
+ * forecast integration doesn't answer.
+ *
+ * Only buckets at or after `from` (typically "now") are filled; the ones
+ * before stay `undefined`, so the forecast never redraws over hours the
+ * actual line already covers — it picks up exactly where that line stops.
+ */
+export function forecastBuckets(
+  whHours: Record<string, number>,
+  buckets = 96,
+  from: Date = new Date(),
+): (number | undefined)[] {
+  const dayStart = new Date(from);
+  dayStart.setHours(0, 0, 0, 0);
+  const msPerBucket = (24 * 3600e3) / buckets;
+  const bucketsPerHour = buckets / 24;
+  const fromIndex = Math.floor((from.getTime() - dayStart.getTime()) / msPerBucket);
+
+  const out = new Array<number | undefined>(buckets).fill(undefined);
+  for (const [iso, wh] of Object.entries(whHours)) {
+    const time = new Date(iso).getTime();
+    if (!Number.isFinite(time)) continue;
+    const index = Math.floor((time - dayStart.getTime()) / msPerBucket);
+    if (index < 0 || index >= buckets) continue;
+    const hourStart = Math.floor(index / bucketsPerHour) * bucketsPerHour;
+    for (let i = hourStart; i < hourStart + bucketsPerHour && i < buckets; i += 1) {
+      if (i >= fromIndex) out[i] = wh;
+    }
+  }
+  return out;
+}
+
+/**
  * A day's consumption buckets, for a household with no whole-home sensor of
  * its own — the same `consumption = solar - net` physics `powerInfo()` uses
  * for the live "huis" reading, applied per slice instead of once. `net` here

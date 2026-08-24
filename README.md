@@ -20,6 +20,14 @@ v7 replaces the Energie tab's two-bar comparison with the
 today's production-vs-consumption curve and a self-consumption ratio, a per-device trend card (each
 line normalised to its own daily max), and the "apparaten nu" list.
 
+The solar/now card's curve also carries a forecast: a dashed line picks up right where today's actual
+solar line stops (at "now") and continues through the rest of the day, whenever a forecast integration
+(Forecast.Solar, Solcast, …) is wired to the household's Energy dashboard solar source. Nothing to
+configure — it reads `energy/solar_forecast`, the same call HA's own Energy dashboard draws its
+forecast from, keyed by whatever `config_entry_solar_forecast` the solar source in `energy/get_prefs`
+already names. No forecast integration configured, or an HA too old to answer the call, both mean no
+dashed line rather than a broken chart.
+
 It also moves the devices list off name-guessing entirely. `power.loads` (a hand-written list) and
 `power.excludeLoads` (patterns to trim it) briefly existed and are gone again — a name-matching guess
 at "which sensors are individual devices" turned out to reliably catch a smart meter's own internal
