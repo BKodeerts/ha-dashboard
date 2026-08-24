@@ -246,6 +246,7 @@ function derivePower(
   if (solar) next.solar = solar;
   if (consumption) next.consumption = consumption;
   if (grid) next.grid = grid;
+  if (power.devices) next.devices = power.devices;
   return next;
 }
 
