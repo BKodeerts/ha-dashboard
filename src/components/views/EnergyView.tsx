@@ -9,6 +9,7 @@ import {
 } from '../../ha/energyChart';
 import { fetchDayBuckets } from '../../ha/history';
 import { formatNumber, formatWatts, type PowerInfo } from '../../ha/selectors';
+import { HaIcon } from '../../ui/HaIcon';
 import { Icon } from '../../ui/Icon';
 import { useLongPress } from '../../ui/useLongPress';
 
@@ -283,7 +284,11 @@ function LoadRow({ load }: { load: PowerInfo['loads'][number] }) {
       onPointerUp={longPress.onPointerUp}
       onPointerCancel={longPress.onPointerCancel}
     >
-      <Icon name="power" size={18} className="apparaten__icon" />
+      {load.icon ? (
+        <HaIcon icon={load.icon} className="apparaten__icon" />
+      ) : (
+        <Icon name="power" size={18} className="apparaten__icon" />
+      )}
       <span className="apparaten__name">{load.name}</span>
       <span className="apparaten__value mono">{`${formatNumber(load.watts)} W`}</span>
     </div>

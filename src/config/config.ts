@@ -64,8 +64,13 @@ export interface DashboardConfig {
      * that list shown, in a different order, on this dashboard specifically.
      * The card's GUI editor only offers entities already in that HA list; any
      * live power sensor is fair game hand-written in the card's own YAML.
+     *
+     * An entry is either just the entity id, or `{ entityId, name }` to show
+     * something shorter than the entity's own friendly name — "TV" instead of
+     * "TV power". There is no icon override: the row already shows whatever
+     * icon the entity itself carries (see `PowerLoad.icon` in `selectors.ts`).
      */
-    devices?: string[];
+    devices?: PowerDeviceEntry[];
     /**
      * Loads reading under this many watts drop off the "apparaten nu" list —
      * the noise floor for the *auto-detected* list only. A household that
@@ -88,6 +93,14 @@ export interface MediaPreset {
   name: string;
   media_content_id: string;
   media_content_type: string;
+}
+
+/** One `power.devices` entry — a bare entity id, or one with its label overridden. */
+export type PowerDeviceEntry = string | { entityId: string; name?: string };
+
+/** `PowerDeviceEntry` in its long form, whichever shorthand it was written in. */
+export function normalizePowerDevice(entry: PowerDeviceEntry): { entityId: string; name?: string } {
+  return typeof entry === 'string' ? { entityId: entry } : entry;
 }
 
 export type LovelaceCardConfig = { type: string } & Record<string, unknown>;
