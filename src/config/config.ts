@@ -43,6 +43,13 @@ export interface DashboardConfig {
   alarmEntity?: string;
   weatherEntity?: string;
   /**
+   * The sensor the Netwerk tab reads for what's gone quiet — see `ha/stale.ts`.
+   * Defaults to `sensor.disconnected_devices`; point it at a differently named
+   * template sensor without touching code. Its `entities` attribute must still
+   * be a list of entity ids, grouped by device the same way.
+   */
+  staleDevicesEntity?: string;
+  /**
    * Media player per area id, overriding the auto-pick (the first
    * `media_player.*` the area's registry happens to list — a TV can easily
    * beat a Sonos this way). Household-wide: set from the card's visual editor

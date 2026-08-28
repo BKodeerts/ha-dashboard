@@ -16,6 +16,7 @@ import type { HassEntities, HassEntity, Registries } from './types';
  * device's battery, and working out how long it's actually been gone.
  */
 
+/** Default source entity — override via `DashboardConfig.staleDevicesEntity`. */
 export const DISCONNECTED_SENSOR = 'sensor.disconnected_devices';
 
 /** Past this the badge turns amber. */
@@ -76,8 +77,9 @@ export function collectStale(
   registries: Registries,
   states: HassEntities,
   now = Date.now(),
+  sensorEntityId: string = DISCONNECTED_SENSOR,
 ): StaleDevice[] {
-  const flagged: unknown = states[DISCONNECTED_SENSOR]?.attributes?.entities;
+  const flagged: unknown = states[sensorEntityId]?.attributes?.entities;
   if (!Array.isArray(flagged) || flagged.length === 0) return [];
 
   const areaName = new Map(registries.areas.map((area) => [area.area_id, area.name]));
