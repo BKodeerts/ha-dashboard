@@ -49,12 +49,17 @@ function stateGlyphs(
   const glyphs: StateGlyph[] = [];
 
   if (room.lights.length > 0) {
+    const multiple = room.lights.length > 1;
     glyphs.push({
       key: 'light',
-      icon: 'bulb',
+      // A room with several lights toggles them all together, so the glyph
+      // itself switches shape to say so — no separate count to read.
+      icon: multiple ? 'bulbMultiple' : 'bulb',
       tone: room.lightsOn ? 'glyph--light' : '',
       // The action, not the state — `aria-pressed` carries the state.
-      label: `Lichten ${room.name} ${room.lightsOn ? 'uit' : 'aan'}`,
+      label: `Lichten ${room.name}${multiple ? ` (${room.lights.length})` : ''} ${
+        room.lightsOn ? 'uit' : 'aan'
+      }`,
       onTap: onToggleLights,
       on: room.lightsOn,
     });
