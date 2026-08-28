@@ -184,6 +184,8 @@ function PresetRows({
   states,
   presets,
   onChange,
+  maxVolume,
+  onMaxVolumeChange,
 }: {
   hass: HomeAssistant;
   entityId: string;
@@ -191,6 +193,10 @@ function PresetRows({
   presets: MediaPreset[];
   /** `immediate` is set for structural edits (add/remove), unset for typing. */
   onChange(next: MediaPreset[], immediate?: boolean): void;
+  /** `undefined` means uncapped — the slider's full 0–100. */
+  maxVolume: number | undefined;
+  /** `immediate` is set on blur, unset while typing — same as `onChange` above. */
+  onMaxVolumeChange(next: number | undefined, immediate?: boolean): void;
 }) {
   const [browsing, setBrowsing] = useState(false);
 
@@ -204,6 +210,21 @@ function PresetRows({
   return (
     <div className="hdpe__presets">
       <div className="hdpe__field-label">{entityLabel(states, entityId)}</div>
+      <label className="hdpe__field">
+        <span className="hdpe__field-label">Maximumvolume (%) — leeg = geen limiet</span>
+        <input
+          type="number"
+          min={1}
+          max={100}
+          placeholder="100"
+          value={maxVolume ?? ''}
+          onChange={(event) => {
+            const raw = event.target.value;
+            onMaxVolumeChange(raw === '' ? undefined : Math.max(1, Math.min(100, Number(raw))));
+          }}
+          onBlur={() => onMaxVolumeChange(maxVolume, true)}
+        />
+      </label>
       {presets.map((preset, index) => (
         <div className="hdpe__preset-row" key={index}>
           <input
@@ -425,6 +446,8 @@ function Editor({
     (local.mediaEntity as ConfigLayer['mediaEntity']) ?? {};
   const mediaPresets: NonNullable<ConfigLayer['mediaPresets']> =
     (local.mediaPresets as ConfigLayer['mediaPresets']) ?? {};
+  const mediaMaxVolume: NonNullable<ConfigLayer['mediaMaxVolume']> =
+    (local.mediaMaxVolume as ConfigLayer['mediaMaxVolume']) ?? {};
 
   const patch = (next: ConfigLayer, options?: { immediate?: boolean }) => {
     localRef.current = mergeLayers(localRef.current as ConfigLayer, next) as LovelaceCardConfig;
@@ -558,7 +581,7 @@ function Editor({
       </section>
 
       <section className="hdpe__section">
-        <h3 className="hdpe__title">Media-presets</h3>
+        <h3 className="hdpe__title">Media</h3>
         {usedMediaPlayers.map((entityId) => (
           <PresetRows
             key={entityId}
@@ -568,6 +591,10 @@ function Editor({
             presets={mediaPresets[entityId] ?? []}
             onChange={(next, immediate) =>
               patch({ mediaPresets: { [entityId]: next } }, { immediate })
+            }
+            maxVolume={mediaMaxVolume[entityId]}
+            onMaxVolumeChange={(next, immediate) =>
+              patch({ mediaMaxVolume: { [entityId]: next } }, { immediate })
             }
           />
         ))}

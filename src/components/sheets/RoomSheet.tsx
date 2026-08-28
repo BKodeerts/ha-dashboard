@@ -439,23 +439,37 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
  * level, tap to jump straight to that point — there is nothing here to
  * toggle, so unlike the lamp and climate rows a tap is just a zero-travel
  * drag rather than a switch.
+ *
+ * `max` caps the *usable* range at less than 100 for a player that is loud
+ * enough well before the top of its own scale — the track still spans the
+ * full row, just over 0–max instead of 0–100, so a speaker capped at 20 gets
+ * the whole width to move in rather than a sliver at the start of it.
  */
-function VolumeRow({ entityId, volume }: { entityId: string; volume: number }) {
+function VolumeRow({ entityId, volume, max }: { entityId: string; volume: number; max: number }) {
   const { call } = useHass();
 
-  const commit = (percent: number) => void call(mediaVolume(entityId, percent));
+  const setVolume = (next: number) =>
+    void call(mediaVolume(entityId, Math.max(0, Math.min(max, Math.round(next)))));
 
-  const { rowRef, percent, handlers } = useDragRow({
-    value: volume,
+  // The hook's own `percent` is a position on the row, not a volume — it only
+  // equals the real value when max is 100.
+  const commitTrack = (trackPercent: number) => setVolume((trackPercent / 100) * max);
+
+  const { rowRef, percent, dragging, handlers } = useDragRow({
+    value: max > 0 ? Math.max(0, Math.min(100, (volume / max) * 100)) : 0,
     draggable: true,
-    onCommit: commit,
-    onTap: commit,
+    onCommit: commitTrack,
+    onTap: commitTrack,
   });
+
+  // While dragging, read the finger's position back out as a volume so the
+  // number keeps up with the fill instead of lagging a round trip behind it.
+  const shown = dragging ? Math.round((percent / 100) * max) : volume;
 
   const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
     event.preventDefault();
-    commit(volume + (event.key === 'ArrowRight' ? 5 : -5));
+    setVolume(volume + (event.key === 'ArrowRight' ? 5 : -5));
   };
 
   return (
@@ -466,15 +480,15 @@ function VolumeRow({ entityId, volume }: { entityId: string; volume: number }) {
       tabIndex={0}
       aria-label="Volume"
       aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(percent)}
+      aria-valuemax={max}
+      aria-valuenow={shown}
       onKeyDown={onKeyDown}
       {...handlers}
     >
       <div className="volume__fill" style={{ width: `${percent}%` }} />
       <div className="volume__row">
         <Icon name="volume" size={16} />
-        <span className="volume__value">{Math.round(percent)}%</span>
+        <span className="volume__value">{shown}%</span>
       </div>
     </div>
   );
@@ -484,6 +498,7 @@ function MediaRow({ media }: { media: RoomMedia }) {
   const { entities, config, call } = useHass();
   const { entityId, playing, station, volume } = media;
   const presets = config.mediaPresets[entityId] ?? [];
+  const maxVolume = config.mediaMaxVolume[entityId] ?? 100;
   const longPress = useLongPress({ entityId });
 
   return (
@@ -525,7 +540,9 @@ function MediaRow({ media }: { media: RoomMedia }) {
         </button>
       </div>
 
-      {volume !== undefined && <VolumeRow entityId={entityId} volume={volume} />}
+      {volume !== undefined && (
+        <VolumeRow entityId={entityId} volume={volume} max={maxVolume} />
+      )}
 
       {presets.length > 0 && (
         <div className="media__presets">

@@ -96,6 +96,16 @@ export interface DashboardConfig {
   };
   /** Radio presets per media_player entity id. */
   mediaPresets: Record<string, MediaPreset[]>;
+  /**
+   * Caps the volume slider's usable range per media_player entity id, in
+   * percent — a speaker that is plenty loud at 20 shouldn't spend the rest of
+   * the track on volume nobody uses. The slider still shows and sends the
+   * player's real `volume_level`; only the drag range is scaled down, so the
+   * full width covers 0–cap instead of 0–100. Absent — or explicitly
+   * `undefined`, which clears a room's override the same way `mediaEntity`
+   * does — means 100: the whole range, same as today.
+   */
+  mediaMaxVolume: Record<string, number | undefined>;
 }
 
 export interface MediaPreset {
@@ -166,6 +176,7 @@ export const DEFAULT_CONFIG: DashboardConfig = {
   power: { minWatts: 0 },
   car: {},
   mediaPresets: {},
+  mediaMaxVolume: {},
 };
 
 export function isRecord(value: unknown): value is Record<string, unknown> {
@@ -200,6 +211,7 @@ export function mergeConfig(
     power: { ...base.power, ...(patch.power ?? {}) },
     car: { ...base.car, ...(patch.car ?? {}) },
     mediaPresets: { ...base.mediaPresets, ...(patch.mediaPresets ?? {}) },
+    mediaMaxVolume: { ...base.mediaMaxVolume, ...(patch.mediaMaxVolume ?? {}) },
   };
 }
 
@@ -218,6 +230,9 @@ export function mergeLayers(base: ConfigLayer, patch: ConfigLayer): ConfigLayer 
   if (base.car ?? patch.car) next.car = { ...base.car, ...patch.car };
   if (base.mediaPresets ?? patch.mediaPresets) {
     next.mediaPresets = { ...base.mediaPresets, ...patch.mediaPresets };
+  }
+  if (base.mediaMaxVolume ?? patch.mediaMaxVolume) {
+    next.mediaMaxVolume = { ...base.mediaMaxVolume, ...patch.mediaMaxVolume };
   }
   return next;
 }
