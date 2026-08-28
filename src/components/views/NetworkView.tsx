@@ -48,8 +48,8 @@ export function NetworkView({ stale }: { stale: StaleDevice[] }) {
         <div className="view__title">Stille apparaten</div>
         <div className="view__sub">
           {stale.length === 0
-            ? 'alles heeft de laatste 24 u gemeld'
-            : `${stale.length} ${stale.length === 1 ? 'apparaat' : 'apparaten'} · geen update in 24 u`}
+            ? 'alles heeft recent gemeld'
+            : `${stale.length} ${stale.length === 1 ? 'apparaat' : 'apparaten'} stil`}
         </div>
       </div>
 
