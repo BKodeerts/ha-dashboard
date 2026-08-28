@@ -86,8 +86,11 @@ export function App() {
   );
 
   const stale = useMemo(
-    () => (registries ? collectStale(registries, entities, minute) : []),
-    [registries, entities, minute],
+    () =>
+      registries
+        ? collectStale(registries, entities, minute, config.staleDevicesEntity)
+        : [],
+    [registries, entities, minute, config.staleDevicesEntity],
   );
 
   const alarm = useMemo(() => alarmInfo(entities, config), [entities, config]);

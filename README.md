@@ -365,13 +365,13 @@ cached for five minutes).
 ### Netwerk: what has gone quiet
 
 The Netwerk tab is **not** a card page, and it does not decide what counts as disconnected itself —
-that judgement lives in Home Assistant, in a template sensor: `sensor.disconnected_devices`. Its
-`entities` attribute lists whichever connectivity-tracking entities it considers gone (see the
-sensor's own YAML for the exact rule), and this tab just turns that list into rows: **grouped by
-device**, so two silent trackers on one device produce one row rather than two, with the longest
-silence in the group deciding the row's age. The battery percentage comes from the
-`device_class: battery` sensor on the same device. Past 48 h the badge turns amber and the tab grows
-a dot.
+that judgement lives in Home Assistant, in a template sensor: `sensor.disconnected_devices` by
+default, or whatever `staleDevicesEntity` is set to (see the config table below). Its `entities`
+attribute lists whichever connectivity-tracking entities it considers gone (see the sensor's own
+YAML for the exact rule), and this tab just turns that list into rows: **grouped by device**, so two
+silent trackers on one device produce one row rather than two, with the longest silence in the group
+deciding the row's age. The battery percentage comes from the `device_class: battery` sensor on the
+same device. Past 48 h the badge turns amber and the tab grows a dot.
 
 An earlier version compared every entity's `last_updated` to now directly, which flagged far too
 much — a closed door or a steady temperature reading are silent for entirely innocent reasons, not
@@ -430,6 +430,7 @@ Everything that is left blank is derived from the state machine on first run:
 | `tracked` | `string[]` | the first other `person.*` found, capped at one |
 | `alarmEntity` | `string` | first `alarm_control_panel.*` |
 | `weatherEntity` | `string` | first `weather.*` |
+| `staleDevicesEntity` | `string` | `sensor.disconnected_devices` — the Netwerk tab's source sensor, see below |
 | `power.solar` / `.consumption` / `.grid` | `string` | `energy/get_prefs`' solar source for `.solar`; otherwise a `device_class: power` sensor matched by name |
 | `power.devices` | `(string \| {entityId, name?})[]` | Curates the *trend chart* only — Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the chart shows exactly that list in that order, at every wattage; `name` overrides the entity's own friendly name. Doesn't affect "apparaten nu" — that always reads the full HA list |
 | `power.minWatts` | `number` | `0` — loads reading under this many watts (or reading exactly 0) drop off "Apparaten nu"; the trend chart ignores it |
