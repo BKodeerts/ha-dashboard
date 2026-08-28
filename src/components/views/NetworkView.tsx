@@ -61,9 +61,7 @@ export function NetworkView({ stale }: { stale: StaleDevice[] }) {
             ))}
           </div>
 
-          <div className="stale__foot">
-            gesorteerd op laatste update · amber = meer dan 48 u stil
-          </div>
+          <div className="stale__foot">amber = meer dan 48 u stil</div>
         </>
       )}
     </div>
