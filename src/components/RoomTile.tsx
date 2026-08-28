@@ -13,7 +13,8 @@ interface StateGlyph {
   icon: IconName;
   /** CSS modifier for the active colour, or `''` for the inactive grey. */
   tone: string;
-  /** Printed to the *left* of the glyph, in 10px mono. Only the AC has one. */
+  /** Printed to the *left* of the glyph, in 10px mono. The AC and a light
+   *  glyph that speaks for more than one entity are the ones with one. */
   note?: string;
   label: string;
   /** Set on the glyphs that are controls; the rest render as read-only icons. */
@@ -49,12 +50,19 @@ function stateGlyphs(
   const glyphs: StateGlyph[] = [];
 
   if (room.lights.length > 0) {
+    const multiple = room.lights.length > 1;
     glyphs.push({
       key: 'light',
       icon: 'bulb',
       tone: room.lightsOn ? 'glyph--light' : '',
+      // The count, not the state — a room with several lights toggles them
+      // all together, so the glyph says how many it speaks for. A single
+      // light needs no count; it's the one glyph naming its own entity.
+      note: multiple ? String(room.lights.length) : undefined,
       // The action, not the state — `aria-pressed` carries the state.
-      label: `Lichten ${room.name} ${room.lightsOn ? 'uit' : 'aan'}`,
+      label: `Lichten ${room.name}${multiple ? ` (${room.lights.length})` : ''} ${
+        room.lightsOn ? 'uit' : 'aan'
+      }`,
       onTap: onToggleLights,
       on: room.lightsOn,
     });
