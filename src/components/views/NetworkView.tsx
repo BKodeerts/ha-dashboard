@@ -14,14 +14,8 @@ function StaleRow({ device }: { device: StaleDevice }) {
     >
       <div className="stale__names">
         <div className="stale__name">{device.name}</div>
-        {/* One line, but only the entity id gives way when it is too
-            narrow — a dead-battery list that ellipsises the battery
-            percentage would be hiding its own answer. */}
-        {/* Non-breaking spaces: each span is a flex item, and flex
-            trims the whitespace at its edges. */}
         <div className="stale__meta">
           <span>{device.area}</span>
-          <span className="stale__meta-id">{` · ${device.entityId}`}</span>
           {device.battery !== undefined && (
             <span>{` · batterij ${formatNumber(device.battery)}%`}</span>
           )}

@@ -2502,14 +2502,6 @@ button {
   white-space: pre;
 }
 
-/* Outranks the `> span` rule above, so this is the one item that gives way. */
-.stale__meta > .stale__meta-id {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .stale__badge {
   display: flex;
   align-items: center;
