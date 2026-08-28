@@ -918,9 +918,8 @@ button {
   padding: 8px;
 }
 
-/* The value beside a glyph — the AC's target, or a light glyph's count when it
-   speaks for more than one entity. It sits to the *left*, so the glyphs
-   themselves stay in one column. */
+/* The value beside a glyph — only the AC has one. It sits to the *left*, so
+   the glyphs themselves stay in one column. */
 .glyph__note {
   font-family: var(--font-mono);
   font-size: 10px;
