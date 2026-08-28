@@ -1618,6 +1618,49 @@ button {
   color: var(--on-accent);
 }
 
+.volume {
+  position: relative;
+  overflow: hidden;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--control);
+  /* As on the lamp and climate rows: the horizontal drag is ours, vertical
+     scrolling stays the sheet's. */
+  touch-action: pan-y;
+  user-select: none;
+  cursor: ew-resize;
+  width: 100%;
+  display: block;
+  text-align: left;
+}
+
+.volume__fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--accent-fill);
+  transition: width 0.09s linear;
+}
+
+.volume__row {
+  position: relative;
+  height: 100%;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+}
+
+.volume__value {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+}
+
 .media__presets {
   display: flex;
   gap: 6px;
@@ -3051,6 +3094,7 @@ button {
   }
 
   .lamp__fill,
+  .volume__fill,
   .tabbar__item,
   .more__row,
   .more__chevron,
