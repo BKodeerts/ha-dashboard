@@ -13,6 +13,7 @@ import {
   mediaPlayPause,
   mediaPlayPreset,
   mediaStep,
+  mediaVolume,
   preferredHvacMode,
   setClimateTemperature,
   setHvacMode,
@@ -54,7 +55,8 @@ function useDragRow({
   draggable: boolean;
   longPressEntityId?: string;
   onCommit(percent: number): void;
-  onTap(): void;
+  /** Receives the percent under the finger, for rows a tap should jump to. */
+  onTap(percent: number): void;
 }) {
   const rowRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ pointerId: number; startX: number; moved: boolean } | null>(null);
@@ -124,7 +126,7 @@ function useDragRow({
 
       if (!state.moved) {
         setPreview(null);
-        onTap();
+        onTap(percentAt(event.clientX));
         return;
       }
       if (!draggable) {
@@ -432,9 +434,55 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
 
 /* ── media ────────────────────────────────────────────────────────────────  */
 
+/**
+ * The volume track, in the lamp rows' language: drag the fill to set the
+ * level, tap to jump straight to that point — there is nothing here to
+ * toggle, so unlike the lamp and climate rows a tap is just a zero-travel
+ * drag rather than a switch.
+ */
+function VolumeRow({ entityId, volume }: { entityId: string; volume: number }) {
+  const { call } = useHass();
+
+  const commit = (percent: number) => void call(mediaVolume(entityId, percent));
+
+  const { rowRef, percent, handlers } = useDragRow({
+    value: volume,
+    draggable: true,
+    onCommit: commit,
+    onTap: commit,
+  });
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    event.preventDefault();
+    commit(volume + (event.key === 'ArrowRight' ? 5 : -5));
+  };
+
+  return (
+    <div
+      ref={rowRef}
+      className="volume"
+      role="slider"
+      tabIndex={0}
+      aria-label="Volume"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(percent)}
+      onKeyDown={onKeyDown}
+      {...handlers}
+    >
+      <div className="volume__fill" style={{ width: `${percent}%` }} />
+      <div className="volume__row">
+        <Icon name="volume" size={16} />
+        <span className="volume__value">{Math.round(percent)}%</span>
+      </div>
+    </div>
+  );
+}
+
 function MediaRow({ media }: { media: RoomMedia }) {
   const { entities, config, call } = useHass();
-  const { entityId, playing, station } = media;
+  const { entityId, playing, station, volume } = media;
   const presets = config.mediaPresets[entityId] ?? [];
   const longPress = useLongPress({ entityId });
 
@@ -476,6 +524,8 @@ function MediaRow({ media }: { media: RoomMedia }) {
           <Icon name="skipNext" size={16} />
         </button>
       </div>
+
+      {volume !== undefined && <VolumeRow entityId={entityId} volume={volume} />}
 
       {presets.length > 0 && (
         <div className="media__presets">

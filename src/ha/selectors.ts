@@ -148,12 +148,15 @@ function buildClimate(entityId: string, states: HassEntities): RoomClimate {
 
 function buildMedia(entityId: string, states: HassEntities): RoomMedia {
   const title = states[entityId]?.attributes?.media_title;
-  return {
+  const volumeLevel = toNumber(states[entityId]?.attributes?.volume_level);
+  const media: RoomMedia = {
     entityId,
     playing: states[entityId]?.state === 'playing',
     station:
       typeof title === 'string' && title.length > 0 ? title : friendlyName(states, entityId),
   };
+  if (volumeLevel !== undefined) media.volume = Math.round(volumeLevel * 100);
+  return media;
 }
 
 /**

@@ -155,6 +155,8 @@ export interface RoomMedia {
   playing: boolean;
   /** `media_title` when the player has one, else its friendly name. */
   station: string;
+  /** 0–100, or `undefined` when the player reports no `volume_level`. */
+  volume?: number;
 }
 
 /** A room tile's data, derived from registries + live states. */
