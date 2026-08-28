@@ -37,8 +37,10 @@ const isBattery = (entityId: string, states: HassEntities): boolean =>
   states[entityId]?.attributes?.device_class === 'battery' ||
   (entityId.startsWith('sensor.') && entityId.endsWith('_battery'));
 
-/** `6 dagen` / `31 uur`, matching the badge in the handoff. */
+/** `6 dagen` / `31 uur` / `12 min`, matching the badge in the handoff. */
 export function formatSilence(ms: number): string {
+  const minutes = Math.floor(ms / 60e3);
+  if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(ms / 3600e3);
   if (hours < 48) return `${hours} uur`;
   return `${Math.floor(hours / 24)} dagen`;
