@@ -164,8 +164,17 @@
    * clear at all) but, stacked on top of an actual notch/Dynamic-Island inset,
    * it read as dead air before the room grid on a real phone rather than as
    * "Adem" breathing room.
+   *
+   * `env(safe-area-inset-top)` itself is dropped rather than just its
+   * cushion: inspected live in the companion app's own WKWebView (iPhone 14
+   * Pro), it resolved to 59px, pinning this to 67px regardless of the floor —
+   * confirmed too generous on that device, where the header's content (a
+   * left-aligned date, right-aligned round buttons) doesn't sit under the
+   * Dynamic Island. A flat 8px is what inspection called for there. Revisit
+   * with `max(8px, env(safe-area-inset-top) + Npx)` if a device turns up
+   * where the header genuinely runs under the notch.
    */
-  --header-top-pad: max(44px, calc(env(safe-area-inset-top) + 8px));
+  --header-top-pad: 8px;
   --header-space: calc(var(--header-top-pad) + 36px + 10px + 34px + 16px + 44px);
 
   /* motion */
