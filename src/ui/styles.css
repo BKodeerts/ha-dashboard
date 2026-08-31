@@ -125,11 +125,13 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* spacing */
-  --gutter: 20px;
+  --gutter: 16px;
   /* The home screen's own inset, per v5 ("Adem") — wider than the rest of the
-     app's `--gutter`, which stays 20px for the views this revision does not
-     touch (Netwerk, Auto, Instellingen, every sheet). */
-  --gutter-v5: 24px;
+     app's `--gutter`, which stays 16px for the views this revision does not
+     touch (Netwerk, Auto, Instellingen, every sheet). Dropped from 24px/20px:
+     on an actual phone (companion app, not the design artboard) that read as
+     dead space eating into the room grid rather than as breathing room. */
+  --gutter-v5: 16px;
 
   /*
    * Tab-bar geometry, as tokens because four things measure themselves against
@@ -155,11 +157,16 @@
    * pads by this so everything under the fixed header clears it — the room
    * grid (or the power tab's body) below reads the leftover space, not this one.
    *   row 1 — top padding + the 36px round buttons, the row's tallest child
-   *   row 2 — 20px gap + the 34px person chip, the row's tallest child
-   *   row 3 — 34px gap + the 44px-tall section row (label, windows chip)
+   *   row 2 — 10px gap + the 34px person chip, the row's tallest child
+   *   row 3 — 16px gap + the 44px-tall section row (label, windows chip)
+   * The top padding's own cushion above the safe area, and the two inter-row
+   * gaps, were 20/20/34 — comfortable on the design artboard (no status bar to
+   * clear at all) but, stacked on top of an actual notch/Dynamic-Island inset,
+   * it read as dead air before the room grid on a real phone rather than as
+   * "Adem" breathing room.
    */
-  --header-top-pad: max(52px, calc(env(safe-area-inset-top) + 20px));
-  --header-space: calc(var(--header-top-pad) + 36px + 20px + 34px + 34px + 44px);
+  --header-top-pad: max(44px, calc(env(safe-area-inset-top) + 8px));
+  --header-space: calc(var(--header-top-pad) + 36px + 10px + 34px + 16px + 44px);
 
   /* motion */
   --ease-sheet: cubic-bezier(0.2, 0.9, 0.2, 1);
@@ -529,7 +536,7 @@ button {
   display: flex;
   align-items: center;
   gap: 9px;
-  padding: 20px var(--gutter-v5) 0;
+  padding: 10px var(--gutter-v5) 0;
 }
 
 .header__weather {
@@ -569,7 +576,7 @@ button {
   align-items: center;
   gap: 12px;
   min-height: 44px;
-  padding: 34px var(--gutter-v5) 0;
+  padding: 16px var(--gutter-v5) 0;
 }
 
 .header__section-label {
@@ -765,7 +772,7 @@ button {
   grid-auto-rows: 1fr;
   flex: 1 1 auto;
   min-height: 0;
-  gap: 16px;
+  gap: 12px;
 }
 
 .room-grid-area--open .room-grid {

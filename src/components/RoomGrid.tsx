@@ -42,8 +42,17 @@ export function RoomGrid({
   return (
     // `scroll` carries no styles of its own — it's the hook `element.tsx`'s
     // touch handler looks for before letting a drag through as a scroll
-    // rather than blocking it (see the note on `#onTouchMove`).
-    <div className={`room-grid-area scroll${showOther ? ' room-grid-area--open' : ''}`}>
+    // rather than blocking it (see the note on `#onTouchMove`). Collapsed,
+    // this area is `overflow: hidden` and genuinely not a scroller — see the
+    // doc comment above — so the marker only goes on once `showOther` makes
+    // it one. Carrying it unconditionally let a vertical drag over a
+    // collapsed grid whose content didn't perfectly fill its 1fr rows read
+    // as "has room to scroll" (scrollHeight > clientHeight even though
+    // `overflow: hidden` blocks it from actually moving), so the touch
+    // handler stood aside instead of blocking it — and WKWebView handed the
+    // unconsumed drag to its own page-level bounce, dragging the "fixed"
+    // header and tab bar along with it.
+    <div className={`room-grid-area${showOther ? ' room-grid-area--open scroll' : ''}`}>
       <div className="room-grid">
         {shown.map((room) => (
           <RoomTile key={room.id} room={room} onOpen={() => onOpenRoom(room.id)} />
