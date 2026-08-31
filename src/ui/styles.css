@@ -125,11 +125,13 @@
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   /* spacing */
-  --gutter: 20px;
+  --gutter: 16px;
   /* The home screen's own inset, per v5 ("Adem") — wider than the rest of the
-     app's `--gutter`, which stays 20px for the views this revision does not
-     touch (Netwerk, Auto, Instellingen, every sheet). */
-  --gutter-v5: 24px;
+     app's `--gutter`, which stays 16px for the views this revision does not
+     touch (Netwerk, Auto, Instellingen, every sheet). Dropped from 24px/20px:
+     on an actual phone (companion app, not the design artboard) that read as
+     dead space eating into the room grid rather than as breathing room. */
+  --gutter-v5: 16px;
 
   /*
    * Tab-bar geometry, as tokens because four things measure themselves against
@@ -765,7 +767,7 @@ button {
   grid-auto-rows: 1fr;
   flex: 1 1 auto;
   min-height: 0;
-  gap: 16px;
+  gap: 12px;
 }
 
 .room-grid-area--open .room-grid {
