@@ -200,14 +200,27 @@
    * over it and gets forced up to full height — an admin-only, momentary
    * cosmetic cost against a bar that visibly jumps on every real dashboard
    * view.
+   *
+   * The `env(safe-area-inset-top)` subtracted below isn't for *our* content —
+   * see `--header-top-pad` further down, which no longer uses it at all.
+   * It's there because inspecting the companion app's own WKWebView
+   * (iPhone 14 Pro) found `visualViewport.height`/`innerHeight`/`screen.height`
+   * all equal to the full 852px screen, yet a plain `100dvh` box overshot the
+   * visible bottom by roughly that same 59px — Home Assistant's own frontend
+   * shell reserves a safe-area-top allowance above the card (`kiosk_mode`'s
+   * `hide_header` hides its header's content, not that reserved space), so a
+   * full `100dvh` box stacked below it overshoots the viewport by exactly
+   * what HA already spent, forcing the *outer* page to scroll and dragging
+   * this app's "fixed" header and tab bar out of place with it. Subtracting
+   * the same inset here is what makes the two add back up to one viewport.
    */
   display: flex;
   flex-direction: column;
   height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  max-height: 100vh;
-  max-height: 100dvh;
+  min-height: calc(100vh - env(safe-area-inset-top));
+  min-height: calc(100dvh - env(safe-area-inset-top));
+  max-height: calc(100vh - env(safe-area-inset-top));
+  max-height: calc(100dvh - env(safe-area-inset-top));
   background: var(--page);
   color: var(--text);
   font-family: var(--font-ui);
@@ -368,12 +381,15 @@
    * against this box's edge — so any difference between those two heights is
    * the tab bar visibly moving between the two states, not just a runaway
    * overflow. Pinning both ends removes that instead of merely bounding it.
+   *
+   * `env(safe-area-inset-top)` subtracted here for the same reason as
+   * `:host`'s copy of this pair — see the note there.
    */
   height: 100%;
-  min-height: 100vh;
-  min-height: 100dvh;
-  max-height: 100vh;
-  max-height: 100dvh;
+  min-height: calc(100vh - env(safe-area-inset-top));
+  min-height: calc(100dvh - env(safe-area-inset-top));
+  max-height: calc(100vh - env(safe-area-inset-top));
+  max-height: calc(100dvh - env(safe-area-inset-top));
 
   /*
    * Long-press is a gesture now (more-info), not a selection start — without
