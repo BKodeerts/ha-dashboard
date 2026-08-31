@@ -26,6 +26,40 @@ function ensureFonts(): void {
   document.head.appendChild(style);
 }
 
+/**
+ * Walks up from `start` through the *composed* tree — hopping from a shadow
+ * root to its host wherever `Element.closest()` can't follow, since that
+ * stops at the first shadow boundary it meets — looking for `selector`.
+ *
+ * Lovelace's own `hui-view-container` (id `view`) wraps every card, this one
+ * included, in its own bottom padding — invisible in a normal, scrollable
+ * dashboard, but on this app's fixed-viewport, non-scrolling layout (see the
+ * `env(safe-area-inset-top)` note in styles.css for the matching top-side
+ * fix) it's enough by itself to make the *outer* HA page scrollable by a few
+ * pixels, the same failure mode. It lives outside this element's own shadow
+ * root, typically behind one or more of HA's own, so a stylesheet rule here
+ * can't reach it — only walking the live DOM and setting an inline style can.
+ */
+function pierceAncestor(start: Element, selector: string): HTMLElement | null {
+  let node: Element | null = start;
+  while (node) {
+    const match = node.closest(selector);
+    if (match) return match as HTMLElement;
+    const root = node.getRootNode();
+    node = root instanceof ShadowRoot ? root.host : null;
+  }
+  return null;
+}
+
+/**
+ * Best-effort, not load-bearing: if `hui-view-container` isn't there (the
+ * standalone/mock builds, or an HA version that renamed it), this is a no-op.
+ */
+function ensureNoOuterScroll(from: Element): void {
+  const container = pierceAncestor(from, 'hui-view-container, #view');
+  if (container) container.style.paddingBottom = '0px';
+}
+
 type Mode = 'panel' | 'standalone' | 'mock';
 
 /**
@@ -118,6 +152,7 @@ export class HaDashboardPanel extends HTMLElement {
   connectedCallback(): void {
     if (this.getAttribute('fonts') !== 'off') ensureFonts();
     if (this.#mode() !== 'panel') void this.#start();
+    ensureNoOuterScroll(this);
     this.addEventListener('touchstart', this.#onTouchStart, { passive: true });
     this.addEventListener('touchmove', this.#onTouchMove, { passive: false });
     this.addEventListener('touchend', this.#onTouchEnd, { passive: true });
