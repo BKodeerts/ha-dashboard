@@ -178,13 +178,22 @@ function buildChart(hourly: ForecastEntry[], sun: HassEntity | undefined): Chart
   let sunArcPath = '';
   if (Number.isFinite(t0)) {
     for (const segment of daylightSegments(sun, t0, windowEnd)) {
+      // Draw only the slice inside the visible window, but phase the sine
+      // curve against the segment's true (unclipped) sunrise/sunset — a
+      // segment cut off by the window edge must read as "still rising/
+      // setting", not fold into its own miniature 0→peak→0 arc.
+      const drawStart = Math.max(segment.start, t0);
+      const drawEnd = Math.min(segment.end, windowEnd);
+      if (drawEnd <= drawStart) continue;
+      const span = segment.end - segment.start;
+
       for (let k = 0; k <= SUN_ARC_STEPS; k++) {
-        const t = segment.start + (segment.end - segment.start) * (k / SUN_ARC_STEPS);
-        const frac = Math.sin(Math.PI * (k / SUN_ARC_STEPS));
+        const t = drawStart + (drawEnd - drawStart) * (k / SUN_ARC_STEPS);
+        const frac = Math.sin((Math.PI * (t - segment.start)) / span);
         const yy = RAIN_BASE - frac * SUN_ARC_PEAK;
         sunArcPath += `${k === 0 ? 'M' : 'L'}${xTime(t).toFixed(1)} ${yy.toFixed(1)} `;
       }
-      sunArcPath += `L${xTime(segment.end).toFixed(1)} ${RAIN_BASE} L${xTime(segment.start).toFixed(1)} ${RAIN_BASE} Z `;
+      sunArcPath += `L${xTime(drawEnd).toFixed(1)} ${RAIN_BASE} L${xTime(drawStart).toFixed(1)} ${RAIN_BASE} Z `;
     }
   }
 
