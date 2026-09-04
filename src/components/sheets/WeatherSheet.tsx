@@ -43,7 +43,7 @@ function uvLabel(index: number): string {
   return 'extreem';
 }
 
-/* ── Vandaag chart ────────────────────────────────────────────────────────
+/* ── Komende 24u chart ────────────────────────────────────────────────────
    Geometry lifted straight from the handoff: a 350x138 viewBox, temperature
    line + area, a dashed apparent-temperature line, precipitation bars and a
    "now" marker — all scaled to whatever hourly forecast the entity gives. */
@@ -212,7 +212,7 @@ function buildChart(hourly: ForecastEntry[], sun: HassEntity | undefined): Chart
   };
 }
 
-/* ── Vandaag metrics grid ────────────────────────────────────────────────
+/* ── Komende 24u metrics grid ─────────────────────────────────────────────
    Current conditions, straight off the entity's own state + attributes —
    the forecast array plays no part here. */
 
@@ -535,7 +535,7 @@ export function WeatherSheet({
             className={`weather__tab${view === 'dag' ? ' weather__tab--on' : ''}`}
             onClick={() => setView('dag')}
           >
-            Vandaag
+            Komende 24u
           </button>
           <button
             type="button"

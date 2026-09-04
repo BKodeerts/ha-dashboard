@@ -1781,8 +1781,8 @@ button {
 }
 
 /* ── weather sheet ─────────────────────────────────────────────────────────
-   Two tabs sharing one sheet: `Vandaag` is the 24 h chart + current-conditions
-   grid, `Week` is the seven daily rows. See
+   Two tabs sharing one sheet: `Komende 24u` is the 24 h chart + current-
+   conditions grid, `Week` is the seven daily rows. See
    design_handoff_ha_weather_popup/README.md for the geometry this follows —
    colours and spacing come from the app's own tokens rather than the design's
    fixed dark-mode values, so the sheet still flips with the theme. */
@@ -1880,7 +1880,7 @@ button {
   color: var(--text);
 }
 
-/* ── Vandaag ─────────────────────────────────────────────────────────────── */
+/* ── Komende 24u ─────────────────────────────────────────────────────────── */
 
 .weather__day {
   display: flex;
