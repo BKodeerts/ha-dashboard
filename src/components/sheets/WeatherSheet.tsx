@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useHass } from '../../ha/HassProvider';
 import {
   WEATHER_FEATURE,
   formatNumber,
@@ -8,7 +9,8 @@ import {
   isNumber,
   type WeatherInfo,
 } from '../../ha/selectors';
-import type { ForecastEntry } from '../../ha/types';
+import { daylightSegments } from '../../ha/sunPath';
+import type { ForecastEntry, HassEntity } from '../../ha/types';
 import { useForecast } from '../../ha/useForecast';
 import { Icon } from '../../ui/Icon';
 import { WEATHER_LABELS, weatherIcon } from '../../ui/icons';
@@ -55,6 +57,11 @@ const T_BOT = 88;
 const RAIN_BASE = 122;
 const RAIN_MAX_H = 32;
 const BAR_W = 10;
+const HOUR_MS = 60 * 60 * 1000;
+/** Steps sampled per daylight segment when drawing the sun arc. */
+const SUN_ARC_STEPS = 20;
+/** Zenith height of the sun arc, measured up from `RAIN_BASE` (the horizon). */
+const SUN_ARC_PEAK = RAIN_BASE - T_TOP - 10;
 
 interface ChartData {
   tempPath: string;
@@ -67,6 +74,9 @@ interface ChartData {
   nowY: number;
   gridLabels: { y: number; label: string }[];
   ticks: { x: number; label: string }[];
+  /** A soft filled arc per daylight segment (sunrise→sunset) in view — where
+      the sun is over the chart's time axis, not a literal elevation reading. */
+  sunArcPath: string | null;
 }
 
 /** Picks a gridline step (1/2/5/10/20°) that leaves a handful of lines across the domain. */
@@ -77,7 +87,7 @@ function niceStep(range: number): number {
   return 50;
 }
 
-function buildChart(hourly: ForecastEntry[]): ChartData | null {
+function buildChart(hourly: ForecastEntry[], sun: HassEntity | undefined): ChartData | null {
   const n = hourly.length;
   if (n < 2) return null;
   const first = hourly[0];
@@ -156,7 +166,41 @@ function buildChart(hourly: ForecastEntry[]): ChartData | null {
     ticks.push({ x: x(i), label: hourTickLabel(entry.datetime) });
   });
 
-  return { tempPath, areaPath, appPath, rainPath, gridPath, nowPath, nowX, nowY, gridLabels, ticks };
+  // Sun arc: maps each daylight segment's real sunrise/sunset time onto the
+  // same x scale as the hourly points above (they're evenly spaced, so time
+  // maps to x linearly), then draws a sine-shaped arc between them.
+  const t0 = Date.parse(first.datetime);
+  const secondStep = n > 1 ? Date.parse(hourly[1]?.datetime ?? '') - t0 : NaN;
+  const stepMs = Number.isFinite(secondStep) && secondStep > 0 ? secondStep : HOUR_MS;
+  const xTime = (t: number) => X0 + ((t - t0) / stepMs) * ((X1 - X0) / (n - 1));
+  const windowEnd = t0 + (n - 1) * stepMs;
+
+  let sunArcPath = '';
+  if (Number.isFinite(t0)) {
+    for (const segment of daylightSegments(sun, t0, windowEnd)) {
+      for (let k = 0; k <= SUN_ARC_STEPS; k++) {
+        const t = segment.start + (segment.end - segment.start) * (k / SUN_ARC_STEPS);
+        const frac = Math.sin(Math.PI * (k / SUN_ARC_STEPS));
+        const yy = RAIN_BASE - frac * SUN_ARC_PEAK;
+        sunArcPath += `${k === 0 ? 'M' : 'L'}${xTime(t).toFixed(1)} ${yy.toFixed(1)} `;
+      }
+      sunArcPath += `L${xTime(segment.end).toFixed(1)} ${RAIN_BASE} L${xTime(segment.start).toFixed(1)} ${RAIN_BASE} Z `;
+    }
+  }
+
+  return {
+    tempPath,
+    areaPath,
+    appPath,
+    rainPath,
+    gridPath,
+    nowPath,
+    nowX,
+    nowY,
+    gridLabels,
+    ticks,
+    sunArcPath: sunArcPath.trim() || null,
+  };
 }
 
 /* ── Vandaag metrics grid ────────────────────────────────────────────────
@@ -200,8 +244,16 @@ function metricRows(weather: WeatherInfo): { key: string; value: string }[] {
   return rows;
 }
 
-function DayView({ hourly, weather }: { hourly: ForecastEntry[]; weather: WeatherInfo }) {
-  const chart = useMemo(() => buildChart(hourly), [hourly]);
+function DayView({
+  hourly,
+  weather,
+  sun,
+}: {
+  hourly: ForecastEntry[];
+  weather: WeatherInfo;
+  sun: HassEntity | undefined;
+}) {
+  const chart = useMemo(() => buildChart(hourly, sun), [hourly, sun]);
   const metrics = metricRows(weather);
 
   return (
@@ -225,10 +277,17 @@ function DayView({ hourly, weather }: { hourly: ForecastEntry[]; weather: Weathe
                 neerslag mm
               </span>
             )}
+            {chart.sunArcPath && (
+              <span className="weather__legend-item">
+                <span className="weather__legend-swatch weather__legend-swatch--sun" />
+                zonshoogte
+              </span>
+            )}
           </div>
 
           <div className="weather__chart">
             <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="weather__chart-svg" aria-hidden="true">
+              {chart.sunArcPath && <path d={chart.sunArcPath} className="weather__chart-sun" />}
               <path d={chart.gridPath} className="weather__chart-grid" />
               <path d={chart.rainPath} className="weather__chart-rain" />
               <path d={chart.nowPath} className="weather__chart-nowline" />
@@ -387,8 +446,13 @@ export function WeatherSheet({
   forecast: ForecastEntry[];
   onClose(): void;
 }) {
+  const { entities } = useHass();
+  const sun = entities['sun.sun'];
   const hourlySupported = (weather.supportedFeatures & WEATHER_FEATURE.FORECAST_HOURLY) !== 0;
-  const hourly = useForecast(hourlySupported ? weather.entityId : undefined, 'hourly');
+  const hourlyRaw = useForecast(hourlySupported ? weather.entityId : undefined, 'hourly');
+  // Some integrations (e.g. KMI) return two days of hourly entries even though
+  // this view is meant to show only the coming 24 hours — trim the rest.
+  const hourly = useMemo(() => hourlyRaw.slice(0, 24), [hourlyRaw]);
   const [view, setView] = useState<View>(hourlySupported ? 'dag' : 'week');
 
   // The tab defaults to `dag`, but an entity that turns out not to support
@@ -476,7 +540,11 @@ export function WeatherSheet({
         </div>
       )}
 
-      {activeView === 'dag' ? <DayView hourly={hourly} weather={weather} /> : <WeekView daily={forecast} />}
+      {activeView === 'dag' ? (
+        <DayView hourly={hourly} weather={weather} sun={sun} />
+      ) : (
+        <WeekView daily={forecast} />
+      )}
 
       <div className="sheet__footnote">
         {activeView === 'week' ? 'forecast_daily · 7 dagen' : 'forecast_hourly · 24 uur'}
