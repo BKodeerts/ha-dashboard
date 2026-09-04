@@ -68,6 +68,10 @@
   --dry: oklch(0.7 0.12 95);
   --dry-bg: oklch(0.7 0.12 95 / 0.2);
   --dry-fg: oklch(0.44 0.11 95);
+  /* The weather popup's daylight arc — a distinct warm hue from `--accent`'s
+     temperature line, so the two never read as the same series. */
+  --sun: oklch(0.78 0.14 95);
+  --sun-fill: oklch(0.78 0.14 95 / 0.16);
   --fan: oklch(0.7 0.12 185);
   --fan-bg: oklch(0.7 0.12 185 / 0.2);
   --fan-fg: oklch(0.42 0.09 185);
@@ -1923,6 +1927,13 @@ button {
   background: var(--cool);
 }
 
+.weather__legend-swatch--sun {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sun);
+}
+
 .weather__chart {
   position: relative;
 }
@@ -1939,6 +1950,11 @@ button {
   stroke: color-mix(in oklab, var(--text) 9%, transparent);
   stroke-width: 1;
   stroke-dasharray: 2 4;
+}
+
+.weather__chart-sun {
+  fill: var(--sun-fill);
+  stroke: none;
 }
 
 .weather__chart-rain {
