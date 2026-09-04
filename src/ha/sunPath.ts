@@ -39,7 +39,8 @@ export function daylightSegments(
           { start: nextRising + DAY_MS, end: nextSetting + DAY_MS },
         ];
 
-  return segments
-    .map((s) => ({ start: Math.max(s.start, windowStart), end: Math.min(s.end, windowEnd) }))
-    .filter((s) => s.end > s.start);
+  // Deliberately not clamped to the window here: the caller needs each
+  // segment's true sunrise/sunset to phase its sine curve correctly, even
+  // where the visible window cuts a segment off mid-arc (see buildChart).
+  return segments.filter((s) => s.end > windowStart && s.start < windowEnd);
 }
