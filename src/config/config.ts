@@ -50,6 +50,13 @@ export interface DashboardConfig {
    */
   staleDevicesEntity?: string;
   /**
+   * The `input_boolean` the Instellingen "Kioskmodus" switch flips. The
+   * dashboard doesn't hide HA's header and sidebar itself — the kiosk-mode
+   * plugin (HACS) does, keyed on this entity in its own YAML. Defaults to
+   * `input_boolean.kiosk_mode`; the section hides when the entity is missing.
+   */
+  kioskEntity?: string;
+  /**
    * Media player per area id, overriding the auto-pick (the first
    * `media_player.*` the area's registry happens to list — a TV can easily
    * beat a Sonos this way). Household-wide: set from the card's visual editor
@@ -143,30 +150,41 @@ export const PALETTES: { value: PaletteSetting; label: string }[] = [
 ];
 
 /**
- * The nine tints from the v2 handoff, keyed by normalised area name — personal
- * rooms distinct, wet rooms cool, dry rooms warm.
+ * The eight room tints: popping pastels about 45° apart on the hue wheel, so
+ * no two rooms share a colour family and blue appears exactly once. One list
+ * for both the defaults below and the Instellingen tint picker, so every
+ * room's colour is always one the picker can show as selected.
  */
-const TINT_BY_NAME: Record<string, string> = {
-  living: 'oklch(0.74 0.07 70)',
-  bureau: 'oklch(0.74 0.07 55)',
-  dressing: 'oklch(0.76 0.06 95)',
-  slaapkamer: 'oklch(0.62 0.10 300)',
-  clara: 'oklch(0.72 0.11 350)',
-  oliver: 'oklch(0.70 0.10 195)',
-  badkamer: 'oklch(0.72 0.09 230)',
-  waskot: 'oklch(0.70 0.09 245)',
-  toilet: 'oklch(0.74 0.08 215)',
+const PASTEL = {
+  coral: 'oklch(0.76 0.13 25)',
+  apricot: 'oklch(0.82 0.11 70)',
+  butter: 'oklch(0.87 0.13 100)',
+  mint: 'oklch(0.81 0.13 155)',
+  aqua: 'oklch(0.80 0.10 190)',
+  cornflower: 'oklch(0.72 0.12 262)',
+  lavender: 'oklch(0.74 0.12 305)',
+  bubblegum: 'oklch(0.78 0.12 350)',
 };
 
-/** Hues cycled through for areas the design did not name. */
-export const TINT_CYCLE = [
-  'oklch(0.74 0.07 70)',
-  'oklch(0.62 0.10 300)',
-  'oklch(0.72 0.11 350)',
-  'oklch(0.70 0.10 195)',
-  'oklch(0.72 0.09 230)',
-  'oklch(0.76 0.06 95)',
-];
+/** Picker order: the hue wheel, 4 × 2. */
+export const TINTS: string[] = Object.values(PASTEL);
+
+/**
+ * Defaults for the rooms we know by name — personal rooms distinct, wet rooms
+ * cool, dry rooms warm. Nine rooms, eight tints: the toilet shares the
+ * bathroom's aqua.
+ */
+const TINT_BY_NAME: Record<string, string> = {
+  living: PASTEL.apricot,
+  bureau: PASTEL.butter,
+  dressing: PASTEL.coral,
+  slaapkamer: PASTEL.lavender,
+  clara: PASTEL.bubblegum,
+  oliver: PASTEL.mint,
+  badkamer: PASTEL.aqua,
+  waskot: PASTEL.cornflower,
+  toilet: PASTEL.aqua,
+};
 
 export const DEFAULT_CONFIG: DashboardConfig = {
   favouriteAreas: [],
@@ -327,7 +345,7 @@ export function withDerivedDefaults(
   areas.forEach((area, index) => {
     if (areaTint[area.area_id]) return;
     const byName = TINT_BY_NAME[area.name.toLowerCase()];
-    areaTint[area.area_id] = byName ?? TINT_CYCLE[index % TINT_CYCLE.length]!;
+    areaTint[area.area_id] = byName ?? TINTS[index % TINTS.length]!;
   });
 
   // Default favourites: the first five areas that actually have something to show.

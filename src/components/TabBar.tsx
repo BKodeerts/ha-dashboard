@@ -2,10 +2,11 @@ import { Icon } from '../ui/Icon';
 import type { IconName } from '../ui/icons';
 
 /**
- * `meer` is the settings screen behind the gear. It is a view like any other —
- * it just has no tab of its own, so none of the three ever shows as active
- * while it is open. v7 dropped the Auto tab: it only ever rendered a title and
- * one line, and the laadpaal already shows up as an Energie load.
+ * `meer` is Instellingen. v8 gave it the fourth tab (the header gear is gone):
+ * the bar is part of the card, not HA chrome, so it stays reachable in kiosk
+ * mode — which is how kiosk mode gets switched off again. v7 dropped the Auto
+ * tab: it only ever rendered a title and one line, and the laadpaal already
+ * shows up as an Energie load.
  */
 export type Tab = 'home' | 'energie' | 'netwerk' | 'meer';
 
@@ -17,7 +18,7 @@ export interface TabBarState {
 }
 
 /**
- * Icons only; the label lives in `aria-label`. Two of the three say something
+ * Icons only; the label lives in `aria-label`. Two of the four say something
  * about the house regardless of which tab is selected: Energie shows the
  * direction the meter is running, and Netwerk warns while anything is silent.
  */
@@ -51,6 +52,7 @@ export function TabBar({
       label: state.stale ? 'Netwerk · stille apparaten' : 'Netwerk',
       ...(state.stale ? { tone: 'tabbar__item--stale', dot: true } : {}),
     },
+    { id: 'meer', icon: 'cog', label: 'Instellingen' },
   ];
 
   return (

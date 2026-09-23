@@ -73,8 +73,11 @@ export function App() {
   const minute = useMinute();
 
   const rootRef = useRef<HTMLDivElement>(null);
-  const scheme = useScheme(config.theme, backend);
-  useThemeAttribute(rootRef, scheme, config.palette);
+  // v8 dropped the Thema and Kleuren rows: the dashboard follows the HA
+  // theme. A stored `theme`/`palette` from before is ignored rather than
+  // honoured, since nothing in the UI could switch it back any more.
+  const scheme = useScheme('auto', backend);
+  useThemeAttribute(rootRef, scheme, 'ha');
   const width = useElementWidth(rootRef);
   const layout = useMemo(() => layoutFor(width), [width]);
 
@@ -114,7 +117,7 @@ export function App() {
 
   const closeSheet = useCallback(() => setSheet(null), []);
 
-  // Switching tab — or opening the gear — puts away whatever is floating over
+  // Switching tab puts away whatever is floating over
   // the screen: the open sheet, and the alarm chip's picker.
   const selectTab = useCallback((next: Tab) => {
     setTab(next);
@@ -132,7 +135,7 @@ export function App() {
   if (!registries) {
     return (
       <LayoutContext.Provider value={layout}>
-        <div className="app" ref={rootRef} data-theme={scheme} data-palette={config.palette}>
+        <div className="app" ref={rootRef} data-theme={scheme} data-palette="ha">
           <div className="centered">
             {status === 'disconnected' ? 'Verbinding verbroken' : 'Verbinden met Home Assistant…'}
           </div>
@@ -147,7 +150,7 @@ export function App() {
         className="app"
         ref={rootRef}
         data-theme={scheme}
-        data-palette={config.palette}
+        data-palette="ha"
         data-cols={layout.cols}
         data-split={layout.split ? '' : undefined}
         data-wide={layout.wide ? '' : undefined}
@@ -168,7 +171,6 @@ export function App() {
             people={people}
             onOpenWeather={() => setSheet({ kind: 'weather' })}
             onOpenPerson={(id) => setSheet({ kind: 'person', id })}
-            onOpenSettings={() => selectTab('meer')}
             tab={tab}
             openings={openings}
             onOpenOpenings={() => setSheet({ kind: 'openings' })}

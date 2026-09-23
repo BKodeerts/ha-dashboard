@@ -8,6 +8,7 @@ import { panelBackend, readSnapshot, standaloneBackend } from './ha/backend';
 import { HassProvider } from './ha/HassProvider';
 import { mockBackend } from './ha/mock';
 import type { HaBackend, HomeAssistant } from './ha/types';
+import { Icon } from './ui/Icon';
 import fontFaces from './ui/fonts.css?inline';
 import styles from './ui/styles.css?inline';
 
@@ -79,6 +80,7 @@ export class HaDashboardPanel extends HTMLElement {
   #backend: HaBackend | null = null;
   #panelConfig: ConfigLayer | undefined;
   #starting = false;
+  #preview = false;
   #darkMode: boolean | undefined;
   #darkModeListeners = new Set<(dark: boolean | undefined) => void>();
   #lastTouchY: number | null = null;
@@ -141,6 +143,32 @@ export class HaDashboardPanel extends HTMLElement {
     return { type: 'custom:ha-dashboard-panel' };
   }
 
+  /**
+   * Lovelace's edit mode. Every view sets `preview = lovelace.editMode` on its
+   * cards (`hui-view.ts`, `hui-panel-view.ts`), and `hui-card` mirrors it
+   * onto the legacy `editMode`. The "Edit card" dialog's preview sets it too.
+   *
+   * While it's on, the whole app gives way to a small label card: the
+   * full-viewport shell would otherwise cover the edit screen (see the
+   * `:host` height note in styles.css), and unmounting it drops every live
+   * subscription for as long as someone is rearranging the dashboard.
+   */
+  set preview(value: boolean) {
+    const next = Boolean(value);
+    if (next === this.#preview) return;
+    this.#preview = next;
+    this.toggleAttribute('data-preview', next);
+    this.#render();
+  }
+
+  get preview(): boolean {
+    return this.#preview;
+  }
+
+  set editMode(value: boolean) {
+    this.preview = value;
+  }
+
   set narrow(_value: boolean) {
     /* the layout is responsive on its own */
   }
@@ -195,6 +223,8 @@ export class HaDashboardPanel extends HTMLElement {
   };
 
   #onTouchMove = (event: TouchEvent): void => {
+    // The edit-mode label is a plain card in HA's own scrolling page.
+    if (this.#preview) return;
     const touch = event.touches.length === 1 ? event.touches[0] : undefined;
     if (!touch || this.#lastTouchY === null || this.#touchStartX === null || this.#touchStartY === null) return;
     const y = touch.clientY;
@@ -280,22 +310,44 @@ export class HaDashboardPanel extends HTMLElement {
             : await standaloneBackend();
 
       this.#backend = backend;
-
-      root.render(
-        <HassProvider
-          backend={backend}
-          initialEntities={readSnapshot() ?? undefined}
-          yamlConfig={this.#panelConfig}
-        >
-          <App />
-        </HassProvider>,
-      );
+      this.#render();
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       root.render(<div className="centered">Verbinden mislukt — {detail}</div>);
     } finally {
       this.#starting = false;
     }
+  }
+
+  /** The app, or — while Lovelace is in edit mode — the label that stands in for it. */
+  #render(): void {
+    const root = this.#root;
+    if (!root) return;
+    if (this.#preview) {
+      root.render(
+        <div className="edit-label">
+          <span className="edit-label__icon">
+            <Icon name="home" size={22} />
+          </span>
+          <span className="edit-label__names">
+            <span className="edit-label__name">HA Dashboard</span>
+            <span className="edit-label__note">verborgen tijdens het bewerken</span>
+          </span>
+        </div>,
+      );
+      return;
+    }
+    const backend = this.#backend;
+    if (!backend) return;
+    root.render(
+      <HassProvider
+        backend={backend}
+        initialEntities={readSnapshot() ?? undefined}
+        yamlConfig={this.#panelConfig}
+      >
+        <App />
+      </HassProvider>,
+    );
   }
 }
 

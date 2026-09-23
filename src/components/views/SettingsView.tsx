@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useLayout } from '../../app/layout';
-import { PALETTES, THEMES, TINT_CYCLE, weatherEntities } from '../../config/config';
+import { TINTS, weatherEntities } from '../../config/config';
 import { useHass } from '../../ha/HassProvider';
 import { friendlyName, type PersonInfo } from '../../ha/selectors';
+import { toggleInputBoolean } from '../../ha/services';
 import type { Room } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
 
@@ -43,13 +44,12 @@ function MoreRow({
   );
 }
 
-/** The next hue in `TINT_CYCLE` — the first one for a tint that isn't in it. */
-const nextTint = (tint: string): string =>
-  TINT_CYCLE[(TINT_CYCLE.indexOf(tint) + 1) % TINT_CYCLE.length]!;
+const DEFAULT_KIOSK_ENTITY = 'input_boolean.kiosk_mode';
 
 /**
- * One room in "Kamers sorteren": its tint (tap to cycle — v7 folded the old
- * "Tints per kamer" panel into these rows), its favourite star, and a way to
+ * One room in "Kamers sorteren": its tint (tap the dot for a picker — v7
+ * folded the old "Tints per kamer" panel into these rows, v8 swapped cycling
+ * for a popover), its favourite star, and a way to
  * move it. On a phone that is two arrows; from 760px it is dragging the row
  * by its grip, which HTML5 drag doesn't support on touch — so the arrows
  * stay the touch and keyboard path.
@@ -62,7 +62,9 @@ function OrderRow({
   canDown,
   onUp,
   onDown,
-  onTint,
+  tintOpen,
+  onTintToggle,
+  onTintPick,
   onFavourite,
   onDragStart,
   onDragOver,
@@ -75,7 +77,9 @@ function OrderRow({
   canDown: boolean;
   onUp(): void;
   onDown(): void;
-  onTint(): void;
+  tintOpen: boolean;
+  onTintToggle(): void;
+  onTintPick(tint: string): void;
   onFavourite(): void;
   onDragStart(event: DragEvent): void;
   onDragOver(event: DragEvent): void;
@@ -97,14 +101,36 @@ function OrderRow({
         <div className="order__name">{room.name}</div>
         <div className="order__id">{room.id}</div>
       </div>
-      <button
-        type="button"
-        className="order__btn order__btn--tint"
-        aria-label={`${room.name}: andere tint`}
-        onClick={onTint}
-      >
-        <span className="order__swatch" style={{ background: room.tint }} />
-      </button>
+      <div className="order__tint" data-tint-picker="">
+        <button
+          type="button"
+          className={`order__btn order__btn--tint${tintOpen ? ' order__btn--tint-open' : ''}`}
+          aria-label={`${room.name}: tint kiezen`}
+          aria-expanded={tintOpen}
+          onClick={onTintToggle}
+        >
+          <span className="order__swatch" style={{ background: room.tint }} />
+        </button>
+        {tintOpen && (
+          <div className="tint-picker" role="group" aria-label={`Tint voor ${room.name}`}>
+            {TINTS.map((tint) => {
+              const current = tint === room.tint;
+              return (
+                <button
+                  key={tint}
+                  type="button"
+                  className={`tint-picker__option${current ? ' tint-picker__option--on' : ''}`}
+                  aria-pressed={current}
+                  aria-label={tint}
+                  onClick={() => onTintPick(tint)}
+                >
+                  <span className="tint-picker__dot" style={{ background: tint }} />
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
       <button
         type="button"
         className={`order__btn order__btn--fav${room.favourite ? ' order__btn--fav-on' : ''}`}
@@ -141,10 +167,13 @@ function OrderRow({
 }
 
 /**
- * The gear view. Who you are (read-only — the account says so), who you
- * follow at the top of the home screen, the display odds and ends, and the
- * room order. From 760px it splits: the first three on the left, the room
- * order on the right.
+ * The fourth tab. Who you follow at the top of the home screen, kiosk mode,
+ * the odds and ends, and the room order. From 760px it splits: the first
+ * three on the left, the room order on the right.
+ *
+ * v8 dropped "Wie ben jij" (the account still decides who you are — see
+ * `currentPerson` — it just isn't shown) and the Thema/Kleuren rows: the
+ * dashboard follows the HA theme.
  */
 export function SettingsView({
   rooms,
@@ -155,9 +184,41 @@ export function SettingsView({
   persons: string[];
   me: PersonInfo;
 }) {
-  const { entities, config, updateConfig, resetConfig, user } = useHass();
+  const { entities, config, updateConfig, resetConfig, user, call } = useHass();
   const { split } = useLayout();
-  const [panel, setPanel] = useState<'weer' | 'thema' | 'kleuren' | 'opslag' | null>(null);
+  const [panel, setPanel] = useState<'weer' | 'opslag' | null>(null);
+  /** The area whose tint picker is open — one at a time. Switching tab
+   * unmounts this view, which closes it too. */
+  const [tintPicker, setTintPicker] = useState<string | null>(null);
+
+  // Any tap outside the open picker puts it away. Capture phase, so it runs
+  // before whatever the tap lands on. `composedPath`, not `event.target`: the
+  // dashboard lives in a shadow root, and the document only sees the host.
+  useEffect(() => {
+    if (!tintPicker) return;
+    const inPicker = (event: Event) =>
+      event
+        .composedPath()
+        .some((node) => node instanceof Element && node.hasAttribute('data-tint-picker'));
+    const onDown = (event: PointerEvent) => {
+      if (!inPicker(event)) setTintPicker(null);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      setTintPicker(null);
+    };
+    document.addEventListener('pointerdown', onDown, true);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [tintPicker]);
+
+  const kioskEntity = config.kioskEntity ?? DEFAULT_KIOSK_ENTITY;
+  const kioskOn = entities[kioskEntity]?.state === 'on';
+  const hasKiosk = entities[kioskEntity] !== undefined;
 
   const weathers = useMemo(() => weatherEntities(entities), [entities]);
 
@@ -257,7 +318,12 @@ export function SettingsView({
         canDown={index < group.length - 1}
         onUp={() => move(room.id, -1)}
         onDown={() => move(room.id, 1)}
-        onTint={() => updateConfig({ areaTint: { [room.id]: nextTint(room.tint) } })}
+        tintOpen={tintPicker === room.id}
+        onTintToggle={() => setTintPicker((open) => (open === room.id ? null : room.id))}
+        onTintPick={(tint) => {
+          updateConfig({ areaTint: { [room.id]: tint } });
+          setTintPicker(null);
+        }}
         onFavourite={() => toggleFavourite(room.id)}
         onDragStart={dragStart(room.id)}
         onDragOver={dragOver(room.id)}
@@ -266,36 +332,12 @@ export function SettingsView({
     ));
 
   const weatherLabel = config.weatherEntity ?? 'niet gekozen';
-  const themeLabel = THEMES.find((theme) => theme.value === config.theme)?.label ?? '';
-  const paletteLabel = PALETTES.find(({ value }) => value === config.palette)?.label ?? '';
   const followable = persons.filter((entityId) => entityId !== me.entityId);
 
   return (
     <div className="view">
       <div className="settings">
         <div className="settings__col">
-          {/* Not a setting. A household of five people has five accounts, and
-              asking each of them to pick themselves out of a list is a setting
-              that can be wrong; `hass.user` cannot. */}
-          <div className="settings__section">
-            <div className="settings__label">Wie ben jij</div>
-            <div className="me">
-              <span className="me__icon">
-                <Icon name="person" size={17} />
-              </span>
-              <div className="me__names">
-                <div className="me__name">{me.name}</div>
-                {me.entityId && <div className="me__id">{me.entityId}</div>}
-              </div>
-              <span className="me__badge">uit je account</span>
-            </div>
-            {!me.entityId && (
-              <div className="settings__note">
-                geen person met dit user_id — vul user_id in bij de persoon
-              </div>
-            )}
-          </div>
-
           <div className="settings__section">
             <div className="settings__label">Wie volg je bovenaan</div>
             <div className="radio-list" role="radiogroup" aria-label="Wie volg je bovenaan">
@@ -327,6 +369,30 @@ export function SettingsView({
             <div className="settings__note">tik nogmaals om niemand te volgen</div>
           </div>
 
+          {hasKiosk && (
+            <div className="settings__section">
+              <div className="settings__label">Scherm</div>
+              <button
+                type="button"
+                className="switch-row"
+                role="switch"
+                aria-checked={kioskOn}
+                onClick={() => void call(toggleInputBoolean(kioskEntity, entities))}
+              >
+                <span className="switch-row__names">
+                  <span className="switch-row__name">Kioskmodus</span>
+                  <span className="switch-row__id">{kioskEntity}</span>
+                </span>
+                <span className={`switch${kioskOn ? ' switch--on' : ''}`} />
+              </button>
+              <div className="settings__note">
+                {kioskOn
+                  ? 'HA-balk en zijmenu verborgen · deze tab blijft bereikbaar'
+                  : 'verbergt HA-balk en zijmenu op dit scherm'}
+              </div>
+            </div>
+          )}
+
           <div className="settings__section">
             <div className="settings__label">Overig</div>
 
@@ -356,52 +422,6 @@ export function SettingsView({
                 </div>
                 <div className="settings__note">
                   tik op het weerblok bovenaan voor de voorspelling
-                </div>
-              </MoreRow>
-
-              <MoreRow
-                name="Thema"
-                meta={themeLabel}
-                open={panel === 'thema'}
-                onTap={() => setPanel((current) => (current === 'thema' ? null : 'thema'))}
-              >
-                <div className="segmented">
-                  {THEMES.map(({ value, label }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={`segmented__option${config.theme === value ? ' segmented__option--on' : ''}`}
-                      aria-pressed={config.theme === value}
-                      onClick={() => updateConfig({ theme: value })}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </MoreRow>
-
-              <MoreRow
-                name="Kleuren"
-                meta={paletteLabel}
-                open={panel === 'kleuren'}
-                onTap={() => setPanel((current) => (current === 'kleuren' ? null : 'kleuren'))}
-              >
-                <div className="segmented">
-                  {PALETTES.map(({ value, label }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={`segmented__option${config.palette === value ? ' segmented__option--on' : ''}`}
-                      aria-pressed={config.palette === value}
-                      onClick={() => updateConfig({ palette: value })}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div className="settings__note">
-                  vlakken en tekst volgen het thema van Home Assistant; accent, tints en
-                  letters blijven van het ontwerp
                 </div>
               </MoreRow>
 
@@ -448,7 +468,7 @@ export function SettingsView({
               </>
             )}
             <div className="settings__note">
-              tik de stip om de tint te wisselen · ster = op home
+              tik de stip om een tint te kiezen · ster = op home
             </div>
           </div>
         </div>

@@ -416,6 +416,7 @@ function buildStates(globals: MockGlobals): HassEntities {
   // Three people, so "Wie volg je bovenaan" has more than one option to pick
   // between in its radio list. `user_id` on Bart is what makes him the
   // logged-in account — see MOCK_USER and `currentPerson`.
+  add(entity('input_boolean.kiosk_mode', 'off', { friendly_name: 'Kiosk mode' }));
   add(entity('person.bart', 'home', { friendly_name: 'Bart', user_id: MOCK_USER.id }, 45));
   add(entity('person.leen', globals.person, { friendly_name: 'Leen' }, 60));
   add(entity('person.nora', 'not_home', { friendly_name: 'Nora' }, 120));
@@ -678,7 +679,7 @@ export function mockBackend(): HaBackend {
     async callService(domain, service, data, target) {
       const ids = targetIds(target, data);
       for (const id of ids) {
-        if (domain === 'light' || domain === 'switch') {
+        if (domain === 'light' || domain === 'switch' || domain === 'input_boolean') {
           const dimmable = Array.isArray(states[id]?.attributes?.supported_color_modes)
             ? !(states[id]!.attributes!.supported_color_modes as string[]).includes('onoff')
             : true;

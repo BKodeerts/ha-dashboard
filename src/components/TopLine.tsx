@@ -15,9 +15,8 @@ import { AlarmChip } from './AlarmChip';
  * fills whatever height is left.
  *
  * Three rows, each free to breathe where v4 packed them into one:
- * 1. Date, then two 36px round buttons — settings and alarm. The alarm
- *    keeps its v4 picker; settings moved up here from the section row
- *    because a lone gear beside "Kamers" read as clutter.
+ * 1. Date, then the alarm's 36px round button with its v4 picker. (The
+ *    settings gear that sat beside it moved into the tab bar in v8.)
  * 2. Weather + person — the reading lost its v5 hero treatment (it is
  *    reference information, not the reason the screen exists) and shares
  *    the row with the one tracked person's chip, pushed to the far edge.
@@ -45,7 +44,6 @@ export function TopLine({
   people,
   onOpenWeather,
   onOpenPerson,
-  onOpenSettings,
   tab,
   openings,
   onOpenOpenings,
@@ -58,7 +56,6 @@ export function TopLine({
   people: PersonInfo[];
   onOpenWeather(): void;
   onOpenPerson(entityId: string): void;
-  onOpenSettings(): void;
   tab: Tab;
   openings: OpeningsSummary;
   onOpenOpenings(): void;
@@ -92,15 +89,6 @@ export function TopLine({
           <span className="header__date mono">{formatFullDate(new Date())}</span>
 
           <div className="header__buttons">
-            <button
-              type="button"
-              className="header__btn"
-              onClick={onOpenSettings}
-              aria-label="Instellingen"
-            >
-              <Icon name="cog" size={17} />
-            </button>
-
             <AlarmChip alarm={alarm} open={alarmPickerOpen} onOpenChange={onAlarmPickerChange} />
           </div>
         </div>
