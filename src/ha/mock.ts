@@ -71,7 +71,11 @@ interface MockQuiet {
   entityId: string;
   state: string;
   attributes: Record<string, unknown>;
-  battery?: number;
+  /**
+   * `'unavailable'`: the battery sensor went down with the device, the way a
+   * real one does — the row has to fall back to its last value in history.
+   */
+  battery?: number | 'unavailable';
   agoMin: number;
 }
 
@@ -118,6 +122,16 @@ const QUIET: MockQuiet[] = [
     state: 'unavailable',
     attributes: { friendly_name: 'Zigbee repeater LQI' },
     agoMin: 31 * 60,
+  },
+  {
+    device: 'dev_slaapkamer_dimmer',
+    name: 'Slaapkamer dimmer',
+    area: 'hal',
+    entityId: 'sensor.slaapkamer_dimmer_lqi',
+    state: 'unavailable',
+    attributes: { friendly_name: 'Slaapkamer dimmer LQI' },
+    battery: 'unavailable',
+    agoMin: 27 * 60,
   },
 ];
 

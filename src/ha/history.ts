@@ -78,6 +78,67 @@ export function clearHistoryCache(): void {
   cache.clear();
 }
 
+/* ── last known value ────────────────────────────────────────────────────
+   A device that drops off the network takes its battery sensor with it: the
+   live state goes `unavailable`, and HA keeps no "last good value" on the
+   state object. The recorder does, for as long as its retention (10 days by
+   default) reaches back — so ask it. */
+
+const LAST_KNOWN_LOOKBACK_MS = 30 * 24 * 3600e3;
+const LAST_KNOWN_TTL_MS = 30 * 60 * 1000;
+
+export interface LastKnown {
+  value: number;
+  /** When that value was recorded, in ms. */
+  at: number;
+}
+
+interface LastKnownEntry {
+  fetchedAt: number;
+  value: LastKnown | undefined;
+  promise?: Promise<LastKnown | undefined>;
+}
+
+const lastKnownCache = new Map<string, LastKnownEntry>();
+
+/**
+ * The most recent numeric state `entityId` had, or `undefined` when history
+ * holds none (retention ran out, or the entity was never recorded). Cached
+ * for half an hour — a silent device's last reading does not change.
+ */
+export async function fetchLastKnown(
+  backend: HaBackend,
+  entityId: string,
+): Promise<LastKnown | undefined> {
+  const now = Date.now();
+  const hit = lastKnownCache.get(entityId);
+  if (hit && now - hit.fetchedAt < LAST_KNOWN_TTL_MS) return hit.promise ?? hit.value;
+
+  const promise = backend
+    .sendMessagePromise<unknown>({
+      type: 'history/history_during_period',
+      start_time: new Date(now - LAST_KNOWN_LOOKBACK_MS).toISOString(),
+      end_time: new Date(now).toISOString(),
+      entity_ids: [entityId],
+      minimal_response: true,
+      no_attributes: true,
+    })
+    .then((payload) => {
+      const rows = parseHistoryTimed(payload, entityId);
+      const last = rows[rows.length - 1];
+      const value = last ? { value: last.value, at: last.time } : undefined;
+      lastKnownCache.set(entityId, { fetchedAt: Date.now(), value });
+      return value;
+    })
+    .catch(() => {
+      lastKnownCache.set(entityId, { fetchedAt: Date.now(), value: undefined });
+      return undefined;
+    });
+
+  lastKnownCache.set(entityId, { fetchedAt: now, value: hit?.value, promise });
+  return promise;
+}
+
 /* ── today, by the hour ──────────────────────────────────────────────────
    The energy tab's "today" chart needs each sample on the wall-clock hour it
    happened in, not just evenly spread across however many rows history
