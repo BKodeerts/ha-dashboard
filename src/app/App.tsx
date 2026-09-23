@@ -22,7 +22,8 @@ import {
   trackedPeople,
   weatherInfo,
 } from '../ha/selectors';
-import { collectStale } from '../ha/stale';
+import { collectStale, DISCONNECTED_SENSOR } from '../ha/stale';
+import { useSilentSince } from '../ha/useSilentSince';
 import { useScheme, useThemeAttribute } from '../ui/theme';
 import { LayoutContext, layoutFor, useElementWidth } from './layout';
 
@@ -87,12 +88,17 @@ export function App() {
     [registries, areaEntities, entities],
   );
 
+  const silentSince = useSilentSince(
+    backend,
+    entities,
+    config.staleDevicesEntity ?? DISCONNECTED_SENSOR,
+  );
   const stale = useMemo(
     () =>
       registries
-        ? collectStale(registries, entities, minute, config.staleDevicesEntity)
+        ? collectStale(registries, entities, minute, config.staleDevicesEntity, silentSince)
         : [],
-    [registries, entities, minute, config.staleDevicesEntity],
+    [registries, entities, minute, config.staleDevicesEntity, silentSince],
   );
 
   const alarm = useMemo(() => alarmInfo(entities, config), [entities, config]);

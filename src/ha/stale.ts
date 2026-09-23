@@ -1,3 +1,4 @@
+import type { SilentSince } from './history';
 import { friendlyName, toNumber } from './selectors';
 import type { HassEntities, HassEntity, Registries } from './types';
 
@@ -39,20 +40,99 @@ export interface StaleDevice {
   /** The flagged entity this row's silence is measured from. */
   entityId: string;
   silentMs: number;
-  battery?: number;
+  /** History ran out before the silence did: it is at least `silentMs`. */
+  silenceAtLeast?: boolean;
+  /**
+   * What the dashboard knows about how the device is powered. `mains` only
+   * means no battery entity was found on the device — HA has no positive
+   * "on mains" signal to read.
+   */
+  power: DevicePower;
 }
 
-const isBattery = (entityId: string, states: HassEntities): boolean =>
-  states[entityId]?.attributes?.device_class === 'battery' ||
-  (entityId.startsWith('sensor.') && entityId.endsWith('_battery'));
+/**
+ * - `mains`: the device has no battery entity at all.
+ * - `battery`: it has one. `percent` is the live reading when there is one;
+ *   `entityId` is the percentage sensor, so the view can fall back to its
+ *   last known value in history when the live state is `unavailable` — which
+ *   is exactly what a device that dropped off the network reports. `low`
+ *   comes from a `binary_sensor` battery-low entity, for devices that expose
+ *   no percentage.
+ */
+export type DevicePower =
+  | { kind: 'mains' }
+  | { kind: 'battery'; percent?: number; entityId?: string; low?: boolean };
 
-/** `6 d` / `31 u` / `12 min` — the v7 badge. Days from 48 h on. */
-export function formatSilence(ms: number): string {
+/**
+ * Judged per registry entry, not only per state: a disabled battery entity has
+ * no state, but its presence still says the device runs on a battery. Without
+ * a state the entity id's suffix is all there is to go on.
+ */
+function batteryDomain(entityId: string, states: HassEntities): 'sensor' | 'binary' | undefined {
+  const byClass = states[entityId]?.attributes?.device_class === 'battery';
+  if (entityId.startsWith('sensor.') && (byClass || entityId.endsWith('_battery'))) {
+    return 'sensor';
+  }
+  if (
+    entityId.startsWith('binary_sensor.') &&
+    (byClass || entityId.endsWith('_battery') || entityId.endsWith('_battery_low'))
+  ) {
+    return 'binary';
+  }
+  return undefined;
+}
+
+/**
+ * The device's battery, from every battery entity on it rather than the first
+ * one the registry happens to list. That first one used to be taken as-is,
+ * so a `binary_sensor.*_battery_low` (state `off`), a disabled sensor, or a
+ * sensor gone `unavailable` along with its device all read as "no battery" —
+ * and the row said `netstroom`.
+ */
+function powerOf(
+  deviceId: string,
+  registries: Registries,
+  states: HassEntities,
+): DevicePower {
+  const sensors: string[] = [];
+  const binaries: string[] = [];
+  for (const entry of registries.entities) {
+    if (entry.device_id !== deviceId) continue;
+    const domain = batteryDomain(entry.entity_id, states);
+    if (domain === 'sensor') sensors.push(entry.entity_id);
+    else if (domain === 'binary') binaries.push(entry.entity_id);
+  }
+  if (sensors.length === 0 && binaries.length === 0) return { kind: 'mains' };
+
+  const power: DevicePower = { kind: 'battery' };
+  // A sensor with a live reading wins; otherwise any sensor that has a state
+  // at all (a disabled one has none), so history has something to look up.
+  const live = sensors.find((id) => toNumber(states[id]?.state) !== undefined);
+  const entityId = live ?? sensors.find((id) => states[id]) ?? sensors[0];
+  if (entityId) {
+    power.entityId = entityId;
+    const percent = toNumber(states[entityId]?.state);
+    if (percent !== undefined) power.percent = percent;
+  }
+  const binary = binaries.find((id) => {
+    const state = states[id]?.state;
+    return state === 'on' || state === 'off';
+  });
+  if (binary) power.low = states[binary]!.state === 'on';
+  return power;
+}
+
+/**
+ * `6 d` / `31 u` / `12 min` — the v7 badge. Days from 48 h on. `atLeast`
+ * adds a `+` (`10+ d`) for a silence older than the history that measured it.
+ */
+export function formatSilence(ms: number, atLeast = false): string {
+  const plus = atLeast ? '+' : '';
   const minutes = Math.floor(ms / 60e3);
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return `${minutes}${plus} min`;
   const hours = Math.floor(ms / 3600e3);
-  if (hours < 48) return `${hours} u`;
-  return `${Math.floor(hours / 24)} d`;
+  if (hours < 48) return `${hours}${plus} u`;
+  return `${Math.floor(hours / 24)}${plus} d`;
 }
 
 /**
@@ -65,18 +145,50 @@ export function formatSilence(ms: number): string {
  */
 const AGO_PATTERN = /^(\d+)\s*([dw])\s*ago$/i;
 
-function silenceOf(entity: HassEntity, now: number): number {
+/**
+ * A "last seen" sensor (`device_class: timestamp`) carries the answer in its
+ * own state, and that survives a restart too.
+ */
+function lastSeenOf(entity: HassEntity): number | undefined {
+  if (entity.attributes?.device_class !== 'timestamp') return undefined;
+  const seen = Date.parse(entity.state);
+  return Number.isFinite(seen) ? seen : undefined;
+}
+
+/**
+ * Whether this tracker's silence has to come from history. The two state
+ * formats above already say how long it has been; everything else only has
+ * `last_changed`, which a restart resets.
+ */
+export function needsSilenceHistory(entity: HassEntity): boolean {
+  return !AGO_PATTERN.test(entity.state.trim()) && lastSeenOf(entity) === undefined;
+}
+
+function silenceOf(
+  entity: HassEntity,
+  now: number,
+  known: SilentSince | undefined,
+): { ms: number; atLeast: boolean } {
   const ago = AGO_PATTERN.exec(entity.state.trim());
   if (ago) {
     const amount = Number(ago[1]);
     const unitMs = ago[2]!.toLowerCase() === 'w' ? 7 * 24 * 3600e3 : 24 * 3600e3;
-    return amount * unitMs;
+    return { ms: amount * unitMs, atLeast: false };
   }
+  const seen = lastSeenOf(entity);
+  if (seen !== undefined) return { ms: Math.max(0, now - seen), atLeast: false };
+
   const changed = Date.parse(entity.last_changed);
-  return Number.isFinite(changed) ? Math.max(0, now - changed) : 0;
+  const live = Number.isFinite(changed) ? Math.max(0, now - changed) : 0;
+  // History can only push the silence further back than `last_changed`, never
+  // closer: whichever is longer is the truth.
+  if (known && now - known.since > live) {
+    return { ms: now - known.since, atLeast: known.atLeast };
+  }
+  return { ms: live, atLeast: false };
 }
 
-interface Group extends Omit<StaleDevice, 'battery'> {}
+interface Group extends Omit<StaleDevice, 'power'> {}
 
 /**
  * Turns `sensor.disconnected_devices`'s `entities` attribute into rows,
@@ -89,6 +201,8 @@ export function collectStale(
   states: HassEntities,
   now = Date.now(),
   sensorEntityId: string = DISCONNECTED_SENSOR,
+  /** From `fetchSilentSince`, per flagged entity id — see `useSilentSince`. */
+  silentSince: ReadonlyMap<string, SilentSince> = new Map(),
 ): StaleDevice[] {
   const flagged: unknown = states[sensorEntityId]?.attributes?.entities;
   if (!Array.isArray(flagged) || flagged.length === 0) return [];
@@ -113,7 +227,8 @@ export function collectStale(
 
     const key = device?.id ?? entityId;
     const areaId = entry?.area_id ?? device?.area_id ?? null;
-    const silentMs = silenceOf(state, now);
+    const silence = silenceOf(state, now, silentSince.get(entityId));
+    const silentMs = silence.ms;
 
     const existing = groups.get(key);
     if (existing && existing.silentMs >= silentMs) continue;
@@ -125,6 +240,7 @@ export function collectStale(
       entityId,
       silentMs,
     };
+    if (silence.atLeast) group.silenceAtLeast = true;
     if (areaId && areaName.has(areaId)) group.areaId = areaId;
     groups.set(key, group);
   }
@@ -132,16 +248,9 @@ export function collectStale(
   const stale: StaleDevice[] = [];
   for (const group of groups.values()) {
     const device = devices.get(group.key);
-    let battery: number | undefined;
-    if (device) {
-      const batteryEntry = registries.entities.find(
-        (entry) => entry.device_id === device.id && isBattery(entry.entity_id, states),
-      );
-      if (batteryEntry) battery = toNumber(states[batteryEntry.entity_id]?.state);
-    }
-    const row: StaleDevice = { ...group };
-    if (battery !== undefined) row.battery = battery;
-    stale.push(row);
+    // A device-less entity has nothing to look a battery up on.
+    const power = device ? powerOf(device.id, registries, states) : { kind: 'mains' as const };
+    stale.push({ ...group, power });
   }
 
   // Longest silence first — the most likely to actually be dead.

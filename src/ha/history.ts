@@ -78,6 +78,176 @@ export function clearHistoryCache(): void {
   cache.clear();
 }
 
+/* ── last known value ────────────────────────────────────────────────────
+   A device that drops off the network takes its battery sensor with it: the
+   live state goes `unavailable`, and HA keeps no "last good value" on the
+   state object. The recorder does, for as long as its retention (10 days by
+   default) reaches back — so ask it. */
+
+const LAST_KNOWN_LOOKBACK_MS = 30 * 24 * 3600e3;
+const LAST_KNOWN_TTL_MS = 30 * 60 * 1000;
+
+export interface LastKnown {
+  value: number;
+  /** When that value was recorded, in ms. */
+  at: number;
+}
+
+interface LastKnownEntry {
+  fetchedAt: number;
+  value: LastKnown | undefined;
+  promise?: Promise<LastKnown | undefined>;
+}
+
+const lastKnownCache = new Map<string, LastKnownEntry>();
+
+/**
+ * The most recent numeric state `entityId` had, or `undefined` when history
+ * holds none (retention ran out, or the entity was never recorded). Cached
+ * for half an hour — a silent device's last reading does not change.
+ */
+export async function fetchLastKnown(
+  backend: HaBackend,
+  entityId: string,
+): Promise<LastKnown | undefined> {
+  const now = Date.now();
+  const hit = lastKnownCache.get(entityId);
+  if (hit && now - hit.fetchedAt < LAST_KNOWN_TTL_MS) return hit.promise ?? hit.value;
+
+  const promise = backend
+    .sendMessagePromise<unknown>({
+      type: 'history/history_during_period',
+      start_time: new Date(now - LAST_KNOWN_LOOKBACK_MS).toISOString(),
+      end_time: new Date(now).toISOString(),
+      entity_ids: [entityId],
+      minimal_response: true,
+      no_attributes: true,
+    })
+    .then((payload) => {
+      const rows = parseHistoryTimed(payload, entityId);
+      const last = rows[rows.length - 1];
+      const value = last ? { value: last.value, at: last.time } : undefined;
+      lastKnownCache.set(entityId, { fetchedAt: Date.now(), value });
+      return value;
+    })
+    .catch(() => {
+      lastKnownCache.set(entityId, { fetchedAt: Date.now(), value: undefined });
+      return undefined;
+    });
+
+  lastKnownCache.set(entityId, { fetchedAt: now, value: hit?.value, promise });
+  return promise;
+}
+
+/* ── when a tracker actually went quiet ──────────────────────────────────
+   `last_changed` resets on every Home Assistant restart: the state object is
+   rebuilt, so a tracker that has been `unavailable` for nine days reads as
+   gone "since the reboot". The recorder still has the real transition, so
+   the Netwerk tab asks it instead. */
+
+const SILENCE_LOOKBACK_MS = 30 * 24 * 3600e3;
+
+/** States a restart can bounce a tracker through without it having talked. */
+const IN_BETWEEN = new Set(['unavailable', 'unknown']);
+
+export interface SilentSince {
+  /** When the current silence began, in ms. */
+  since: number;
+  /**
+   * The silence reaches back to the oldest row history still holds — the
+   * recorder's retention (10 days by default) cut it off, so the real
+   * silence is at least this long.
+   */
+  atLeast: boolean;
+}
+
+interface SilentSinceEntry {
+  value: SilentSince | undefined;
+  promise?: Promise<SilentSince | undefined>;
+}
+
+/**
+ * Keyed by entity *and* its `last_changed`: an answer holds for as long as
+ * the live state object does. A restart, or the device coming back and
+ * dropping off again, changes `last_changed` and so asks again — no TTL
+ * needed, and no risk of a stale "since" from an earlier outage.
+ */
+const silentSinceCache = new Map<string, SilentSinceEntry>();
+
+type StateRow = { state: string; time: number };
+
+function parseHistoryStates(payload: unknown, entityId: string): StateRow[] {
+  if (!payload || typeof payload !== 'object') return [];
+  const rows = (payload as Record<string, unknown>)[entityId];
+  if (!Array.isArray(rows)) return [];
+  const out: StateRow[] = [];
+  for (const row of rows as HistoryRow[]) {
+    const state = row.s ?? row.state;
+    if (typeof state === 'string' && typeof row.lu === 'number') {
+      out.push({ state, time: row.lu * 1000 });
+    }
+  }
+  return out;
+}
+
+/**
+ * Start of the trailing run of rows that are the current (silent) state, or
+ * `unavailable`/`unknown` around a restart. A connectivity sensor that reads
+ * `off` goes `off → unavailable → off` across a reboot; that is still one
+ * silence, not a fresh one.
+ */
+export function silentRunStart(rows: StateRow[], current: string): SilentSince | undefined {
+  let start: number | undefined;
+  let index = rows.length - 1;
+  for (; index >= 0; index -= 1) {
+    const { state, time } = rows[index]!;
+    if (state !== current && !IN_BETWEEN.has(state)) break;
+    start = time;
+  }
+  if (start === undefined) return undefined;
+  return { since: start, atLeast: index < 0 };
+}
+
+/**
+ * When `entityId` really went into its current state, looking past any
+ * restarts. `undefined` when history can't tell (not recorded, call failed)
+ * — the caller keeps using `last_changed` then.
+ */
+export async function fetchSilentSince(
+  backend: HaBackend,
+  entityId: string,
+  current: string,
+  lastChanged: string,
+): Promise<SilentSince | undefined> {
+  const key = `${entityId}@${lastChanged}`;
+  const hit = silentSinceCache.get(key);
+  if (hit) return hit.promise ?? hit.value;
+
+  const now = Date.now();
+  const promise = backend
+    .sendMessagePromise<unknown>({
+      type: 'history/history_during_period',
+      start_time: new Date(now - SILENCE_LOOKBACK_MS).toISOString(),
+      end_time: new Date(now).toISOString(),
+      entity_ids: [entityId],
+      minimal_response: true,
+      no_attributes: true,
+    })
+    .then((payload) => {
+      const value = silentRunStart(parseHistoryStates(payload, entityId), current);
+      silentSinceCache.set(key, { value });
+      return value;
+    })
+    .catch(() => {
+      // Not cached: a failed call is worth retrying on the next pass.
+      silentSinceCache.delete(key);
+      return undefined;
+    });
+
+  silentSinceCache.set(key, { value: undefined, promise });
+  return promise;
+}
+
 /* ── today, by the hour ──────────────────────────────────────────────────
    The energy tab's "today" chart needs each sample on the wall-clock hour it
    happened in, not just evenly spread across however many rows history
