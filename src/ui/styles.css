@@ -208,11 +208,10 @@
    * once "meer" grows it, both under the cap), and `.tabbar`'s `bottom: 0` is
    * measured against this box's edge, so any difference between those two
    * heights reads as the tab bar visibly moving. Pinning both ends removes
-   * that instead of merely bounding it. The one thing this gives up: a
-   * genuinely smaller real container (a card-editor preview) no longer wins
-   * over it and gets forced up to full height — an admin-only, momentary
-   * cosmetic cost against a bar that visibly jumps on every real dashboard
-   * view.
+   * that instead of merely bounding it. The one place that would hurt — a
+   * card-editor preview or an edit-mode grid forced to full height — never
+   * sees it: in edit mode the app is swapped for a label and
+   * `:host([data-preview])` lets go of the pair (see below).
    *
    * The `env(safe-area-inset-top)` subtracted below isn't for *our* content —
    * see `--header-top-pad` further down, which no longer uses it at all.
@@ -414,6 +413,62 @@
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+
+/*
+ * Lovelace edit mode (`preview`, see element.tsx): the app is swapped for a
+ * small label card, and the viewport pinning above lets go so the card sits
+ * at its natural height in the edit grid. HA's own card colours are read
+ * directly — `<App>` is what stamps our theme tokens, and it isn't mounted.
+ */
+:host([data-preview]),
+:host([data-preview]) .root {
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  background: transparent;
+}
+
+.edit-label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px 14px 14px;
+  border-radius: var(--ha-card-border-radius, 24px);
+  background: var(--ha-card-background, var(--card-background-color, #fbfaf7));
+  color: var(--primary-text-color, #111318);
+}
+
+.edit-label__icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--primary-text-color, #111318);
+  color: var(--ha-card-background, var(--card-background-color, #fbfaf7));
+}
+
+.edit-label__names {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.edit-label__name {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.edit-label__note {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--secondary-text-color, #8a877f);
 }
 
 *,

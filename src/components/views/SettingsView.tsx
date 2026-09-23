@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react';
 import { useLayout } from '../../app/layout';
-import { TINT_CHOICES, weatherEntities } from '../../config/config';
+import { TINTS, weatherEntities } from '../../config/config';
 import { useHass } from '../../ha/HassProvider';
 import { friendlyName, type PersonInfo } from '../../ha/selectors';
 import { toggleInputBoolean } from '../../ha/services';
@@ -113,7 +113,7 @@ function OrderRow({
         </button>
         {tintOpen && (
           <div className="tint-picker" role="group" aria-label={`Tint voor ${room.name}`}>
-            {TINT_CHOICES.map((tint) => {
+            {TINTS.map((tint) => {
               const current = tint === room.tint;
               return (
                 <button
