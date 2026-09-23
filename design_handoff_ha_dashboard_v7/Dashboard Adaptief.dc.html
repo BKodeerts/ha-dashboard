@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing:border-box; }
+  body { margin:0; background:#f0eeea; font-family:'Space Grotesk',system-ui,sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#111318; text-decoration:none; }
+  a:hover { color:oklch(0.62 0.13 250); }
+  @keyframes sheetUp { from { transform:translateY(101%); } to { transform:translateY(0); } }
+  @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+  @keyframes popIn { from { opacity:0; transform:scale(0.97); } to { opacity:1; transform:scale(1); } }
+</style>
+</helmet>
+
+<div data-shell="{{ uid }}" style="position:relative; width:100%; height:100%; min-height:560px; overflow:hidden; background:#f0eeea; color:#111318; display:flex; flex-direction:column">
+
+  <div style="position:absolute; top:0; left:0; right:0; z-index:1; background:#f0eeea; display:flex; flex-direction:column">
+    <div style="box-sizing:border-box; max-width:820px; width:100%; margin:0 auto">
+      <div style="display:flex; align-items:center; gap:8px; padding:8px 16px 0">
+        <span style="flex:1 1 auto; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#a8a49c">{{ dateLabel }}</span>
+        <div style="flex:0 0 auto; display:flex; align-items:center; gap:8px">
+          <div onClick="{{ openSettings }}" style="width:36px; height:36px; border-radius:50%; background:#e6e3dc; color:#57544e; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto" style-hover="background:#e2dfd8">
+            <svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"></path></svg>
+          </div>
+          <div style="position:relative; flex:0 0 auto">
+            <div onClick="{{ toggleAlarmPicker }}" title="{{ alarm.label }}" style="position:relative; width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; cursor:pointer; background: {{ alarm.bg }}; color: {{ alarm.fg }}">
+              <svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="{{ alarm.d }}"></path></svg>
+              <span style="position:absolute; top:1px; right:1px; width:8px; height:8px; border-radius:50%; background: {{ alarm.dot }}; border:2px solid #f0eeea"></span>
+            </div>
+            <sc-if value="{{ alarmPickerOpen }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute; right:0; top:44px; z-index:4; display:inline-flex; align-items:center; gap:2px; padding:5px; border-radius:24px; background:#fdfcfa; box-shadow:0 16px 34px -14px rgba(17,19,24,0.4), 0 0 0 1px rgba(17,19,24,0.06); animation:fadeIn 0.14s ease">
+                <sc-for list="{{ alarmModes }}" as="m" hint-placeholder-count="3">
+                  <div onClick="{{ m.onTap }}" style="height:38px; padding:0 13px; border-radius:19px; display:flex; align-items:center; cursor:pointer; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; text-transform:uppercase; white-space:nowrap; background: {{ m.bg }}; color: {{ m.fg }}">{{ m.label }}</div>
+                </sc-for>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:9px; padding:10px 16px 0">
+        <div onClick="{{ openWeather }}" style="display:flex; align-items:center; gap:9px; min-width:0; cursor:pointer; color:#111318">
+          <svg viewBox="0 0 24 24" style="width:20px; height:20px; display:block; flex:0 0 auto; fill:#b4afa5"><path d="M6,19A5,5 0 0,1 1,14A5,5 0 0,1 6,9C7,6.65 9.3,5 12,5C15.43,5 18.24,7.66 18.5,11.03L19,11A4,4 0 0,1 23,15A4,4 0 0,1 19,19H6M19,13H17V12A5,5 0 0,0 12,7C9.5,7 7.45,8.82 7.06,11.19C6.73,11.07 6.37,11 6,11A3,3 0 0,0 3,14A3,3 0 0,0 6,17H19A2,2 0 0,0 21,15A2,2 0 0,0 19,13Z"></path></svg>
+          <span style="flex:0 0 auto; font-size:22px; font-weight:400; letter-spacing:-0.03em; line-height:1">18,0°</span>
+          <span style="flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; color:#a8a49c">23 / 17</span>
+        </div>
+        <div onClick="{{ openPerson }}" style="flex:0 0 auto; margin-left:auto; display:flex; align-items:center; gap:8px; height:34px; padding:0 12px 0 3px; border-radius:17px; background:#e6e3dc; color:#3b3934; cursor:pointer">
+          <span style="flex:0 0 auto; width:28px; height:28px; border-radius:14px; background:#f0eeea; color:#57544e; display:flex; align-items:center; justify-content:center">
+            <svg viewBox="0 0 24 24" style="width:15px; height:15px; display:block; fill:currentColor"><path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"></path></svg>
+          </span>
+          <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.08em; text-transform:uppercase; white-space:nowrap">{{ zoneLabel }}</span>
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; min-height:44px; padding:16px 16px 0">
+        <span style="flex:1 1 auto; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.12em; text-transform:uppercase; color:#8a877f">{{ sectionLabel }}</span>
+        <sc-if value="{{ showWindowChip }}" hint-placeholder-val="{{ true }}">
+          <div onClick="{{ openOpenings }}" style="flex:0 0 auto; display:flex; align-items:center; gap:9px; height:38px; padding:0 13px; border-radius:19px; box-shadow:inset 0 0 0 1px oklch(0.84 0.05 45); font-size:14px; font-weight:500; letter-spacing:-0.01em; color:#57544e; white-space:nowrap; cursor:pointer">
+            <svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; flex:0 0 auto; fill:oklch(0.66 0.15 45)"><path d="M12,2C8,2 4,4 4,8V22H20V8C20,4 16,2 12,2M6,8H11V13H6V8M13,8H18V13H13V8M6,15H11V20H6V15M13,15H18V20H13V15Z"></path></svg>
+            {{ openLabel }}
+            <svg viewBox="0 0 24 24" style="width:15px; height:15px; display:block; flex:0 0 auto; fill:#a8a49c"><path d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"></path></svg>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0; padding-top:148px">
+
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex; flex-direction:column; flex:1 1 auto; min-height:0; overflow-y: {{ gridOverflow }}; overscroll-behavior:contain">
+        <div style="box-sizing:border-box; max-width:820px; width:100%; margin:0 auto; display:flex; flex-direction:column; flex: {{ gridAreaFlex }}; min-height:0; padding:18px 16px 96px">
+          <div style="display:grid; gap:12px; grid-template-columns: {{ cols }}; grid-auto-rows: {{ rowH }}; flex: {{ gridFlex }}; min-height:0; max-height: {{ gridMaxH }}">
+            <sc-for list="{{ rooms }}" as="r" hint-placeholder-count="6">
+              <div style="position:relative; overflow:hidden; display:flex; flex-direction:column; border-radius:24px; background:#fbfaf7">
+                <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background: {{ r.tint }}"></div>
+                <svg viewBox="0 0 24 24" style="position:absolute; right:24px; bottom:-10px; width:64px; height:64px; display:block; opacity:0.07; fill: {{ r.tint }}; pointer-events:none; z-index:0"><path d="{{ r.iconD }}"></path></svg>
+                <div style="position:absolute; z-index:2; top:12px; right:12px; display:flex; flex-direction:column; align-items:flex-end; gap:1px">
+                  <div onClick="{{ r.onLight }}" style="display:flex; align-items:center; gap:5px; padding:8px; cursor:pointer; user-select:none; color: {{ r.lightFg }}">
+                    <svg viewBox="0 0 24 24" style="width:16px; height:16px; display:block; fill:currentColor"><path d="M12,2A7,7 0 0,0 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H15A1,1 0 0,0 16,17V14.74C17.81,13.47 19,11.38 19,9A7,7 0 0,0 12,2M9,21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9V21Z"></path></svg>
+                  </div>
+                  <sc-for list="{{ r.glyphs }}" as="g" hint-placeholder-count="1">
+                    <div style="display:flex; align-items:center; gap:5px; padding:8px 8px 8px 4px; color: {{ g.fg }}">
+                      <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.02em; color: {{ g.noteFg }}">{{ g.note }}</span>
+                      <svg viewBox="0 0 24 24" style="width:16px; height:16px; display:block; fill:currentColor"><path d="{{ g.d }}"></path></svg>
+                    </div>
+                  </sc-for>
+                </div>
+                <div onClick="{{ r.onOpen }}" style="position:relative; z-index:1; flex:1; display:flex; flex-direction:column; justify-content:space-between; gap:12px; padding:20px 18px; cursor:pointer; text-align:left">
+                  <div style="font-size:15px; font-weight:500; letter-spacing:-0.015em; padding-right:44px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">{{ r.name }}</div>
+                  <div style="display:flex; flex-direction:column; gap:3px">
+                    <span style="font-size:28px; font-weight:400; letter-spacing:-0.035em; line-height:1">{{ r.temp }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#a8a49c">{{ r.hum }}</span>
+                  </div>
+                </div>
+              </div>
+            </sc-for>
+            <sc-if value="{{ hasFold }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ toggleOther }}" style="display:flex; align-items:center; justify-content:center; gap:7px; border-radius:24px; border:1px dashed #d8d4cc; color:#a8a49c; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; cursor:pointer" style-hover="background:#eae7e0">
+                {{ foldLabel }}
+                <svg viewBox="0 0 24 24" style="width:14px; height:14px; display:block; fill:currentColor"><path d="{{ foldIcon }}"></path></svg>
+              </div>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isEnergie }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain">
+        <div style="box-sizing:border-box; max-width:820px; width:100%; margin:0 auto; padding:0 16px 96px; display:grid; gap:12px; grid-template-columns: {{ energyCols }}; align-items:start">
+
+          <div style="min-width:0; display:flex; flex-direction:column; gap:12px">
+            <div style="background:#fbfaf7; border-radius:24px; padding:18px 18px 4px; display:flex; flex-direction:column">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px">
+                <div style="display:flex; flex-direction:column; gap:3px">
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#8a877f">Zon · nu</span>
+                  <div style="display:flex; align-items:baseline; gap:3px">
+                    <span style="font-size:28px; font-weight:400; letter-spacing:-0.035em; line-height:1">2.140</span>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#a8a49c">W</span>
+                  </div>
+                </div>
+                <div style="display:flex; flex-direction:column; align-items:flex-end; gap:5px; padding-top:4px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#a8a49c">
+                  <div><span style="color:#57544e">1.180 W</span> huis</div>
+                  <div><span style="color:oklch(0.44 0.11 150)">960 W</span> naar net</div>
+                </div>
+              </div>
+              <div style="position:relative; margin-top:10px">
+                <div style="position:absolute; top:0; right:0; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.04em; color:#a8a49c">0 – 3,2 kW</div>
+                <svg viewBox="0 0 280 92" preserveAspectRatio="none" style="width:100%; height: {{ chartH }}; display:block">
+                  <path d="{{ chart.solarArea }}" fill="oklch(0.72 0.13 60 / 0.16)"></path>
+                  <path d="{{ chart.useLine }}" fill="none" stroke="#b4afa5" stroke-width="1.3" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+                  <path d="{{ chart.forecastLine }}" fill="none" stroke="oklch(0.72 0.10 60)" stroke-width="1.2" stroke-dasharray="3,3" vector-effect="non-scaling-stroke"></path>
+                  <path d="{{ chart.solarLine }}" fill="none" stroke="oklch(0.62 0.14 60)" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+                  <line x1="{{ chart.nowX }}" y1="0" x2="{{ chart.nowX }}" y2="92" stroke="#c7c3ba" stroke-width="1" stroke-dasharray="2,3" vector-effect="non-scaling-stroke"></line>
+                  <circle cx="{{ chart.nowX }}" cy="{{ chart.nowY }}" r="2.6" fill="oklch(0.58 0.14 60)"></circle>
+                </svg>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.04em; color:#a8a49c; padding:6px 0 14px">
+                <span>00u</span><span>06u</span><span>12u</span><span>18u</span><span>24u</span>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:16px; padding:14px 0 16px; border-top:1px solid #ece9e3">
+                <div style="min-width:0; display:flex; flex-direction:column; gap:6px">
+                  <div style="display:flex; align-items:baseline; gap:6px">
+                    <span style="font-size:20px; font-weight:400; letter-spacing:-0.03em; line-height:1">64%</span>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; color:#57544e; white-space:nowrap">uit zon</span>
+                  </div>
+                  <div style="height:5px; border-radius:3px; background:oklch(0.68 0.13 250 / 0.18); overflow:hidden"><div style="height:5px; border-radius:3px; background:oklch(0.72 0.13 60); width:64%"></div></div>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#8a877f">van je verbruik · vandaag</span>
+                </div>
+                <div style="min-width:0; display:flex; flex-direction:column; gap:6px">
+                  <div style="display:flex; align-items:baseline; gap:6px">
+                    <span style="font-size:20px; font-weight:400; letter-spacing:-0.03em; line-height:1">58%</span>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; color:#57544e; white-space:nowrap">zelf gebruikt</span>
+                  </div>
+                  <div style="height:5px; border-radius:3px; background:oklch(0.70 0.12 150 / 0.22); overflow:hidden"><div style="height:5px; border-radius:3px; background:oklch(0.72 0.13 60); width:58%"></div></div>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:#8a877f">van je zonnestroom · vandaag</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="background:#fbfaf7; border-radius:24px; padding:18px; display:flex; flex-direction:column; gap:12px">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px">
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#8a877f">Vandaag per apparaat</span>
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; text-align:right; color: {{ trendHintFg }}">{{ trendHint }}</span>
+              </div>
+              <div style="position:relative">
+                <div style="position:absolute; top:-2px; right:0; font-family:'IBM Plex Mono',monospace; font-size:9px; letter-spacing:0.04em; color:#a8a49c">0 – 3,7 kW</div>
+                <svg viewBox="0 0 280 44" preserveAspectRatio="none" style="width:100%; height: {{ trendH }}; display:block">
+                  <sc-for list="{{ trendLines }}" as="l" hint-placeholder-count="4">
+                    <path d="{{ l.path }}" fill="none" stroke="{{ l.color }}" stroke-width="{{ l.sw }}" stroke-opacity="{{ l.op }}" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+                  </sc-for>
+                </svg>
+              </div>
+            </div>
+          </div>
+
+          <div style="min-width:0; display:flex; flex-direction:column">
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#8a877f; padding:4px 2px 4px">Apparaten nu</span>
+            <sc-for list="{{ devRows }}" as="d" hint-placeholder-count="5">
+              <div onClick="{{ d.onTap }}" style="display:flex; align-items:center; gap:12px; min-height:48px; padding:0 10px; border-radius:14px; cursor: {{ d.cursor }}; background: {{ d.bg }}">
+                <span style="width:10px; height:10px; border-radius:50%; flex:0 0 auto; background: {{ d.dot }}; box-shadow: inset 0 0 0 1.5px {{ d.ring }}"></span>
+                <span style="flex:1; min-width:0; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color: {{ d.fg }}">{{ d.n }}</span>
+                <span style="flex:0 0 auto; white-space:nowrap; font-family:'IBM Plex Mono',monospace; font-size:13px; color: {{ d.wfg }}">{{ d.w }} W</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isNetwerk }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain">
+        <div style="box-sizing:border-box; max-width:820px; width:100%; margin:0 auto; padding:0 16px 96px; display:flex; flex-direction:column; gap:14px">
+          <div style="display:flex; flex-direction:column; gap:4px">
+            <div style="font-size:22px; font-weight:500; letter-spacing:-0.02em">Stille apparaten</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#8a877f">{{ staleSub }}</div>
+          </div>
+          <div style="column-gap:12px; column-count: {{ netColCount }}">
+            <sc-for list="{{ staleGroups }}" as="g" hint-placeholder-count="3">
+              <div style="box-sizing:border-box; width:100%; break-inside:avoid; margin-bottom:12px; position:relative; overflow:hidden; border-radius:24px; background:#fbfaf7; padding:14px 16px 4px 20px; display:flex; flex-direction:column">
+                <div style="position:absolute; left:0; top:0; bottom:0; width:4px; background: {{ g.tint }}"></div>
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding-bottom:6px">
+                  <span style="font-size:15px; font-weight:500; letter-spacing:-0.015em">{{ g.name }}</span>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">{{ g.count }}</span>
+                </div>
+                <sc-for list="{{ g.rows }}" as="d" hint-placeholder-count="1">
+                  <div style="display:flex; align-items:center; gap:12px; min-height:52px; padding:8px 0; border-top:1px solid #ece9e3">
+                    <div style="flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px">
+                      <span style="font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ d.n }}</span>
+                      <span style="display:flex; align-items:center; gap:4px; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.02em; color: {{ d.batFg }}">
+                        <sc-if value="{{ d.hasBat }}" hint-placeholder-val="{{ true }}">
+                          <svg viewBox="0 0 24 24" style="width:12px; height:12px; display:block; fill:currentColor"><path d="M16,20H8V6H16M16.67,4H15V2H9V4H7.33A1.33,1.33 0 0,0 6,5.33V20.67C6,21.4 6.6,22 7.33,22H16.67A1.33,1.33 0 0,0 18,20.67V5.33C18,4.6 17.4,4 16.67,4Z"></path></svg>
+                        </sc-if>{{ d.meta }}
+                      </span>
+                    </div>
+                    <span style="flex:0 0 auto; height:26px; padding:0 10px; border-radius:13px; display:flex; align-items:center; font-family:'IBM Plex Mono',monospace; font-size:11px; background: {{ d.badgeBg }}; color: {{ d.badgeFg }}">{{ d.silence }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-for>
+          </div>
+          <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">amber = meer dan 48 u stil, of batterij onder 15%</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isMeer }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain">
+        <div style="box-sizing:border-box; max-width:820px; width:100%; margin:0 auto; padding:0 16px 96px; display:grid; gap:24px; grid-template-columns: {{ meerCols }}; align-items:start">
+
+          <div style="min-width:0; display:flex; flex-direction:column; gap:22px">
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#8a877f">Wie ben jij</span>
+              <div style="display:flex; align-items:center; gap:12px; min-height:56px; padding:0 14px; border-radius:18px; background:#fbfaf7">
+                <span style="flex:0 0 auto; width:32px; height:32px; border-radius:16px; background:#eae7e0; color:#57544e; display:flex; align-items:center; justify-content:center">
+                  <svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"></path></svg>
+                </span>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                  <span style="font-size:15px; font-weight:500">Jij</span>
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">person.jij</span>
+                </div>
+                <span style="flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:#8a877f; padding:5px 9px; border-radius:10px; background:#eae7e0">uit je account</span>
+              </div>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#8a877f">Wie volg je bovenaan</span>
+              <div style="display:flex; flex-direction:column; gap:4px">
+                <sc-for list="{{ persons }}" as="p" hint-placeholder-count="2">
+                  <div onClick="{{ p.onTap }}" style="display:flex; align-items:center; gap:12px; min-height:52px; padding:0 14px; border-radius:16px; cursor:pointer; background: {{ p.bg }}">
+                    <span style="flex:0 0 auto; width:16px; height:16px; border-radius:50%; box-shadow: inset 0 0 0 {{ p.ringW }} {{ p.ring }}"></span>
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                      <span style="font-size:14px; font-weight:500">{{ p.name }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">{{ p.id }}</span>
+                    </div>
+                    <span style="flex:0 0 auto; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:#8a877f">{{ p.state }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">tik nogmaals om niemand te volgen</span>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px">
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#8a877f">Overig</span>
+              <div style="display:flex; flex-direction:column; border-radius:18px; background:#fbfaf7; overflow:hidden">
+                <sc-for list="{{ moreRows }}" as="m" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:12px; min-height:54px; padding:0 10px 0 14px; border-top: {{ m.border }}; cursor:pointer" style-hover="background:#f4f2ee">
+                    <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                      <span style="font-size:14px; font-weight:500">{{ m.name }}</span>
+                      <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">{{ m.meta }}</span>
+                    </div>
+                    <svg viewBox="0 0 24 24" style="width:18px; height:18px; display:block; fill:#b4afa5; flex:0 0 auto"><path d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"></path></svg>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c; text-decoration:underline; cursor:pointer; padding-top:6px">standaardwaarden herstellen</span>
+            </div>
+          </div>
+
+          <div style="min-width:0; display:flex; flex-direction:column; gap:8px">
+            <div style="display:flex; align-items:baseline; justify-content:space-between; gap:8px">
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#8a877f">Kamers sorteren</span>
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">{{ orderHint }}</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <sc-for list="{{ favRows }}" as="r" hint-placeholder-count="6">
+                <div draggable="{{ dragOn }}" onDragStart="{{ r.onDragStart }}" onDragOver="{{ r.onDragOver }}" onDrop="{{ r.onDrop }}" onDragEnd="{{ r.onDragEnd }}" style="display:flex; align-items:center; gap:2px; min-height:52px; padding:0 4px 0 12px; border-radius:16px; background: {{ r.bg }}; opacity: {{ r.op }}">
+                  <sc-if value="{{ wideOrder }}" hint-placeholder-val="{{ true }}">
+                    <svg viewBox="0 0 24 24" style="width:16px; height:16px; display:block; flex:0 0 auto; fill:#b4afa5; margin-right:8px; cursor:grab"><path d="M9,3H11V5H9V3M13,3H15V5H13V3M9,7H11V9H9V7M13,7H15V9H13V7M9,11H11V13H9V11M13,11H15V13H13V11M9,15H11V17H9V15M13,15H15V17H13V15M9,19H11V21H9V19M13,19H15V21H13V19Z"></path></svg>
+                  </sc-if>
+                  <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                    <span style="font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">{{ r.id }}</span>
+                  </div>
+                  <div onClick="{{ r.onTint }}" title="tint wisselen" style="width:40px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto">
+                    <span style="width:18px; height:18px; border-radius:50%; background: {{ r.tint }}"></span>
+                  </div>
+                  <div onClick="{{ r.onFav }}" style="width:40px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; color: {{ r.starFg }}">
+                    <svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg>
+                  </div>
+                  <sc-if value="{{ narrowOrder }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ r.onUp }}" style="width:36px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; color: {{ r.upFg }}"><svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z"></path></svg></div>
+                    <div onClick="{{ r.onDown }}" style="width:36px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; color: {{ r.downFg }}"><svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"></path></svg></div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.1em; text-transform:uppercase; color:#8a877f; padding-top:10px">Niet op home</span>
+            <div style="display:flex; flex-direction:column; gap:4px">
+              <sc-for list="{{ otherRows }}" as="r" hint-placeholder-count="2">
+                <div draggable="{{ dragOn }}" onDragStart="{{ r.onDragStart }}" onDragOver="{{ r.onDragOver }}" onDrop="{{ r.onDrop }}" onDragEnd="{{ r.onDragEnd }}" style="display:flex; align-items:center; gap:2px; min-height:52px; padding:0 4px 0 12px; border-radius:16px; background: {{ r.bg }}; opacity: {{ r.op }}">
+                  <sc-if value="{{ wideOrder }}" hint-placeholder-val="{{ true }}">
+                    <svg viewBox="0 0 24 24" style="width:16px; height:16px; display:block; flex:0 0 auto; fill:#b4afa5; margin-right:8px; cursor:grab"><path d="M9,3H11V5H9V3M13,3H15V5H13V3M9,7H11V9H9V7M13,7H15V9H13V7M9,11H11V13H9V11M13,11H15V13H13V11M9,15H11V17H9V15M13,15H15V17H13V15M9,19H11V21H9V19M13,19H15V21H13V19Z"></path></svg>
+                  </sc-if>
+                  <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:2px">
+                    <span style="font-size:14px; font-weight:500; color:#57544e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ r.name }}</span>
+                    <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">{{ r.id }}</span>
+                  </div>
+                  <div onClick="{{ r.onTint }}" title="tint wisselen" style="width:40px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto">
+                    <span style="width:18px; height:18px; border-radius:50%; background: {{ r.tint }}"></span>
+                  </div>
+                  <div onClick="{{ r.onFav }}" style="width:40px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; color: {{ r.starFg }}">
+                    <svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="M12,17.27L18.18,21L16.54,13.97L22,9.24L14.81,8.62L12,2L9.19,8.62L2,9.24L7.45,13.97L5.82,21L12,17.27Z"></path></svg>
+                  </div>
+                  <sc-if value="{{ narrowOrder }}" hint-placeholder-val="{{ false }}">
+                    <div onClick="{{ r.onUp }}" style="width:36px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; color: {{ r.upFg }}"><svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z"></path></svg></div>
+                    <div onClick="{{ r.onDown }}" style="width:36px; height:44px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex:0 0 auto; color: {{ r.downFg }}"><svg viewBox="0 0 24 24" style="width:17px; height:17px; display:block; fill:currentColor"><path d="M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z"></path></svg></div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </div>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c; padding-top:4px">tik de stip om de tint te wisselen · ster = op home</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <div style="position:absolute; left:0; right:0; bottom:0; z-index:3; display:flex; justify-content:center; padding:0 16px 16px; pointer-events:none">
+    <div style="width:100%; max-width:340px; height:64px; display:flex; align-items:center; gap:4px; padding:0 6px; border-radius:22px; background:#111318; pointer-events:auto; box-shadow: {{ navShadow }}">
+      <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+        <div onClick="{{ t.onTap }}" title="{{ t.label }}" style="position:relative; flex:1; height:52px; border-radius:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; background: {{ t.bg }}; color: {{ t.fg }}">
+          <svg viewBox="0 0 24 24" style="width:24px; height:24px; display:block; fill:currentColor"><path d="{{ t.d }}"></path></svg>
+          <sc-if value="{{ t.dot }}" hint-placeholder-val="{{ false }}">
+            <span style="position:absolute; top:11px; right:calc(50% - 17px); width:9px; height:9px; border-radius:50%; background:oklch(0.62 0.16 40); border:2px solid {{ t.dotBorder }}"></span>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ sheetOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; inset:0; z-index:2; background:rgba(17,19,24,0.28); animation:fadeIn 0.18s ease; display:flex; align-items: {{ sheetAlign }}; justify-content:center; padding: {{ sheetPad }}">
+      <div onClick="{{ closeSheet }}" style="position:absolute; inset:0"></div>
+      <div style="position:relative; width:100%; max-width: {{ sheetMaxW }}; max-height:100%; overflow-y:auto; background:#f6f4f0; border-radius:28px; padding:18px 18px 20px; display:flex; flex-direction:column; gap:14px; animation: {{ sheetAnim }}; box-shadow:0 22px 52px -22px rgba(17,19,24,0.4)">
+        <div style="display:flex; align-items:center; gap:12px">
+          <div style="width:4px; height:40px; border-radius:2px; flex:0 0 auto; background: {{ sheet.tint }}"></div>
+          <div style="flex:1; min-width:0">
+            <div style="font-size:20px; font-weight:500; letter-spacing:-0.015em">{{ sheet.name }}</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:#8a877f; margin-top:4px">{{ sheet.meta }}</div>
+          </div>
+          <div onClick="{{ closeSheet }}" style="width:44px; height:44px; border-radius:50%; background:#e6e3dc; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#57544e; flex:0 0 auto"><svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"></path></svg></div>
+        </div>
+        <div style="display:flex; align-items:flex-end; gap:10px; background:#fbfaf7; border-radius:16px; padding:12px 14px">
+          <svg viewBox="0 0 100 24" preserveAspectRatio="none" style="flex:1; height:44px; display:block">
+            <polyline points="{{ sheet.spark }}" fill="none" stroke="{{ sheet.tint }}" strokeWidth="1.6" vectorEffect="non-scaling-stroke" strokeLinejoin="round"></polyline>
+          </svg>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; gap:3px; font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.05em; text-transform:uppercase; color:#a8a49c; flex:0 0 auto">
+            <span style="color:#57544e">{{ sheet.hi }}</span><span>{{ sheet.lo }}</span><span>24 u</span>
+          </div>
+        </div>
+        <sc-for list="{{ sheet.lights }}" as="l" hint-placeholder-count="2">
+          <div onClick="{{ l.onTap }}" style="position:relative; overflow:hidden; height:54px; border-radius:16px; background:#eae7e0; cursor:pointer; user-select:none">
+            <div style="position:absolute; left:0; top:0; bottom:0; width: {{ l.fillW }}; background:oklch(0.72 0.13 60 / 0.55)"></div>
+            <div style="position:relative; height:100%; padding:0 16px; display:flex; align-items:center; gap:12px">
+              <span style="font-size:15px; font-weight:500; flex:1; min-width:0">{{ l.name }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.08em; text-transform:uppercase; color:#57544e">{{ l.kind }}</span>
+              <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; text-transform:uppercase; color:#57544e">{{ l.label }}</span>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ wxOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute; inset:0; z-index:2; background:rgba(17,19,24,0.28); animation: {{ wxFade }}; display:flex; align-items: {{ sheetAlign }}; justify-content:center; padding: {{ sheetPad }}">
+      <div onClick="{{ closeWx }}" style="position:absolute; inset:0"></div>
+      <div style="box-sizing:border-box; position:relative; width:100%; max-width: {{ wxMaxW }}; max-height:100%; overflow-y:auto; background:#f6f4f0; border-radius:28px; padding:18px 18px 16px; display:flex; flex-direction:column; gap:16px; animation: {{ wxAnim }}; box-shadow:0 22px 52px -22px rgba(17,19,24,0.4)">
+        <div style="display:flex; align-items:center; gap:12px">
+          <div style="flex:0 0 auto; width:40px; height:40px; border-radius:12px; background:#eae7e0; color:#57544e; display:flex; align-items:center; justify-content:center">
+            <svg viewBox="0 0 24 24" style="width:19px; height:19px; display:block; fill:currentColor"><path d="M6,19A5,5 0 0,1 1,14A5,5 0 0,1 6,9C7,6.65 9.3,5 12,5C15.43,5 18.24,7.66 18.5,11.03L19,11A4,4 0 0,1 23,15A4,4 0 0,1 19,19H6M19,13H17V12A5,5 0 0,0 12,7C9.5,7 7.45,8.82 7.06,11.19C6.73,11.07 6.37,11 6,11A3,3 0 0,0 3,14A3,3 0 0,0 6,17H19A2,2 0 0,0 21,15A2,2 0 0,0 19,13Z"></path></svg>
+          </div>
+          <div style="flex:1; min-width:0">
+            <div style="font-size:20px; font-weight:500; letter-spacing:-0.015em">Thuis</div>
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c; margin-top:4px">weather.kmi_thuis · bijgewerkt 13:52</div>
+          </div>
+          <div onClick="{{ closeWx }}" style="width:44px; height:44px; border-radius:50%; background:#e6e3dc; display:flex; align-items:center; justify-content:center; cursor:pointer; color:#57544e; flex:0 0 auto"><svg viewBox="0 0 24 24" style="width:16px; height:16px; fill:currentColor"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"></path></svg></div>
+        </div>
+
+        <div style="display:flex; align-items:center; gap:14px">
+          <span style="flex:0 0 auto; font-size:44px; font-weight:400; letter-spacing:-0.04em; line-height:1">18,0°</span>
+          <div style="flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:4px">
+            <span style="font-size:15px; font-weight:500">Bewolkt</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:#8a877f">voelt als 17,2° · 78 % rv</span>
+          </div>
+          <div style="flex:0 0 auto; display:flex; flex-direction:column; align-items:flex-end; gap:4px">
+            <span style="font-size:15px">23° / 17°</span>
+            <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; color:oklch(0.45 0.10 250)">regen vanaf 16 u</span>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:4px; padding:4px; border-radius:16px; background:#eae7e0">
+          <div onClick="{{ setWxDag }}" style="flex:1; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px; font-weight:500; background: {{ tabDagBg }}; color: {{ tabDagFg }}">Komende 24u</div>
+          <div onClick="{{ setWxWeek }}" style="flex:1; height:36px; border-radius:12px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:14px; font-weight:500; background: {{ tabWeekBg }}; color: {{ tabWeekFg }}">Week</div>
+        </div>
+
+        <sc-if value="{{ wxDag }}" hint-placeholder-val="{{ true }}">
+          <div style="display:grid; gap:16px; grid-template-columns: {{ wxCols }}; align-items:start">
+            <div style="min-width:0; display:flex; flex-direction:column; gap:8px">
+              <div style="display:flex; flex-wrap:wrap; gap:12px; font-family:'IBM Plex Mono',monospace; font-size:10px; color:#6e6b64">
+                <span style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:2px; background:oklch(0.60 0.13 45)"></span>temperatuur</span>
+                <span style="display:flex; align-items:center; gap:6px"><span style="width:12px; height:0; border-top:2px dashed #b4afa5"></span>voelt als</span>
+                <span style="display:flex; align-items:center; gap:6px"><span style="width:8px; height:8px; border-radius:2px; background:oklch(0.68 0.10 250 / 0.55)"></span>neerslag mm</span>
+              </div>
+              <div style="position:relative">
+                <svg viewBox="0 0 350 138" style="width:100%; height:auto; display:block">
+                  <path d="{{ wx.grid }}" fill="none" stroke="#e2dfd8" stroke-width="1"></path>
+                  <sc-for list="{{ wx.labels }}" as="g" hint-placeholder-count="5">
+                    <text x="2" y="{{ g.y }}" fill="#a8a49c" font-size="8" font-family="IBM Plex Mono, monospace">{{ g.label }}</text>
+                  </sc-for>
+                  <path d="{{ wx.rain }}" fill="oklch(0.68 0.10 250 / 0.55)"></path>
+                  <path d="{{ wx.now }}" stroke="#c7c3ba" stroke-width="1" stroke-dasharray="2,3"></path>
+                  <path d="{{ wx.area }}" fill="oklch(0.72 0.13 60 / 0.14)"></path>
+                  <path d="{{ wx.app }}" fill="none" stroke="#b4afa5" stroke-width="1.3" stroke-dasharray="3,3"></path>
+                  <path d="{{ wx.temp }}" fill="none" stroke="oklch(0.60 0.13 45)" stroke-width="1.8" stroke-linejoin="round"></path>
+                  <circle cx="{{ wx.dotX }}" cy="{{ wx.dotY }}" r="4" fill="oklch(0.60 0.13 45)" stroke="#f6f4f0" stroke-width="2"></circle>
+                </svg>
+                <div style="position:relative; height:14px">
+                  <sc-for list="{{ wx.ticks }}" as="t" hint-placeholder-count="8">
+                    <span style="position:absolute; top:0; transform:translateX(-50%); font-family:'IBM Plex Mono',monospace; font-size:9px; color:#a8a49c; left: {{ t.left }}">{{ t.label }}</span>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+            <div style="min-width:0; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px">
+              <sc-for list="{{ wxMetrics }}" as="m" hint-placeholder-count="8">
+                <div style="display:flex; flex-direction:column; gap:3px; padding:10px 12px; border-radius:14px; background:#fbfaf7">
+                  <span style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:#8a877f">{{ m.k }}</span>
+                  <span style="font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis">{{ m.v }}</span>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ wxWeekOn }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex; flex-direction:column">
+            <sc-for list="{{ wxWeek }}" as="d" hint-placeholder-count="7">
+              <div style="display:grid; grid-template-columns:34px 22px 28px minmax(40px, 1fr) 28px minmax(72px, auto); align-items:center; gap:10px; min-height:44px; border-top:1px solid #e2dfd8">
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:0.06em; color: {{ d.dayFg }}">{{ d.day }}</span>
+                <svg viewBox="0 0 24 24" style="width:20px; height:20px; display:block; fill:#8a877f"><path d="{{ d.icon }}"></path></svg>
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8a877f; text-align:right">{{ d.lo }}</span>
+                <div style="position:relative; height:6px; border-radius:3px; background:#eae7e0">
+                  <div style="position:absolute; top:0; bottom:0; border-radius:3px; background:oklch(0.72 0.13 60); left: {{ d.left }}; width: {{ d.width }}"></div>
+                </div>
+                <span style="font-size:14px">{{ d.hi }}</span>
+                <span style="font-family:'IBM Plex Mono',monospace; font-size:11px; text-align:right; color: {{ d.rainFg }}">{{ d.rain }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:0.04em; color:#a8a49c">{{ wxFoot }}</div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;home&quot;,&quot;energie&quot;,&quot;netwerk&quot;,&quot;meer&quot;],&quot;default&quot;:&quot;home&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;sheet&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;kamer&quot;,&quot;weer&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;dev&quot;:{&quot;editor&quot;:null,&quot;default&quot;:null,&quot;tsType&quot;:&quot;string&quot;}}">
+const ICONS = {
+  couch: 'M4,15V11A2,2 0 0,1 6,9V6A2,2 0 0,1 8,4H16A2,2 0 0,1 18,6V9A2,2 0 0,1 20,11V15A2,2 0 0,1 21,17V20H19V18H5V20H3V17A2,2 0 0,1 4,15M8,6V9H16V6H8M6,11V15H18V11H6Z',
+  bed: 'M20,10H4V6H20M20,13H13V11H20M11,13H4V11H11M22,17V15A2,2 0 0,0 20,13H13V15H4A2,2 0 0,0 2,17V6A2,2 0 0,0 4,4H20A2,2 0 0,1 22,6M22,17V20H20V19H4V20H2V17H22Z',
+  desk: 'M4,4H20V6H4V4M4,8H20V10H4V8M6,12H8V20H6V12M16,12H18V20H16V12Z',
+  kitchen: 'M3,2H21A1,1 0 0,1 22,3V21A1,1 0 0,1 21,22H3A1,1 0 0,1 2,21V3A1,1 0 0,1 3,2M4,4V11H20V4H4M4,13V20H20V13H4M6,6H9V9H6V6M6,15H9V18H6V15Z',
+  bath: 'M7,3A3,3 0 0,1 10,6A3,3 0 0,1 7,9A3,3 0 0,1 4,6A3,3 0 0,1 7,3M21,11V13H3V11H21M5,15H19V19A2,2 0 0,1 17,21H7A2,2 0 0,1 5,19V15Z',
+  garage: 'M19,20H17V11H7V20H5V9L12,5L19,9M8,12H16V13H8M8,14H16V15H8M8,16H16V17H8Z',
+  attic: 'M12,3L2,12H5V20H19V12H22M12,7.7L17,12V18H7V12',
+  tree: 'M11,21V17.5C7.5,17.5 5,15 5,11.5C5,8 7,3 12,3C17,3 19,8 19,11.5C19,15 16.5,17.5 13,17.5V21H11Z',
+  window: 'M21 20V2H3V20H1V23H23V20M19 4V11H17V4M5 4H7V11H5M5 20V13H7V20M9 20V4H15V20M17 20V13H19V20Z',
+  snowflake: 'M20.79,13.95L18.46,14.57L16.46,13.44V10.56L18.46,9.43L20.79,10.05L21.31,8.12L19.54,7.65L20,5.88L18.07,5.36L17.45,7.69L15.45,8.82L13,7.38V5.12L14.71,3.41L13.29,2L12,3.29L10.71,2L9.29,3.41L11,5.12V7.38L8.5,8.82L6.5,7.69L5.92,5.36L4,5.88L4.47,7.65L2.7,8.12L3.22,10.05L5.55,9.43L7.55,10.56V13.45L5.55,14.58L3.22,13.96L2.7,15.89L4.47,16.36L4,18.12L5.93,18.64L6.55,16.31L8.55,15.18L11,16.62V18.88L9.29,20.59L10.71,22L12,20.71L13.29,22L14.7,20.59L13,18.88V16.62L15.5,15.17L17.5,16.3L18.12,18.63L20,18.12L19.53,16.35L21.3,15.88L20.79,13.95M9.5,10.56L12,9.11L14.5,10.56V13.44L12,14.89L9.5,13.44V10.56Z',
+  home: 'M12,3L20,9V21H15V14H9V21H4V9L12,3Z',
+  solar: 'M3.33 16H11V13H4L3.33 16M13 16H20.67L20 13H13V16M21.11 18H13V22H22L21.11 18M2 22H11V18H2.89L2 22M11 8H13V11H11V8M15.76 7.21L17.18 5.79L19.3 7.91L17.89 9.33L15.76 7.21M4.71 7.91L6.83 5.79L8.24 7.21L6.12 9.33L4.71 7.91M3 2H6V4H3V2M18 2H21V4H18V2M12 7C14.76 7 17 4.76 17 2H7C7 4.76 9.24 7 12 7Z',
+  lan: 'M4,1C2.89,1 2,1.89 2,3V7C2,8.11 2.89,9 4,9H1V11H13V9H10C11.11,9 12,8.11 12,7V3C12,1.89 11.11,1 10,1H4M4,3H10V7H4V3M3,13V18L3,20H10V18H5V13H3M14,13C12.89,13 12,13.89 12,15V19C12,20.11 12.89,21 14,21H11V23H23V21H20C21.11,21 22,20.11 22,19V15C22,13.89 21.11,13 20,13H14M14,15H20V19H14V15Z',
+  car: 'M16,6L19,10H21C22.11,10 23,10.89 23,12V15H21A3,3 0 0,1 18,18A3,3 0 0,1 15,15H9A3,3 0 0,1 6,18A3,3 0 0,1 3,15H1V12C1,10.89 1.89,10 3,10L6,6H16M10.5,7.5H6.75L4.86,10H10.5V7.5M12,7.5V10H17.14L15.25,7.5H12M6,13.5A1.5,1.5 0 0,0 4.5,15A1.5,1.5 0 0,0 6,16.5A1.5,1.5 0 0,0 7.5,15A1.5,1.5 0 0,0 6,13.5M18,13.5A1.5,1.5 0 0,0 16.5,15A1.5,1.5 0 0,0 18,16.5A1.5,1.5 0 0,0 19.5,15A1.5,1.5 0 0,0 18,13.5Z',
+  shieldOff: 'M1,4.27L3,6.27V11C3,16.55 6.84,21.74 12,23C13.87,22.54 15.57,21.56 16.97,20.24L19.23,22.5L20.5,21.22L2.28,3L1,4.27M12,21C8.25,20 5,15.54 5,11.22V8.27L15.59,18.86C14.53,19.89 13.3,20.65 12,21M21,5V11C21,13.28 20.35,15.5 19.23,17.4L17.77,15.95C18.54,14.5 19,12.84 19,11.22V6.3L12,3.18L7.16,5.34L5.65,3.82L12,1L21,5Z',
+  shield: 'M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1Z',
+  shieldHome: 'M11,13H13V16H16V11H18L12,6L6,11H8V16H11V13M12,1L21,5V11C21,16.55 17.16,21.74 12,23C6.84,21.74 3,16.55 3,11V5L12,1Z',
+  chevronUp: 'M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z',
+  chevronDown: 'M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z'
+};
+
+const GLYPH_IDLE = '#b4afa5';
+const TINTS = ['oklch(0.74 0.07 70)', 'oklch(0.70 0.09 130)', 'oklch(0.66 0.09 200)', 'oklch(0.62 0.10 300)', 'oklch(0.70 0.08 235)', 'oklch(0.68 0.10 45)', 'oklch(0.60 0.04 260)', 'oklch(0.66 0.11 145)'];
+const ACCENT_GLYPH = 'oklch(0.58 0.14 60)';
+const WARN_FG = 'oklch(0.45 0.11 60)';
+const COOL = 'oklch(0.52 0.12 250)';
+const BAR_BG = '#111318';
+const BAR_INK = '#f0eeea';
+const BAR_INACTIVE = 'color-mix(in oklab, #f0eeea 62%, #111318)';
+
+const ROOMS = [
+  { id:'living', name:'Living',     temp:24.1, hum:62, tint:'oklch(0.74 0.07 70)',  icon:'couch',   fav:true,  lights:[{n:'Plafond',dim:true},{n:'Leeslamp',dim:true}], win:false, ac:23 },
+  { id:'keuken', name:'Keuken',     temp:23.4, hum:58, tint:'oklch(0.70 0.09 130)', icon:'kitchen', fav:true,  lights:[{n:'Werkblad',dim:true}], win:true,  ac:null },
+  { id:'bureau', name:'Bureau',     temp:22.8, hum:55, tint:'oklch(0.66 0.09 200)', icon:'desk',    fav:true,  lights:[{n:'Bureaulamp',dim:true}], win:false, ac:null },
+  { id:'slaap',  name:'Slaapkamer', temp:22.6, hum:63, tint:'oklch(0.62 0.10 300)', icon:'bed',     fav:true,  lights:[{n:'Nachtlamp',dim:false}], win:false, ac:21 },
+  { id:'bad',    name:'Badkamer',   temp:23.9, hum:71, tint:'oklch(0.70 0.08 235)', icon:'bath',    fav:true,  lights:[{n:'Spiegel',dim:false}], win:false, ac:null },
+  { id:'zolder', name:'Zolder',     temp:26.2, hum:48, tint:'oklch(0.68 0.10 45)',  icon:'attic',   fav:true,  lights:[{n:'Zolder',dim:false}], win:true,  ac:null },
+  { id:'garage', name:'Garage',     temp:19.4, hum:66, tint:'oklch(0.60 0.04 260)', icon:'garage',  fav:false, lights:[{n:'Garage',dim:false}], win:false, ac:null },
+  { id:'tuin',   name:'Tuin',       temp:17.8, hum:78, tint:'oklch(0.66 0.11 145)', icon:'tree',    fav:false, lights:[{n:'Terras',dim:false}], win:false, ac:null }
+];
+
+const SOLAR    = [0,0,0,0,0,2,9,24,48,78,112,142,161,168,156,131,101,68,38,16,4,0,0,0,0];
+const USE      = [32,28,26,25,27,34,52,74,66,58,61,72,86,79,64,58,72,96,124,138,116,88,62,44,36];
+const FORECAST = [0,0,0,0,1,4,14,32,58,88,120,148,166,172,164,142,112,78,44,18,4,0,0,0,0];
+const DEVSERIES = {
+  boiler:     [4,4,4,4,4,22,38,30,10,6,4,4,4,4,4,4,8,26,34,22,10,6,4,4,4],
+  laadpaal:   [0,0,0,0,0,0,0,0,0,0,0,18,42,44,40,20,0,0,0,0,0,0,0,0,0],
+  wasmachine: [0,0,0,0,0,0,0,0,14,30,26,8,0,0,0,0,0,0,0,0,0,0,0,0,0],
+  droogkast:  [0,0,0,0,0,0,0,0,0,0,12,28,24,6,0,0,0,0,0,0,0,0,0,0,0]
+};
+// De reeksen delen één y-as, zoals DeviceTrendCard doet.
+const DEV_MAX = Math.max(...Object.values(DEVSERIES).flat());
+
+function pts(series, w, h, pad, max) {
+  const m = max || Math.max(...series) || 1;
+  return series.map((v, i) => [(i / (series.length - 1)) * w, h - pad - (v / m) * (h - pad * 2)]);
+}
+function linePath(series, w, h, pad, max) {
+  return pts(series, w, h, pad, max).map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' ');
+}
+function partialLine(series, w, h, pad, max, fromIdx) {
+  const p = pts(series, w, h, pad, max).slice(fromIdx);
+  return p.map((q, i) => (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ');
+}
+function areaPath(series, w, h, pad, max) {
+  const p = pts(series, w, h, pad, max);
+  return 'M0 ' + (h - pad).toFixed(1) + ' ' + p.map(q => 'L' + q[0].toFixed(1) + ' ' + q[1].toFixed(1)).join(' ') + ' L' + w + ' ' + (h - pad).toFixed(1) + ' Z';
+}
+
+class Component extends DCLogic {
+  state = {
+    w: 0,
+    tab: (this.props && this.props.tab) || 'home',
+    wxOpen: !!(this.props && this.props.sheet === 'weer'),
+    wxView: 'dag',
+    dev: (this.props && this.props.dev) || null,
+    tracked: 'leen',
+    order: ROOMS.map(r => r.id),
+    fav: Object.fromEntries(ROOMS.map(r => [r.id, r.fav])),
+    tints: {},
+    dragId: null,
+    alarm: 0,
+    alarmPickerOpen: false,
+    sheet: (this.props && this.props.sheet === 'kamer') ? 'living' : null,
+    showOther: false,
+    lights: { living:true, keuken:false, bureau:true, slaap:false, bad:false, zolder:false, garage:false, tuin:false },
+    bri: { living:72, keuken:100, bureau:45, slaap:100, bad:100, zolder:100, garage:100, tuin:100 }
+  };
+
+  uid = 'shell-' + Math.random().toString(36).slice(2, 9);
+
+  componentDidMount() {
+    const p = this.props || {};
+    if (p.tab || p.sheet || p.dev) this.setState({ tab: p.tab || 'home', wxOpen: p.sheet === 'weer', sheet: p.sheet === 'kamer' ? 'living' : null, dev: p.dev || null });
+    if (this.seek()) return;
+    // De knoop kan later in het document belanden (meerdere gemonteerde
+    // kopieën in één canvas). Blijven zoeken tot hij er is — geen
+    // pogingenlimiet en geen window-breedte als blijvende bron, want die
+    // meet het verkeerde vak.
+    if (typeof MutationObserver !== 'undefined') {
+      this.mo = new MutationObserver(() => this.seek());
+      this.mo.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    this.poll = setInterval(() => this.seek(), 120);
+  }
+
+  // Elke gemonteerde kopie zoekt zijn eigen knoop op via een eigen attribuut,
+  // niet via een ref.
+  seek = () => {
+    if (this.el) return true;
+    const el = document.querySelector('[data-shell="' + this.uid + '"]');
+    if (!el) return false;
+    this.el = el;
+    if (this.mo) { this.mo.disconnect(); this.mo = null; }
+    if (this.poll) { clearInterval(this.poll); this.poll = null; }
+    const set = () => {
+      const width = el.clientWidth;
+      if (width) this.setState({ w: width });
+    };
+    set();
+    if (typeof ResizeObserver !== 'undefined') {
+      this.ro = new ResizeObserver(set);
+      this.ro.observe(el);
+    } else {
+      this.onWindow = set;
+      window.addEventListener('resize', set);
+    }
+    return true;
+  };
+
+  componentWillUnmount() {
+    if (this.ro) this.ro.disconnect();
+    if (this.mo) this.mo.disconnect();
+    if (this.poll) clearInterval(this.poll);
+    if (this.onWindow) window.removeEventListener('resize', this.onWindow);
+  }
+
+  // Van tab wisselen ruimt alles op wat over het scherm zweeft.
+  setTab = (t) => () => this.setState({ tab: t, sheet: null, wxOpen: false, alarmPickerOpen: false });
+  openWeather = () => this.setState({ wxOpen: true, wxAnimate: true, alarmPickerOpen: false });
+  closeWx = () => this.setState({ wxOpen: false });
+  setWx = (v) => () => this.setState({ wxView: v });
+  pickDev = (k) => () => this.setState(s => ({ dev: s.dev === k ? null : k }));
+  track = (id) => () => this.setState(s => ({ tracked: s.tracked === id ? null : id }));
+  favToggle = (id) => () => this.setState(s => ({ fav: { ...s.fav, [id]: !s.fav[id] } }));
+  tintCycle = (id) => () => this.setState(s => {
+    const cur = s.tints[id] || ROOMS.find(r => r.id === id).tint;
+    const i = TINTS.indexOf(cur);
+    return { tints: { ...s.tints, [id]: TINTS[(i + 1) % TINTS.length] } };
+  });
+  // Verschuift alleen binnen dezelfde groep — een gewone kamer voorbij een
+  // favoriet schuiven zou niets zichtbaars doen, want het raster hergroepeert.
+  moveRoom = (id, d) => () => this.setState(s => {
+    const o = s.order.slice(); const i = o.indexOf(id); const j = i + d;
+    if (j < 0 || j >= o.length || !!s.fav[o[i]] !== !!s.fav[o[j]]) return null;
+    [o[i], o[j]] = [o[j], o[i]];
+    return { order: o };
+  });
+  dragStart = (id) => (e) => {
+    if (e && e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', id); } catch (_) {} }
+    this.setState({ dragId: id });
+  };
+  dragOver = (id) => (e) => {
+    const s = this.state;
+    if (!s.dragId || !!s.fav[s.dragId] !== !!s.fav[id]) return;
+    e.preventDefault();
+    if (s.dragId === id) return;
+    const o = s.order.slice();
+    const from = o.indexOf(s.dragId), to = o.indexOf(id);
+    o.splice(from, 1); o.splice(to, 0, s.dragId);
+    this.setState({ order: o });
+  };
+  dropRoom = (e) => { if (e) e.preventDefault(); this.setState({ dragId: null }); };
+  dragEnd = () => this.setState({ dragId: null });
+  toggleAlarmPicker = () => this.setState(s => ({ alarmPickerOpen: !s.alarmPickerOpen }));
+  setAlarm = (i) => () => this.setState({ alarm: i, alarmPickerOpen: false });
+  toggleLight = (id) => (ev) => { if (ev && ev.stopPropagation) ev.stopPropagation(); this.setState(s => ({ lights: { ...s.lights, [id]: !s.lights[id] } })); };
+  openSheet = (id) => () => this.setState({ sheet: id, alarmPickerOpen: false });
+  closeSheet = () => this.setState({ sheet: null });
+  toggleOther = () => this.setState(s => ({ showOther: !s.showOther }));
+
+  extraVals(s, w, wide) {
+    const two = w >= 760;
+
+    // Energie — de lijst is de legenda; tik licht één lijn uit.
+    const sel = s.dev;
+    const DEV = [
+      ['laadpaal', 'laadpaal', 'oklch(0.52 0.13 250)', '3.680'],
+      ['boiler', 'boiler', 'oklch(0.58 0.14 30)', '1.940'],
+      ['wasmachine', 'wasmachine', 'oklch(0.58 0.12 160)', '0'],
+      ['droogkast', 'droogkast', 'oklch(0.62 0.12 90)', '0']
+    ];
+    const trendLines = DEV.slice().sort((a, b) => (a[0] === sel) - (b[0] === sel)).map(([k, , color]) => ({
+      color, path: linePath(DEVSERIES[k], 280, 44, 2, DEV_MAX),
+      sw: sel === k ? '2.2' : '1.4',
+      op: sel ? (sel === k ? '1' : '0.14') : '0.75'
+    }));
+    const devRows = DEV.map(([k, n, color, wt]) => ({
+      n, w: wt, dot: color, ring: color, onTap: this.pickDev(k), cursor: 'pointer',
+      bg: sel === k ? '#eae7e0' : 'transparent',
+      fg: sel && sel !== k ? '#a8a49c' : '#111318',
+      wfg: sel && sel !== k ? '#b4afa5' : '#3b3934'
+    })).concat([{ n: 'overige (niet gemeten)', w: '412', dot: 'transparent', ring: '#b4afa5', onTap: () => {}, cursor: 'default', bg: 'transparent', fg: sel ? '#a8a49c' : '#57544e', wfg: sel ? '#b4afa5' : '#6e6b64' }]);
+    const selMeta = DEV.find(d => d[0] === sel);
+    const peak = sel ? (Math.max(...DEVSERIES[sel]) / DEV_MAX * 3.7).toFixed(1).replace('.', ',') : '';
+
+    // Netwerk — per kamer, oudste eerst.
+    const HR = 3600e3;
+    const STALE = [
+      { n: 'Deursensor achterdeur', area: 'keuken', h: 149, bat: 4 },
+      { n: 'Bewegingsmelder', area: 'garage', h: 74, bat: 62 },
+      { n: 'Temperatuur buiten', area: 'tuin', h: 53, bat: 11 },
+      { n: 'Raamcontact dakraam', area: 'zolder', h: 31, bat: 88 },
+      { n: 'Knop nachtkastje', area: 'slaap', h: 27, bat: 9 },
+      { n: 'Rookmelder', area: 'zolder', h: 26, bat: null }
+    ];
+    const WARN_BG = 'oklch(0.72 0.14 60 / 0.2)';
+    const areas = [];
+    STALE.forEach(d => { if (!areas.includes(d.area)) areas.push(d.area); });
+    const staleGroups = areas.map(a => {
+      const room = ROOMS.find(r => r.id === a);
+      const rows = STALE.filter(d => d.area === a).map(d => {
+        const warn = d.h > 48, low = d.bat !== null && d.bat < 15;
+        return {
+          n: d.n,
+          silence: d.h >= 48 ? Math.floor(d.h / 24) + ' d' : d.h + ' u',
+          badgeBg: warn ? WARN_BG : '#eae7e0', badgeFg: warn ? WARN_FG : '#57544e',
+          hasBat: d.bat !== null,
+          meta: d.bat !== null ? 'batterij ' + d.bat + '%' : 'netstroom',
+          batFg: low ? WARN_FG : '#a8a49c'
+        };
+      });
+      return { name: room.name, tint: s.tints[a] || room.tint, count: rows.length === 1 ? '1 apparaat' : rows.length + ' apparaten', rows };
+    });
+
+    // Instellingen
+    const persons = [['leen', 'Leen', 'thuis'], ['noor', 'Noor', 'weg']].map(([id, name, st]) => {
+      const on = s.tracked === id;
+      return { name, id: 'person.' + id, state: st, onTap: this.track(id), bg: on ? '#fbfaf7' : 'transparent', ring: on ? '#111318' : '#c7c3ba', ringW: on ? '5px' : '1.5px' };
+    });
+    const moreRows = [['Weer', 'weather.kmi_thuis'], ['Thema', 'volgt Home Assistant'], ['Kleuren', 'standaard'], ['Opslag', 'bij je Home Assistant-account']]
+      .map(([name, meta], i) => ({ name, meta, border: i ? '1px solid #ece9e3' : 'none' }));
+    const ordered = s.order.map(id => ROOMS.find(r => r.id === id));
+    const rowFor = (group) => group.map((r, i) => ({
+      name: r.name, id: 'area.' + r.id, tint: s.tints[r.id] || r.tint,
+      onTint: this.tintCycle(r.id), onFav: this.favToggle(r.id),
+      starFg: s.fav[r.id] ? ACCENT_GLYPH : '#c7c3ba',
+      onUp: this.moveRoom(r.id, -1), onDown: this.moveRoom(r.id, 1),
+      upFg: i > 0 ? '#57544e' : '#d8d4cc', downFg: i < group.length - 1 ? '#57544e' : '#d8d4cc',
+      onDragStart: this.dragStart(r.id), onDragOver: this.dragOver(r.id), onDrop: this.dropRoom, onDragEnd: this.dragEnd,
+      bg: s.dragId === r.id ? '#eae7e0' : '#fbfaf7', op: s.dragId === r.id ? '0.55' : '1'
+    }));
+
+    // Weer
+    const TEMPS = [18, 19.4, 20.8, 22.1, 23, 22.4, 21.2, 20, 19.1, 18.6, 18.2, 17.9, 17.6, 17.4, 17.2, 17.1, 17, 17.2, 17.8, 18.6, 19.4, 20.1, 20.8, 21.4];
+    const RAIN = [0, 0, 0.4, 1.2, 0.8, 0.2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const X0 = 30, X1 = 344, TT = 8, TB = 88, RB = 122, RMH = 32, BW = 10, N = 24, tMin = 15, tMax = 25;
+    const x = i => X0 + i * (X1 - X0) / (N - 1);
+    const y = t => TB - (t - tMin) / (tMax - tMin) * (TB - TT);
+    const line = vals => vals.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+    const temp = line(TEMPS);
+    const maxMm = Math.max(1, ...RAIN);
+    const wx = {
+      temp,
+      area: temp + ' L' + x(N - 1).toFixed(1) + ' ' + TB + ' L' + x(0).toFixed(1) + ' ' + TB + ' Z',
+      app: line(TEMPS.map(t => t - 0.8)),
+      rain: RAIN.map((mm, i) => mm > 0 ? 'M' + (x(i) - BW / 2).toFixed(1) + ' ' + (RB - mm / maxMm * RMH).toFixed(1) + ' h' + BW + ' V' + RB + ' h-' + BW + ' Z' : '').join(' '),
+      grid: [16, 18, 20, 22, 24].map(t => 'M' + X0 + ' ' + y(t).toFixed(1) + ' H' + X1).join(' ') + ' M' + X0 + ' ' + RB + ' H' + X1,
+      labels: [16, 18, 20, 22, 24].map(t => ({ y: (y(t) + 3).toFixed(1), label: t + '°' })),
+      now: 'M' + x(0).toFixed(1) + ' ' + TT + ' V' + RB,
+      dotX: x(0).toFixed(1), dotY: y(TEMPS[0]).toFixed(1),
+      ticks: [0, 3, 6, 9, 12, 15, 18, 21].map(i => ({ left: (x(i) / 350 * 100).toFixed(2) + '%', label: String((14 + i) % 24).padStart(2, '0') + 'u' }))
+    };
+    const WEEK = [['WO', 'cloud', 17, 23, '80 % · 2,6 mm', true], ['DO', 'rain', 14, 19, '90 % · 7,1 mm', true], ['VR', 'cloud', 13, 18, '40 % · 0,4 mm', false], ['ZA', 'sun', 12, 20, '—', false], ['ZO', 'sun', 13, 22, '—', false], ['MA', 'cloud', 14, 21, '20 % · 0,2 mm', false], ['DI', 'rain', 15, 19, '70 % · 4,0 mm', true]];
+    const lo = 11, hi = 24;
+    const WXI = {
+      cloud: 'M6,19A5,5 0 0,1 1,14A5,5 0 0,1 6,9C7,6.65 9.3,5 12,5C15.43,5 18.24,7.66 18.5,11.03L19,11A4,4 0 0,1 23,15A4,4 0 0,1 19,19H6M19,13H17V12A5,5 0 0,0 12,7C9.5,7 7.45,8.82 7.06,11.19C6.73,11.07 6.37,11 6,11A3,3 0 0,0 3,14A3,3 0 0,0 6,17H19A2,2 0 0,0 21,15A2,2 0 0,0 19,13Z',
+      sun: 'M12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,2L14.39,5.42C13.65,5.15 12.84,5 12,5C11.16,5 10.35,5.15 9.61,5.42L12,2M3.34,7L7.5,6.65C6.9,7.16 6.36,7.78 5.94,8.5C5.5,9.24 5.25,10 5.11,10.79L3.34,7M3.36,17L5.12,13.23C5.26,14 5.53,14.78 5.95,15.5C6.37,16.24 6.91,16.86 7.5,17.37L3.36,17M20.65,7L18.88,10.79C18.74,10 18.47,9.23 18.05,8.5C17.63,7.78 17.1,7.15 16.5,6.64L20.65,7M20.64,17L16.5,17.36C17.09,16.85 17.62,16.22 18.04,15.5C18.46,14.77 18.73,14 18.87,13.21L20.64,17M12,22L9.59,18.56C10.33,18.83 11.14,19 12,19C12.82,19 13.63,18.83 14.37,18.56L12,22Z',
+      rain: 'M6,14A1,1 0 0,1 7,15A1,1 0 0,1 6,16A5,5 0 0,1 1,11A5,5 0 0,1 6,6C7,3.65 9.3,2 12,2C15.43,2 18.24,4.66 18.5,8.03L19,8A4,4 0 0,1 23,12A4,4 0 0,1 19,16H18A1,1 0 0,1 17,15A1,1 0 0,1 18,14H19A2,2 0 0,0 21,12A2,2 0 0,0 19,10H17V9A5,5 0 0,0 12,4C9.5,4 7.45,5.82 7.06,8.19C6.73,8.07 6.37,8 6,8A3,3 0 0,0 3,11A3,3 0 0,0 6,14M12,14.15C12.18,14.39 12.37,14.66 12.56,14.94C13,15.56 14,17.03 14,18A2,2 0 0,1 12,20A2,2 0 0,1 10,18C10,17.03 11,15.56 11.44,14.94C11.63,14.66 11.82,14.4 12,14.15M12,11L11.5,11.56C11.5,11.56 10.65,12.54 9.79,13.79C8.93,15.04 8,16.54 8,18A4,4 0 0,0 12,22A4,4 0 0,0 16,18C16,16.54 15.07,15.04 14.21,13.79C13.35,12.54 12.5,11.56 12.5,11.56'
+    };
+    const wxWeek = WEEK.map(([day, ic, l, h, rain, hot], i) => ({
+      day, icon: WXI[ic], lo: l + '°', hi: h + '°', rain,
+      dayFg: i === 0 ? '#111318' : '#8a877f', rainFg: hot ? 'oklch(0.45 0.10 250)' : '#a8a49c',
+      left: ((l - lo) / (hi - lo) * 100).toFixed(1) + '%', width: ((h - l) / (hi - lo) * 100).toFixed(1) + '%'
+    }));
+    const dag = s.wxView === 'dag';
+
+    return {
+      trendLines, devRows,
+      trendHint: sel ? selMeta[1] + ' · piek ' + peak + ' kW' : 'tik een apparaat',
+      trendHintFg: sel ? selMeta[2] : '#a8a49c',
+
+      staleGroups, staleSub: STALE.length + ' apparaten stil',
+      // Kolommen in plaats van een raster: een kamer met twee apparaten mag
+      // geen gat openlaten naast een kamer met één.
+      netColCount: two ? 2 : 1,
+
+      meerCols: two ? 'minmax(0, 1fr) minmax(0, 1fr)' : 'minmax(0, 1fr)',
+      persons, moreRows,
+      favRows: rowFor(ordered.filter(r => s.fav[r.id])),
+      otherRows: rowFor(ordered.filter(r => !s.fav[r.id])),
+      dragOn: two, wideOrder: two, narrowOrder: !two,
+      orderHint: two ? 'sleep om te sorteren' : '',
+
+      wxOpen: s.wxOpen, closeWx: this.closeWx,
+      // Geopend via de prop (canvas/screenshot): meteen zichtbaar, geen intro.
+      wxFade: s.wxAnimate ? 'fadeIn 0.18s ease' : 'none',
+      wxAnim: s.wxAnimate ? (wide ? 'popIn 0.16s ease' : 'sheetUp 0.28s cubic-bezier(0.2,0.9,0.2,1)') : 'none',
+      wxMaxW: wide ? '680px' : '100%',
+      wxCols: wide ? 'minmax(0, 1.35fr) minmax(0, 1fr)' : 'minmax(0, 1fr)',
+      wxDag: dag, wxWeekOn: !dag,
+      setWxDag: this.setWx('dag'), setWxWeek: this.setWx('week'),
+      tabDagBg: dag ? '#fbfaf7' : 'transparent', tabDagFg: dag ? '#111318' : '#6e6b64',
+      tabWeekBg: dag ? 'transparent' : '#fbfaf7', tabWeekFg: dag ? '#6e6b64' : '#111318',
+      wx, wxWeek,
+      wxMetrics: [['voelt als', '17,2°'], ['dauwpunt', '13,8°'], ['vochtigheid', '78 %'], ['wind', '14 km/u ZW'], ['windstoten', '31 km/u'], ['druk', '1014 hPa'], ['uv-index', '3 · matig'], ['bewolking', '72 %']].map(([k, v]) => ({ k, v })),
+      wxFoot: dag ? 'forecast_hourly · 24 uur' : 'forecast_daily · 7 dagen'
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const w = s.w || 390; // nog niet gemeten: begin smal, niet midden
+    const wide = w >= 1000;
+    const mid = w >= 700;
+    const cols = wide ? 4 : (mid ? 3 : 2);
+
+    const ALARM = [
+      { key:'off',   label:'Alarm uit',   d: ICONS.shieldOff,  bg:'#e6e3dc',                        fg:'#57544e',               dot:'#a8a49c' },
+      { key:'away',  label:'Alarm weg',   d: ICONS.shield,     bg:'oklch(0.72 0.14 60 / 0.22)',     fg:'oklch(0.45 0.11 60)',   dot:'oklch(0.58 0.14 60)' },
+      { key:'night', label:'Alarm nacht', d: ICONS.shieldHome, bg:'oklch(0.68 0.13 250 / 0.18)',    fg:'oklch(0.40 0.12 250)',  dot:'oklch(0.42 0.12 250)' }
+    ];
+    const alarm = ALARM[s.alarm];
+    const alarmModes = ALARM.map((m, i) => ({
+      label: { off:'uit', away:'weg', night:'nacht' }[m.key],
+      onTap: this.setAlarm(i),
+      bg: i === s.alarm ? (m.key === 'off' ? '#6e6b64' : m.dot) : 'transparent',
+      fg: i === s.alarm ? '#fff' : '#57544e'
+    }));
+
+    const ordered = s.order.map(id => ROOMS.find(r => r.id === id));
+    const favourites = ordered.filter(r => s.fav[r.id]);
+    const others = ordered.filter(r => !s.fav[r.id]);
+    const hasFold = others.length > 0;
+    const shown = s.showOther ? [...favourites, ...others] : favourites;
+
+    const rooms = shown.map(r => {
+      const on = !!s.lights[r.id];
+      const glyphs = [];
+      if (r.win) glyphs.push({ d: ICONS.window, fg: WARN_FG, note: '', noteFg: '#6e6b64' });
+      if (r.ac) glyphs.push({ d: ICONS.snowflake, fg: COOL, note: '', noteFg: '#6e6b64' });
+      return {
+        name: r.name, temp: Math.round(r.temp) + '°', hum: Math.round(r.hum) + '%',
+        tint: s.tints[r.id] || r.tint, iconD: ICONS[r.icon], glyphs,
+        lightFg: on ? ACCENT_GLYPH : GLYPH_IDLE,
+        onLight: this.toggleLight(r.id),
+        onOpen: this.openSheet(r.id)
+      };
+    });
+
+    const gridRows = Math.max(1, Math.ceil((shown.length + (hasFold ? 1 : 0)) / cols));
+
+    const openCount = ROOMS.filter(r => r.win).length;
+    const staleOn = true;
+    const exporting = true;
+
+    const tabs = [
+      { id:'home',    d: ICONS.home,  label:'Home' },
+      { id:'energie', d: ICONS.solar, label:'Energie · injectie', tone: exporting ? 'oklch(0.72 0.13 150)' : null, activeTone:'oklch(0.44 0.11 150)' },
+      { id:'netwerk', d: ICONS.lan,   label:'Netwerk · stille apparaten', tone: staleOn ? 'oklch(0.72 0.13 60)' : null, activeTone: WARN_FG, dot: staleOn }
+    ].map(t => {
+      const active = s.tab === t.id;
+      return {
+        d: t.d, label: t.label, onTap: this.setTab(t.id), dot: !!t.dot,
+        dotBorder: active ? BAR_INK : BAR_BG,
+        bg: active ? BAR_INK : 'transparent',
+        fg: active ? (t.activeTone || BAR_BG) : (t.tone || BAR_INACTIVE)
+      };
+    });
+
+    const sheetRoom = ROOMS.find(r => r.id === s.sheet);
+    let sheet = { tint:'#e2dfd8', name:'', meta:'', spark:'', hi:'', lo:'', lights:[] };
+    if (sheetRoom) {
+      const base = sheetRoom.temp;
+      const vals = Array.from({ length: 24 }, (_, i) => base - 1.4 + Math.sin(i / 3.4) * 0.9 + (i % 5) * 0.12);
+      vals[23] = base;
+      const lo = Math.min(...vals), hi = Math.max(...vals), span = Math.max(0.3, hi - lo);
+      sheet = {
+        tint: sheetRoom.tint,
+        name: sheetRoom.name,
+        meta: sheetRoom.temp.toFixed(1) + '° · ' + sheetRoom.hum.toFixed(0) + '%',
+        spark: vals.map((v, i) => (i / 23 * 100).toFixed(1) + ',' + (22 - (v - lo) / span * 20).toFixed(1)).join(' '),
+        hi: hi.toFixed(1) + '°', lo: lo.toFixed(1) + '°',
+        lights: sheetRoom.lights.map(l => {
+          const on = !!s.lights[sheetRoom.id];
+          const b = on ? (l.dim ? s.bri[sheetRoom.id] : 100) : 0;
+          return {
+            name: l.n, fillW: b + '%', kind: l.dim ? 'dimbaar' : 'aan/uit',
+            label: on ? (l.dim ? b + '%' : 'aan') : 'uit',
+            onTap: this.toggleLight(sheetRoom.id)
+          };
+        })
+      };
+    }
+
+    const nowIdx = 13;
+    const chartMax = Math.max(...SOLAR, ...USE, ...FORECAST);
+    const solarPts = pts(SOLAR, 280, 92, 0, chartMax);
+
+    const plain = s.tab === 'netwerk'
+      ? { title: 'Stille apparaten', body: 'apparaten die meer dan 24 u niets doorgaven — inhoud ongewijzigd, alleen de kolom is breder' }
+      : s.tab === 'meer'
+        ? { title: 'Instellingen', body: 'wie je volgt, kamervolgorde en favorieten — nog niet in deze adaptieve shell uitgewerkt' }
+        : { title: 'Auto', body: 'ingebedde Lovelace-kaart — rekt mee met de kolom' };
+
+    return {
+      ...this.extraVals(s, w, wide),
+      uid: this.uid,
+      dateLabel: 'wo 23 september',
+      zoneLabel: 'Thuis',
+      cols: 'repeat(' + cols + ', minmax(0, 1fr))',
+      // Ingeklapt delen de tegels de resterende hoogte (grid-auto-rows: 1fr);
+      // uitgeklapt krijgt het raster een vaste rijhoogte en scrolt het.
+      // De tegels rekken mee met de hoogte, maar binnen grenzen: nooit onder
+      // de inhoud (anders klipt de temperatuur weg op een lage viewport) en
+      // nooit boven 160px per rij (anders worden ze op desktop log).
+      rowH: s.showOther ? '132px' : 'minmax(128px, 1fr)',
+      gridMaxH: s.showOther ? 'none' : (gridRows * 160 + (gridRows - 1) * 12) + 'px',
+      gridFlex: s.showOther ? '0 0 auto' : '1 1 auto',
+      gridAreaFlex: s.showOther ? '0 0 auto' : '1 1 auto',
+      gridOverflow: 'auto',
+      energyCols: w >= 760 ? 'minmax(0, 1.5fr) minmax(0, 1fr)' : 'minmax(0, 1fr)',
+      chartH: wide ? '168px' : '116px',
+      trendH: wide ? '76px' : '56px',
+      navShadow: wide ? '0 14px 30px -18px rgba(17,19,24,0.4)' : 'none',
+
+      isHome: s.tab === 'home',
+      isEnergie: s.tab === 'energie',
+      isPlain: false,
+      isNetwerk: s.tab === 'netwerk',
+      isMeer: s.tab === 'meer',
+      plain,
+      sectionLabel: ({ home: 'Kamers', energie: 'Nu', netwerk: 'Netwerk', meer: 'Instellingen' })[s.tab] || '',
+      showWindowChip: s.tab === 'home' && openCount > 0,
+      openLabel: openCount === 1 ? '1 raam open' : openCount + ' ramen open',
+      openOpenings: () => {},
+      openWeather: this.openWeather,
+      openPerson: () => {},
+      openSettings: this.setTab('meer'),
+
+      alarm, alarmModes, alarmPickerOpen: s.alarmPickerOpen,
+      toggleAlarmPicker: this.toggleAlarmPicker,
+
+      rooms, tabs, hasFold,
+      foldLabel: s.showOther ? 'minder' : others.length + ' meer',
+      foldIcon: s.showOther ? ICONS.chevronUp : ICONS.chevronDown,
+      toggleOther: this.toggleOther,
+
+      sheetOpen: !!sheetRoom,
+      sheet,
+      closeSheet: this.closeSheet,
+      sheetAlign: wide ? 'center' : 'flex-end',
+      sheetPad: wide ? '32px' : '0 8px 96px',
+      sheetMaxW: wide ? '460px' : '100%',
+      sheetAnim: wide ? 'popIn 0.16s ease' : 'sheetUp 0.28s cubic-bezier(0.2,0.9,0.2,1)',
+
+      chart: {
+        // Het vlak stopt bij "nu", net als de lijn — niet naar 0 zakken.
+        solarArea: linePath(SOLAR.slice(0, nowIdx + 1), 280 * (nowIdx / (SOLAR.length - 1)), 92, 0, chartMax) + ' L' + (280 * (nowIdx / (SOLAR.length - 1))).toFixed(1) + ' 92 L0 92 Z',
+        solarLine: linePath(SOLAR.slice(0, nowIdx + 1), 280 * (nowIdx / (SOLAR.length - 1)), 92, 0, chartMax),
+        useLine: linePath(USE, 280, 92, 0, chartMax),
+        forecastLine: partialLine(FORECAST, 280, 92, 0, chartMax, nowIdx),
+        nowX: (280 * (nowIdx / (SOLAR.length - 1))).toFixed(1),
+        nowY: solarPts[nowIdx][1].toFixed(1)
+      },
+      legend: [
+        ['boiler', 'boiler', 'oklch(0.58 0.14 30)'],
+        ['laadpaal', 'laadpaal', 'oklch(0.52 0.13 250)'],
+        ['wasmachine', 'wasmachine', 'oklch(0.58 0.12 160)'],
+        ['droogkast', 'droogkast', 'oklch(0.62 0.12 90)']
+      ].map(([k, n, color]) => ({ n, color, path: linePath(DEVSERIES[k], 280, 44, 2, DEV_MAX) })),
+      devices: [
+        { n: 'laadpaal', w: '3.680' },
+        { n: 'boiler', w: '1.940' },
+        { n: 'wasmachine', w: '0' },
+        { n: 'droogkast', w: '0' },
+        { n: 'overige (niet gemeten)', w: '412' }
+      ]
+    };
+  }
+}
+
+</script>
+</body>
+</html>
