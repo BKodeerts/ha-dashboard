@@ -8,10 +8,41 @@ It answers three questions at a glance — is the alarm set, is anything open, w
 the lights one tap from the home screen. Everything a tile cannot hold lives in the room card:
 per-lamp brightness, the AC, the radio, and the room's own 24 h temperature line.
 
-Four tabs, each a real view: **Home**, **Energie**, **Netwerk**, **Auto**. The bottom bar is
+Three tabs, each a real view: **Home**, **Energie**, **Netwerk** (plus Instellingen behind the gear).
+The bottom bar is
 absolutely pinned to the bottom of the screen — no amount of content scrolls it away — and sheets
 stop above it. Everything each tab shows is drawn by this app itself — see "What stays Lovelace"
 below for the one embed that remains.
+
+### Adaptive layout + view pass
+
+[`design_handoff_ha_dashboard_v7/`](design_handoff_ha_dashboard_v7/) makes the one layout stretch from
+phone to desktop and reworks every view. The dashboard measures **its own width** (a `ResizeObserver`
+on its root, never the window — as a Lovelace card the window is the wrong box) and starts narrow
+until the first measurement lands.
+
+| Dashboard width | < 700 | 700 – 999 | ≥ 1000 |
+| --- | --- | --- | --- |
+| Room-grid columns | 2 | 3 | 4 |
+| Room / weather sheet | bottom sheet | bottom sheet | centred modal (460 / 680 px) |
+
+From 760 px, Energie, Netwerk and Instellingen split into two columns. Everything sits in an 820 px
+column; the tab bar stays bottom-centred at every width (the old desktop left rail is gone).
+
+- **Auto tab removed.** It only ever showed a title and one line; `car` in existing YAML still
+  parses, but nothing reads it and the card editor no longer offers it.
+- **Energie**: the single "64% eigen verbruik" bar was misnamed (it computed self-*sufficiency*,
+  from estimated power buckets). It is now two figures read from HA's own long-term statistics —
+  *uit zon* (self-sufficiency) and *zelf gebruikt* (solar self-consumption) — using the same meters,
+  hourly buckets and arithmetic as HA's Energy dashboard gauges, batteries included (`ha/energyStats.ts`).
+  A missing meter hides its figure instead of showing 0%. The device list is now the trend chart's
+  legend: tap a device to pick its line out; an "overige (niet gemeten)" row shows what no device
+  meter accounts for.
+- **Netwerk**: grouped per area, each card spined in the area's tint; amber now also flags a battery
+  under 15%, before the device goes silent.
+- **Instellingen**: the tint swatch moved into each room's sort row (tap to cycle), favourites and
+  "Niet op home" are listed apart, and from 760 px rows reorder by drag (arrows stay on touch).
+- **Room tiles**: the glyph column is pinned top-right, and the AC glyph lost its setpoint note.
 
 ### What changed in v7
 
@@ -254,7 +285,7 @@ same one-time step as the card's own resource.
 The card in the snippet above (`type: custom:ha-dashboard-panel`) is a normal Lovelace card: press
 **Edit Dashboard**, click the card, and "Edit card" opens with a GUI tab instead of raw YAML. It
 covers the household-wide settings that have no auto-detected default and used to require
-hand-written YAML — the car, media presets, the "apparaten nu" noise floor, and which media player
+hand-written YAML — media presets, the "apparaten nu" noise floor, and which media player
 each room's card shows ("media per kamer") — because those are the ones a household actually changes
 from time to time, not a config editor for every key.
 
@@ -434,11 +465,10 @@ Everything that is left blank is derived from the state machine on first run:
 | `power.solar` / `.consumption` / `.grid` | `string` | `energy/get_prefs`' solar source for `.solar`; otherwise a `device_class: power` sensor matched by name |
 | `power.devices` | `(string \| {entityId, name?})[]` | Curates the *trend chart* only — Settings → Dashboards → Energy's "Individual devices", read live over `energy/get_prefs`, sorted by current draw. Set explicitly, the chart shows exactly that list in that order, at every wattage; `name` overrides the entity's own friendly name. Doesn't affect "apparaten nu" — that always reads the full HA list |
 | `power.minWatts` | `number` | `0` — loads reading under this many watts (or reading exactly 0) drop off "Apparaten nu"; the trend chart ignores it |
-| `car.name` / `.battery` / `.range` | `string` | none — the Auto tab's title and subtitle |
 | `mediaPresets` | `Record<playerId, {name, media_content_id, media_content_type}[]>` | none — the preset row is hidden |
 
-The keys the in-app settings view does not expose — power, the car, media presets, and media per
-kamer — are household-wide, and are set on the card itself. The car, media presets, `power.devices`,
+The keys the in-app settings view does not expose — power, media presets, and media per
+kamer — are household-wide, and are set on the card itself. Media presets, `power.devices`,
 `power.minWatts` and media per kamer have a GUI for that ("Editing it visually" above); `power.solar`/
 `.consumption`/`.grid` are auto-detected and only need touching if that guess is wrong, by hand in the
 card's YAML (or the `panel_custom` snippet's `config:` block, for a panel-mounted install):
@@ -453,10 +483,6 @@ power:
     - entityId: sensor.wasmachine_vermogen
       name: Wasmachine
     - sensor.droogkast_vermogen
-car:
-  name: Kona electric
-  battery: sensor.kona_battery
-  range: sensor.kona_range
 mediaEntity:
   living: media_player.living_sonos
 mediaPresets:
@@ -668,6 +694,7 @@ src/
   panel.ts           entry for the HA panel build
   main.tsx           entry for the standalone build / dev server
   app/App.tsx        screen composition, sheet + tab state
+  app/layout.ts      measured width → columns, split and modal breakpoints
   ha/
     backend.ts       panel and standalone connections, snapshot cache
     mock.ts          a stand-in Home Assistant, same interface as the live socket
@@ -683,10 +710,10 @@ src/
     StatusPills      the openings pill
     RoomGrid         favourites, and the fold that holds the rest
     RoomTile         reading + the priority glyph column
-    TabBar           four tabs, pinned, with the energy-flow and stale indicators
+    TabBar           three tabs, pinned, with the energy-flow and stale indicators
     Sheet            scrim + panel chrome, sitting below the tab bar
     sheets/          room card, weather, openings, person
-    views/           Energie, Netwerk, Auto, Settings
+    views/           Energie, Netwerk, Settings
   config/config.ts   client-side config, defaults and derivation
   ui/                icons, tokens + layout CSS, self-hosted fonts
 scripts/

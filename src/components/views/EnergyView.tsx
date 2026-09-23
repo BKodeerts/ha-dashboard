@@ -6,21 +6,25 @@ import {
   deviceColor,
   forecastBuckets,
   nowFraction,
-  selfConsumptionRatio,
 } from '../../ha/energyChart';
+import type { EnergyMeters } from '../../ha/energyPrefs';
+import { fetchHourlyEnergy, solarRatios, type SolarRatios } from '../../ha/energyStats';
 import { fetchDayBuckets } from '../../ha/history';
-import { formatNumber, formatWatts, type PowerInfo } from '../../ha/selectors';
+import { formatNumber, formatWatts, type PowerInfo, type PowerLoad } from '../../ha/selectors';
 import { fetchSolarForecast } from '../../ha/solarForecast';
-import { HaIcon } from '../../ui/HaIcon';
-import { Icon } from '../../ui/Icon';
 import { useLongPress } from '../../ui/useLongPress';
 
 /**
- * Handoff: `design_handoff_ha_energy_tab/README.md`. Three stacked cards —
- * solar/now with today's curve and the self-consumption ratio, a per-device
- * trend card (one shared y-axis across all devices, so the lines stay
- * comparable — which one draws more should be readable at a glance), and the
- * plain "apparaten nu" list the v5 tab already had.
+ * Handoff: `design_handoff_ha_energy_tab/README.md`, reworked by v7
+ * (`design_handoff_ha_dashboard_v7/README.md` §2). The solar/now card with
+ * today's curve and two ratios computed from HA's own statistics, a
+ * per-device trend card (one shared y-axis across all devices, so the lines
+ * stay comparable — which one draws more should be readable at a glance),
+ * and the "apparaten nu" list, which doubles as the trend chart's legend:
+ * tapping a device picks its line out of the others.
+ *
+ * From 760px the list moves into a column of its own beside the two cards;
+ * below that it follows them, directly under the chart it explains.
  */
 
 const CHART_W = 280;
@@ -101,18 +105,80 @@ function useSolarForecast(configEntryIds: string[]): Record<string, number> | un
   return hours;
 }
 
+/**
+ * Today's two solar ratios from HA's long-term statistics — see
+ * `ha/energyStats.ts`. Refetched every five minutes like the day buckets;
+ * keyed by the meter ids rather than the prefs object, which is a fresh
+ * identity whenever the prefs are re-read.
+ */
+function useSolarRatios(meters: EnergyMeters | undefined): SolarRatios {
+  const { backend } = useHass();
+  const key = meters ? JSON.stringify(meters) : '';
+  const [ratios, setRatios] = useState<SolarRatios>({});
+
+  useEffect(() => {
+    if (!key) {
+      setRatios({});
+      return;
+    }
+    const parsed = JSON.parse(key) as EnergyMeters;
+    let cancelled = false;
+    const load = () => {
+      fetchHourlyEnergy(backend, parsed).then((hourly) => {
+        if (!cancelled) setRatios(solarRatios(hourly));
+      });
+    };
+    load();
+    const interval = setInterval(load, 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [backend, key]);
+
+  return ratios;
+}
+
+function RatioStat({
+  value,
+  label,
+  sub,
+  track,
+}: {
+  value: number;
+  label: string;
+  sub: string;
+  track: 'grid' | 'export';
+}) {
+  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
+  return (
+    <div className="ratio">
+      <div className="ratio__head">
+        <span className="ratio__value">{pct}%</span>
+        <span className="ratio__label mono">{label}</span>
+      </div>
+      <div className={`ratio__track ratio__track--${track}`}>
+        <div className="ratio__fill" style={{ width: `${pct}%` }} />
+      </div>
+      <span className="ratio__sub mono">{sub}</span>
+    </div>
+  );
+}
+
 function SolarNowCard({
   power,
   solarEntity,
   consumptionEntity,
   gridEntity,
   solarForecastConfigEntries,
+  meters,
 }: {
   power: PowerInfo;
   solarEntity: string | undefined;
   consumptionEntity: string | undefined;
   gridEntity: string | undefined;
   solarForecastConfigEntries: string[];
+  meters: EnergyMeters | undefined;
 }) {
   const buckets = useDayBuckets([solarEntity, consumptionEntity, gridEntity]);
   const forecastHours = useSolarForecast(solarForecastConfigEntries);
@@ -153,7 +219,8 @@ function SolarNowCard({
     };
   }, [solar, consumption, forecastHours]);
 
-  const ratio = useMemo(() => selfConsumptionRatio(solar, consumption), [solar, consumption]);
+  const ratios = useSolarRatios(meters);
+  const hasRatios = ratios.fromSolar !== undefined || ratios.selfUsed !== undefined;
 
   const net =
     power.net === undefined
@@ -237,66 +304,65 @@ function SolarNowCard({
         </div>
       )}
 
-      {ratio !== undefined && (
-        <div className="solar-now__ratio">
-          <div className="solar-now__ratio-track">
-            <div
-              className="solar-now__ratio-fill"
-              style={{ width: `${Math.round(Math.max(0, Math.min(1, ratio)) * 100)}%` }}
+      {hasRatios && (
+        <div className="solar-now__ratios">
+          {ratios.fromSolar !== undefined && (
+            <RatioStat
+              value={ratios.fromSolar}
+              label="uit zon"
+              sub="van je verbruik · vandaag"
+              track="grid"
             />
-          </div>
-          <span className="solar-now__ratio-label mono">
-            {Math.round(ratio * 100)}% eigen verbruik
-          </span>
+          )}
+          {ratios.selfUsed !== undefined && (
+            <RatioStat
+              value={ratios.selfUsed}
+              label="zelf gebruikt"
+              sub="van je zonnestroom · vandaag"
+              track="export"
+            />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function DeviceTrendCard({ loads }: { loads: PowerInfo['trend'] }) {
-  const buckets = useDayBuckets(loads.map((load) => load.entityId));
+interface TrendLine {
+  entityId: string;
+  name: string;
+  color: string;
+  line: string;
+  /** The day's highest bucket, in W, for the "piek" hint. */
+  peak: number;
+}
 
-  // One shared max across every device, not each line normalised to its own
-  // — the point of putting them on one chart is comparing which device
-  // actually draws more, and that's invisible if a 30 W device and a 4 kW
-  // device are both stretched to fill the same height.
-  const max = useMemo(
-    () =>
-      Math.max(
-        1,
-        ...loads.flatMap((load) =>
-          (buckets.get(load.entityId) ?? []).filter((v): v is number => v !== undefined),
-        ),
-      ),
-    [loads, buckets],
-  );
+function DeviceTrendCard({
+  lines,
+  max,
+  selected,
+}: {
+  lines: TrendLine[];
+  max: number;
+  selected: string | null;
+}) {
+  if (lines.length === 0) return null;
 
-  const lines = useMemo(
-    () =>
-      loads.map((load, index) => {
-        const values = buckets.get(load.entityId) ?? [];
-        return {
-          entityId: load.entityId,
-          name: load.name,
-          color: deviceColor(index),
-          line: bucketPath(values, { width: CHART_W, height: TREND_H, max, pad: 2 }).line,
-        };
-      }),
-    [loads, buckets, max],
-  );
-
-  if (loads.length === 0) return null;
+  const pick = selected ? lines.find((line) => line.entityId === selected) : undefined;
+  // The picked line is drawn last so it sits on top of the others.
+  const ordered = pick ? [...lines.filter((line) => line !== pick), pick] : lines;
 
   return (
     <div className="device-trend">
-      <div className="device-trend__legend">
-        {lines.map((line) => (
-          <span className="device-trend__legend-item mono" key={line.entityId}>
-            <span className="device-trend__dot" style={{ background: line.color }} />
-            {line.name}
+      <div className="device-trend__head mono">
+        <span className="device-trend__label">Vandaag per apparaat</span>
+        {pick ? (
+          <span className="device-trend__hint" style={{ color: pick.color }}>
+            {`${pick.name} · piek ${formatWatts(pick.peak)}`}
           </span>
-        ))}
+        ) : (
+          <span className="device-trend__hint">tik een apparaat</span>
+        )}
       </div>
       <div className="device-trend__chart-wrap">
         <div className="device-trend__scale mono" aria-hidden="true">
@@ -308,7 +374,7 @@ function DeviceTrendCard({ loads }: { loads: PowerInfo['trend'] }) {
           preserveAspectRatio="none"
           aria-hidden="true"
         >
-          {lines.map(
+          {ordered.map(
             (line) =>
               line.line && (
                 <path
@@ -316,10 +382,10 @@ function DeviceTrendCard({ loads }: { loads: PowerInfo['trend'] }) {
                   d={line.line}
                   fill="none"
                   stroke={line.color}
-                  strokeWidth={1.4}
+                  strokeWidth={line === pick ? 2.2 : 1.4}
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  strokeOpacity={0.75}
+                  strokeOpacity={pick ? (line === pick ? 1 : 0.14) : 0.75}
                 />
               ),
           )}
@@ -329,50 +395,155 @@ function DeviceTrendCard({ loads }: { loads: PowerInfo['trend'] }) {
   );
 }
 
-function LoadRow({ load }: { load: PowerInfo['loads'][number] }) {
-  const longPress = useLongPress({ entityId: load.entityId });
-  return (
-    <div
-      className="apparaten__row"
-      onPointerDown={longPress.onPointerDown}
-      onPointerMove={longPress.onPointerMove}
-      onPointerUp={longPress.onPointerUp}
-      onPointerCancel={longPress.onPointerCancel}
-    >
-      {load.icon ? (
-        <HaIcon icon={load.icon} className="apparaten__icon" />
-      ) : (
-        <Icon name="power" size={18} className="apparaten__icon" />
-      )}
+/**
+ * One "apparaten nu" row. A device with a trend line is the legend entry for
+ * it: a tap picks the line out, a second tap clears it. Long-press opens
+ * HA's more-info either way.
+ */
+function DeviceRow({
+  load,
+  color,
+  selected,
+  dimmed,
+  onToggle,
+}: {
+  load: PowerLoad;
+  /** Undefined for a device with no line on the chart — hollow dot, no tap. */
+  color: string | undefined;
+  selected: boolean;
+  dimmed: boolean;
+  onToggle(): void;
+}) {
+  const longPress = useLongPress({
+    entityId: load.entityId,
+    ...(color ? { onClick: onToggle } : {}),
+  });
+  const className = [
+    'apparaten__row',
+    color ? 'apparaten__row--tap' : '',
+    selected ? 'apparaten__row--on' : '',
+    dimmed ? 'apparaten__row--dim' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  const face = (
+    <>
+      <span
+        className={`apparaten__dot${color ? '' : ' apparaten__dot--hollow'}`}
+        style={color ? { background: color } : undefined}
+      />
       <span className="apparaten__name">{load.name}</span>
       <span className="apparaten__value mono">{`${formatNumber(load.watts)} W`}</span>
+    </>
+  );
+  const handlers = {
+    onPointerDown: longPress.onPointerDown,
+    onPointerMove: longPress.onPointerMove,
+    onPointerUp: longPress.onPointerUp,
+    onPointerCancel: longPress.onPointerCancel,
+    onClick: longPress.onClick,
+  };
+
+  return color ? (
+    <button type="button" className={className} aria-pressed={selected} {...handlers}>
+      {face}
+    </button>
+  ) : (
+    <div className={className} {...handlers}>
+      {face}
     </div>
   );
 }
 
 export function EnergyView({ power }: { power: PowerInfo }) {
   const { config, energyPrefs } = useHass();
+  const [selected, setSelected] = useState<string | null>(null);
+
+  const buckets = useDayBuckets(power.trend.map((load) => load.entityId));
+
+  // One shared max across every device, not each line normalised to its own
+  // — the point of putting them on one chart is comparing which device
+  // actually draws more, and that's invisible if a 30 W device and a 4 kW
+  // device are both stretched to fill the same height.
+  const { lines, max } = useMemo(() => {
+    const series = power.trend.map((load) =>
+      (buckets.get(load.entityId) ?? []).filter((v): v is number => v !== undefined),
+    );
+    const max = Math.max(1, ...series.flat());
+    const lines: TrendLine[] = power.trend.map((load, index) => ({
+      entityId: load.entityId,
+      name: load.name,
+      color: deviceColor(index),
+      line: bucketPath(buckets.get(load.entityId) ?? [], {
+        width: CHART_W,
+        height: TREND_H,
+        max,
+        pad: 2,
+      }).line,
+      peak: Math.max(0, ...series[index]!),
+    }));
+    return { lines, max };
+  }, [power.trend, buckets]);
+
+  const colorOf = useMemo(
+    () => new Map(lines.map((line) => [line.entityId, line.color])),
+    [lines],
+  );
+
+  // The list is the chart's legend, so every tracked device is on it — an
+  // idle one at 0 W included, or its line would have no name — plus
+  // whatever else is drawing power right now. Biggest first.
+  const rows = useMemo(() => {
+    const extra = power.loads.filter((load) => !colorOf.has(load.entityId));
+    return [...power.trend, ...extra].sort((a, b) => b.watts - a.watts);
+  }, [power.trend, power.loads, colorOf]);
+
+  // A selection whose device has since left the chart clears itself.
+  const active = selected && colorOf.has(selected) ? selected : null;
+  const toggle = (entityId: string) =>
+    setSelected((current) => (current === entityId ? null : entityId));
 
   return (
     <div className="view view--energy">
-      <SolarNowCard
-        power={power}
-        solarEntity={config.power.solar}
-        consumptionEntity={config.power.consumption}
-        gridEntity={config.power.grid}
-        solarForecastConfigEntries={energyPrefs?.solarForecastConfigEntries ?? []}
-      />
+      <div className="energy">
+        <div className="energy__main">
+          <SolarNowCard
+            power={power}
+            solarEntity={config.power.solar}
+            consumptionEntity={config.power.consumption}
+            gridEntity={config.power.grid}
+            solarForecastConfigEntries={energyPrefs?.solarForecastConfigEntries ?? []}
+            meters={energyPrefs?.meters}
+          />
 
-      <DeviceTrendCard loads={power.trend} />
-
-      {power.loads.length > 0 && (
-        <div className="apparaten">
-          <div className="apparaten__label mono">Apparaten nu</div>
-          {power.loads.map((load) => (
-            <LoadRow key={load.entityId} load={load} />
-          ))}
+          <DeviceTrendCard lines={lines} max={max} selected={active} />
         </div>
-      )}
+
+        {rows.length > 0 && (
+          <div className="apparaten">
+            <div className="apparaten__label mono">Apparaten nu</div>
+            {rows.map((load) => (
+              <DeviceRow
+                key={load.entityId}
+                load={load}
+                color={colorOf.get(load.entityId)}
+                selected={active === load.entityId}
+                dimmed={active !== null && active !== load.entityId}
+                onToggle={() => toggle(load.entityId)}
+              />
+            ))}
+            {power.unmeasured !== undefined && (
+              <div
+                className={`apparaten__row apparaten__row--other${active ? ' apparaten__row--dim' : ''}`}
+              >
+                <span className="apparaten__dot apparaten__dot--hollow" />
+                <span className="apparaten__name">overige (niet gemeten)</span>
+                <span className="apparaten__value mono">{`${formatNumber(power.unmeasured)} W`}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

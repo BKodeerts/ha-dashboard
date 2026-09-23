@@ -217,24 +217,3 @@ export function deriveConsumptionSeries(
   }
   return consumption;
 }
-
-/** Today's self-consumption ratio (0–1): solar used directly, over total
-    consumption — `min(solar, consumption)` summed across the slices both
-    have a reading. Undefined until at least one does. No battery in this
-    household, so nothing solar produces is stored for later — it is either
-    used as it's made or exported, which is exactly what `min` captures. */
-export function selfConsumptionRatio(
-  solar: (number | undefined)[],
-  consumption: (number | undefined)[],
-): number | undefined {
-  let used = 0;
-  let total = 0;
-  for (let i = 0; i < Math.min(solar.length, consumption.length); i += 1) {
-    const s = solar[i];
-    const c = consumption[i];
-    if (s === undefined || c === undefined) continue;
-    used += Math.min(s, c);
-    total += c;
-  }
-  return total > 0 ? used / total : undefined;
-}

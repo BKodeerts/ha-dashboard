@@ -88,7 +88,10 @@ export interface DashboardConfig {
     /** Loads reading under this many watts drop off "apparaten nu" — the noise floor. */
     minWatts: number;
   };
-  /** The Auto tab's heading; the subtitle is built from whatever is set. */
+  /**
+   * What used to feed the Auto tab, removed in v7. Still parsed so an existing
+   * card YAML that sets it keeps loading; nothing reads it any more.
+   */
   car: {
     name?: string;
     battery?: string;

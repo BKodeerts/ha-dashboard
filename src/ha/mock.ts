@@ -717,8 +717,16 @@ export function mockBackend(): HaBackend {
             energy_sources: [
               {
                 type: 'solar',
+                stat_energy_from: 'sensor.zonnepanelen_energie',
                 stat_rate: 'sensor.zonnepanelen_vermogen',
                 config_entry_solar_forecast: ['mock_solar_forecast'],
+              },
+              // HA's unified grid shape — one import/export pair per source.
+              {
+                type: 'grid',
+                stat_energy_from: 'sensor.net_afname',
+                stat_energy_to: 'sensor.net_injectie',
+                cost_adjustment_day: 0,
               },
             ],
             device_consumption: [
@@ -739,6 +747,34 @@ export function mockBackend(): HaBackend {
               Math.max(0, Math.round(shaped ** 2 * 2400));
           }
           return { mock_solar_forecast: { wh_hours: whHours } } as unknown as T;
+        }
+        // Today's hourly kWh per meter, scaled so the day adds up to the v7
+        // handoff's own example — solar 14,2 · import 4,6 · export 6,0 kWh,
+        // which reads as 64% "uit zon" and 58% "zelf gebruikt".
+        case 'recorder/statistics_during_period': {
+          const dayStart = new Date();
+          dayStart.setHours(0, 0, 0, 0);
+          const hours = 24;
+          const shape = (hour: number, peak: number, width: number) =>
+            Math.max(0, Math.cos(((hour - peak) / width) * (Math.PI / 2))) ** 2;
+          const TOTALS: Record<string, { total: number; weight(hour: number): number }> = {
+            'sensor.zonnepanelen_energie': { total: 14.2, weight: (h) => shape(h, 13, 8) },
+            'sensor.net_injectie': { total: 6.0, weight: (h) => shape(h, 13, 5) },
+            'sensor.net_afname': { total: 4.6, weight: (h) => 1 - shape(h, 13, 8) },
+          };
+          const result: Record<string, { start: number; end: number; change: number }[]> = {};
+          for (const id of (message.statistic_ids as string[]) ?? []) {
+            const meter = TOTALS[id];
+            if (!meter) continue;
+            const weights = Array.from({ length: hours }, (_, h) => meter.weight(h));
+            const sum = weights.reduce((a, b) => a + b, 0) || 1;
+            result[id] = weights.map((w, h) => ({
+              start: dayStart.getTime() + h * 3600e3,
+              end: dayStart.getTime() + (h + 1) * 3600e3,
+              change: (w / sum) * meter.total,
+            }));
+          }
+          return result as unknown as T;
         }
         case 'history/history_during_period': {
           const ids = (message.entity_ids as string[]) ?? [];

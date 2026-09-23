@@ -8,7 +8,6 @@ import { OpeningsSheet } from '../components/sheets/OpeningsSheet';
 import { PresenceSheet } from '../components/sheets/PresenceSheet';
 import { RoomSheet } from '../components/sheets/RoomSheet';
 import { WeatherSheet } from '../components/sheets/WeatherSheet';
-import { CarView } from '../components/views/CarView';
 import { EnergyView } from '../components/views/EnergyView';
 import { NetworkView } from '../components/views/NetworkView';
 import { SettingsView } from '../components/views/SettingsView';
@@ -25,6 +24,7 @@ import {
 } from '../ha/selectors';
 import { collectStale } from '../ha/stale';
 import { useScheme, useThemeAttribute } from '../ui/theme';
+import { LayoutContext, layoutFor, useElementWidth } from './layout';
 
 /**
  * Only one sheet is open at a time. The alarm no longer has one: its chip in
@@ -74,6 +74,8 @@ export function App() {
   const rootRef = useRef<HTMLDivElement>(null);
   const scheme = useScheme(config.theme, backend);
   useThemeAttribute(rootRef, scheme, config.palette);
+  const width = useElementWidth(rootRef);
+  const layout = useMemo(() => layoutFor(width), [width]);
 
   const rooms = useMemo(
     () => (registries ? buildRooms(registries, areaEntities, entities, config) : []),
@@ -119,75 +121,86 @@ export function App() {
   const activeRoom =
     sheet?.kind === 'room' ? rooms.find((room) => room.id === sheet.id) : undefined;
 
-  // One root element in both states, so the theme ref never goes missing.
+  // One root element in both states — same element type at the same depth —
+  // so the theme ref and the width observer never lose their node.
   if (!registries) {
     return (
-      <div className="app" ref={rootRef} data-theme={scheme} data-palette={config.palette}>
-        <div className="centered">
-          {status === 'disconnected' ? 'Verbinding verbroken' : 'Verbinden met Home Assistant…'}
+      <LayoutContext.Provider value={layout}>
+        <div className="app" ref={rootRef} data-theme={scheme} data-palette={config.palette}>
+          <div className="centered">
+            {status === 'disconnected' ? 'Verbinding verbroken' : 'Verbinden met Home Assistant…'}
+          </div>
         </div>
-      </div>
+      </LayoutContext.Provider>
     );
   }
 
   return (
-    <div className="app" ref={rootRef} data-theme={scheme} data-palette={config.palette}>
-      {status !== 'connected' && (
-        <div className="banner">
-          {status === 'disconnected' ? 'Verbinding verbroken — opnieuw proberen…' : 'Verbinden…'}
-        </div>
-      )}
+    <LayoutContext.Provider value={layout}>
+      <div
+        className="app"
+        ref={rootRef}
+        data-theme={scheme}
+        data-palette={config.palette}
+        data-cols={layout.cols}
+        data-split={layout.split ? '' : undefined}
+        data-wide={layout.wide ? '' : undefined}
+      >
+        {status !== 'connected' && (
+          <div className="banner">
+            {status === 'disconnected' ? 'Verbinding verbroken — opnieuw proberen…' : 'Verbinden…'}
+          </div>
+        )}
 
-      <div className="app__main">
-        <TopLine
-          weather={weather}
-          forecast={forecast}
-          alarm={alarm}
-          alarmPickerOpen={alarmPickerOpen}
-          onAlarmPickerChange={setAlarmPickerOpen}
-          people={people}
-          onOpenWeather={() => setSheet({ kind: 'weather' })}
-          onOpenPerson={(id) => setSheet({ kind: 'person', id })}
-          onOpenSettings={() => selectTab('meer')}
-          tab={tab}
-          openings={openings}
-          onOpenOpenings={() => setSheet({ kind: 'openings' })}
+        <div className="app__main">
+          <TopLine
+            weather={weather}
+            forecast={forecast}
+            alarm={alarm}
+            alarmPickerOpen={alarmPickerOpen}
+            onAlarmPickerChange={setAlarmPickerOpen}
+            people={people}
+            onOpenWeather={() => setSheet({ kind: 'weather' })}
+            onOpenPerson={(id) => setSheet({ kind: 'person', id })}
+            onOpenSettings={() => selectTab('meer')}
+            tab={tab}
+            openings={openings}
+            onOpenOpenings={() => setSheet({ kind: 'openings' })}
+          />
+
+          {tab === 'home' ? (
+            <RoomGrid
+              rooms={rooms}
+              showOther={showOther}
+              onToggleOther={() => setShowOther((open) => !open)}
+              onOpenRoom={openRoom}
+            />
+          ) : tab === 'energie' ? (
+            <EnergyView power={power} />
+          ) : tab === 'netwerk' ? (
+            <NetworkView stale={stale} />
+          ) : (
+            <SettingsView rooms={rooms} persons={persons} me={me} />
+          )}
+        </div>
+
+        <TabBar
+          active={tab}
+          state={{ stale: stale.length > 0, ...(power.net !== undefined ? { net: power.net } : {}) }}
+          onSelect={selectTab}
         />
 
-        {tab === 'home' ? (
-          <RoomGrid
-            rooms={rooms}
-            showOther={showOther}
-            onToggleOther={() => setShowOther((open) => !open)}
-            onOpenRoom={openRoom}
-          />
-        ) : tab === 'energie' ? (
-          <EnergyView power={power} />
-        ) : tab === 'netwerk' ? (
-          <NetworkView stale={stale} />
-        ) : tab === 'auto' ? (
-          <CarView />
-        ) : (
-          <SettingsView rooms={rooms} persons={persons} me={me} />
+        <Toasts toasts={toasts} />
+
+        {activeRoom && <RoomSheet room={activeRoom} onClose={closeSheet} />}
+        {sheet?.kind === 'openings' && <OpeningsSheet openings={openings} onClose={closeSheet} />}
+        {sheet?.kind === 'weather' && (
+          <WeatherSheet weather={weather} forecast={forecast} onClose={closeSheet} />
+        )}
+        {sheet?.kind === 'person' && (
+          <PresenceSheet entityId={sheet.id} onClose={closeSheet} />
         )}
       </div>
-
-      <TabBar
-        active={tab}
-        state={{ stale: stale.length > 0, ...(power.net !== undefined ? { net: power.net } : {}) }}
-        onSelect={selectTab}
-      />
-
-      <Toasts toasts={toasts} />
-
-      {activeRoom && <RoomSheet room={activeRoom} onClose={closeSheet} />}
-      {sheet?.kind === 'openings' && <OpeningsSheet openings={openings} onClose={closeSheet} />}
-      {sheet?.kind === 'weather' && (
-        <WeatherSheet weather={weather} forecast={forecast} onClose={closeSheet} />
-      )}
-      {sheet?.kind === 'person' && (
-        <PresenceSheet entityId={sheet.id} onClose={closeSheet} />
-      )}
-    </div>
+    </LayoutContext.Provider>
   );
 }

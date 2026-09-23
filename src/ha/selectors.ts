@@ -642,6 +642,13 @@ export interface PowerInfo {
    * snapshot of what's on *now* and has no use for an entry reading 0 W.
    */
   trend: PowerLoad[];
+  /**
+   * "overige (niet gemeten)": what the house draws beyond every individually
+   * metered device — `consumption` minus the devices' own readings, with
+   * devices HA knows are metered inside another one left out of the sum so
+   * they don't count twice. Absent without a consumption figure or any device.
+   */
+  unmeasured?: number;
 }
 
 /** Normalises a power sensor to watts, so kW sensors don't blow up the bar. */
@@ -732,6 +739,14 @@ export function powerInfo(
     // nothing to produce (overnight, heavy cloud), and the meter still knows
     // the house's draw regardless of whether the inverter is answering.
     info.consumption = (solar ?? 0) - info.net;
+  }
+
+  if (info.consumption !== undefined && all.length > 0) {
+    const nested = new Set(energyPrefs?.nestedDeviceRates ?? []);
+    const measured = all
+      .filter((load) => !nested.has(load.entityId))
+      .reduce((sum, load) => sum + Math.max(0, load.watts), 0);
+    info.unmeasured = Math.max(0, info.consumption - measured);
   }
 
   return info;

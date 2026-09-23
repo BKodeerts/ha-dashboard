@@ -13,8 +13,6 @@ interface StateGlyph {
   icon: IconName;
   /** CSS modifier for the active colour, or `''` for the inactive grey. */
   tone: string;
-  /** Printed to the *left* of the glyph, in 10px mono. Only the AC has one. */
-  note?: string;
   label: string;
   /** Set on the glyphs that are controls; the rest render as read-only icons. */
   onTap?: () => void;
@@ -29,8 +27,9 @@ interface StateGlyph {
  * window › AC**, three at a time.
  *
  * Anything past the third lives in the room card. In a room with a radio *and*
- * an open window that drops the AC glyph, so the setpoint is not on the tile
- * there — accepted: the exceptions matter more at a glance than the setpoint.
+ * an open window that drops the AC glyph — accepted: the exceptions matter
+ * more at a glance than the AC. v7 dropped the AC's setpoint note as clutter:
+ * the glyph's mode colour says it is running, the room card says at what.
  *
  * Two of them are controls. The light glyph toggles the room's lights and the
  * AC glyph switches the unit on or off; which mode it comes back in is the room
@@ -85,9 +84,9 @@ function stateGlyphs(
   }
 
   if (room.climate) {
-    const { entityId, mode, target } = room.climate;
+    const { entityId, mode } = room.climate;
     const on = mode !== 'off';
-    const glyph: StateGlyph = {
+    glyphs.push({
       key: 'climate',
       icon: HVAC_ICONS[mode],
       tone: on ? `glyph--${mode}` : '',
@@ -95,13 +94,7 @@ function stateGlyphs(
       onTap: () => onToggleClimate(entityId),
       on,
       entityId,
-    };
-    // The setpoint is the whole point of the glyph — except in fan mode, where
-    // there is nothing to hold.
-    if (on && mode !== 'fan_only' && target !== undefined) {
-      glyph.note = formatTemp(target);
-    }
-    glyphs.push(glyph);
+    });
   }
 
   return glyphs.slice(0, 3);
@@ -113,26 +106,17 @@ function stateGlyphs(
  * that carries a single entity (the AC, the radio) opens HA's own more-info
  * for it; a short tap still does whatever the glyph already did.
  */
-function GlyphView({ glyph }: { glyph: StateGlyph }) {
-  const face = (
-    <>
-      {glyph.note && <span className="glyph__note">{glyph.note}</span>}
-      <Icon name={glyph.icon} size={16} />
-    </>
-  );
+function GlyphView({ glyph, onOpenRoom }: { glyph: StateGlyph; onOpenRoom(): void }) {
+  const face = <Icon name={glyph.icon} size={16} />;
   const className = `glyph${glyph.tone ? ` ${glyph.tone}` : ''}`;
 
   const longPress = useLongPress({
     entityId: glyph.entityId,
-    // Read-only glyphs have nothing of their own to do with a tap, so it
-    // falls through and opens the room card, same as tapping anywhere else on
-    // the tile. A control glyph stops that fall-through — it already acted.
-    onClick: glyph.onTap
-      ? (event) => {
-          event.stopPropagation();
-          glyph.onTap?.();
-        }
-      : undefined,
+    // Read-only glyphs have nothing of their own to do with a tap, so a tap
+    // opens the room card, same as tapping anywhere else on the tile. The
+    // column sits beside the tile body rather than inside it, so that is an
+    // explicit call rather than a click bubbling up.
+    onClick: glyph.onTap ? () => glyph.onTap?.() : onOpenRoom,
   });
 
   if (!glyph.onTap) {
@@ -186,17 +170,22 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
       <span className="tile__spine" style={{ background: room.tint }} />
       <HaIcon icon={room.icon} className="tile__glyph-bg" color={room.tint} />
 
+      {/* v7: a column pinned to the top-right corner, out of the flex flow, so
+          three glyphs can never push the tile taller or clip at its bottom
+          edge. A sibling of the tap area, not a child: a button inside a
+          role="button" is nested interactive content. */}
+      <div className="tile__glyphs">
+        {glyphs.map((glyph) => (
+          <GlyphView key={glyph.key} glyph={glyph} onOpenRoom={onOpen} />
+        ))}
+      </div>
+
       <div
         className="tile__body"
         role="button"
         tabIndex={0}
         onClick={onOpen}
         onKeyDown={(event) => {
-          // The glyph controls are buttons inside this one. Enter on one of
-          // them already toggled its device; letting the key bubble on would
-          // open the card on top of it — the keyboard's version of the
-          // fall-through the glyphs' `stopPropagation` prevents for taps.
-          if (event.target !== event.currentTarget) return;
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             onOpen();
@@ -206,19 +195,9 @@ export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
       >
         <div className="tile__name">{room.name}</div>
 
-        <div className="tile__bottom">
-          <div className="tile__reading">
-            <span className="tile__temp">{formatTemp(room.temperature)}</span>
-            <span className="tile__hum">{formatHumidity(room.humidity)}</span>
-          </div>
-
-          {/* A vertical stack against the tile's bottom-right corner, beside
-              the reading. */}
-          <div className="tile__glyphs">
-            {glyphs.map((glyph) => (
-              <GlyphView key={glyph.key} glyph={glyph} />
-            ))}
-          </div>
+        <div className="tile__reading">
+          <span className="tile__temp">{formatTemp(room.temperature)}</span>
+          <span className="tile__hum">{formatHumidity(room.humidity)}</span>
         </div>
       </div>
     </div>
