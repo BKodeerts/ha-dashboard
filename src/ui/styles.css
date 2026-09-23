@@ -550,9 +550,9 @@ button {
   gap: 8px;
 }
 
-/* The gear and the alarm — one shape, one size. The alarm's state colours
-   (below) and the picker it hangs off it are the only things that make it
-   different from its neighbour. */
+/* The alarm's round button. v8 moved its old neighbour, the settings gear,
+   into the tab bar; the state colours (below) and the picker live on the
+   alarm chip itself. */
 .header__btn {
   position: relative;
   flex: 0 0 auto;
@@ -1022,8 +1022,9 @@ button {
   pointer-events: none;
 }
 
-/* v7: three tabs, so the bar narrows to 340px and stays bottom-centred at
-   every width — no left rail on desktop any more. */
+/* v7 narrowed the bar to 340px; v8's fourth tab (Instellingen) fits in the
+   same width. It stays bottom-centred at every width — no left rail on
+   desktop any more. */
 .tabbar__inner {
   display: flex;
   align-items: center;
@@ -2253,40 +2254,6 @@ button {
   color: var(--text-body);
 }
 
-/* ── segmented control ─────────────────────────────────────────────────────
-   The Thema and Kleuren pickers in settings. It was the alarm sheet's mode
-   row until v4 moved arming onto the header chip's picker; the shape outlived
-   the sheet, so it kept it under a name that says what it is.             */
-
-.segmented {
-  display: flex;
-  gap: 7px;
-}
-
-.segmented__option {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex: 1;
-  min-height: 60px;
-  padding: 12px 8px;
-  border-radius: 14px;
-  background: var(--control);
-  color: var(--text-2);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.segmented__option--on {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
 /* ── embedded Lovelace ─────────────────────────────────────────────────── */
 
 .lovelace {
@@ -2880,69 +2847,6 @@ button {
   text-decoration: underline;
 }
 
-/*
- * "Wie ben jij" — a read-only row, not a setting. A household of five people
- * has five Home Assistant accounts, and asking each of them to pick themselves
- * out of a list is a setting that can be wrong; `hass.user` matched to a
- * `person`'s `user_id` cannot.
- */
-.me {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 56px;
-  padding: 0 14px;
-  border-radius: 18px;
-  background: var(--card);
-}
-
-.me__icon {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 16px;
-  background: var(--control);
-  color: var(--text-2);
-}
-
-.me__names {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.me__name {
-  font-size: 15px;
-  font-weight: 500;
-}
-
-.me__id {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--text-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.me__badge {
-  flex: 0 0 auto;
-  padding: 5px 9px;
-  border-radius: 10px;
-  background: var(--control);
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
 /* ── radio lists ────────────────────────────────────────────────────────────
    "Pick exactly one of these": who you follow up top. Picking a row replaces
    whoever was chosen before rather than adding to them, so a ring that fills
@@ -3145,6 +3049,56 @@ button {
   border-radius: 50%;
 }
 
+/* v8: the swatch opens a picker instead of cycling. The wrapper is the
+   picker's positioning context, so it hangs under the dot without moving the
+   row. */
+.order__tint {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.order__btn--tint-open .order__swatch {
+  box-shadow:
+    0 0 0 3px var(--card),
+    0 0 0 4.5px var(--text);
+}
+
+.tint-picker {
+  position: absolute;
+  z-index: 6;
+  top: 42px;
+  right: -4px;
+  display: grid;
+  grid-template-columns: repeat(4, 32px);
+  gap: 6px;
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--card);
+  box-shadow:
+    0 10px 30px rgba(17, 19, 24, 0.16),
+    0 0 0 1px var(--border);
+  animation: fadeIn 0.14s ease;
+}
+
+.tint-picker__option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+}
+
+.tint-picker__option--on {
+  box-shadow: inset 0 0 0 1.5px var(--text);
+}
+
+.tint-picker__dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+}
+
 .order__btn--fav {
   color: var(--glyph-idle);
 }
@@ -3153,7 +3107,74 @@ button {
   color: var(--accent-glyph);
 }
 
-/* "Overig": Weer · Thema · Kleuren · Opslag, one card with hairline
+/* "Scherm" (v8): the kiosk switch. The whole row is the hit area. */
+.switch-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 0 14px;
+  border-radius: 18px;
+  background: var(--card);
+  text-align: left;
+}
+
+.switch-row__names {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.switch-row__name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.switch-row__id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 26px;
+  border-radius: 13px;
+  background: var(--divider);
+  transition: background 0.16s ease;
+}
+
+.switch::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--card);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
+  transition: left 0.16s ease;
+}
+
+.switch--on {
+  background: var(--text);
+}
+
+.switch--on::after {
+  left: 21px;
+}
+
+/* "Overig": Weer · Opslag (v8 dropped Thema and Kleuren), one card with hairline
    separators; each row expands its own panel inline. */
 .more {
   display: flex;
@@ -3393,6 +3414,8 @@ button {
   .more__row,
   .more__chevron,
   .header__btn,
+  .switch,
+  .switch::after,
   .room-grid__more {
     transition: none;
   }

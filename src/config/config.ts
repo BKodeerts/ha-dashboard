@@ -50,6 +50,13 @@ export interface DashboardConfig {
    */
   staleDevicesEntity?: string;
   /**
+   * The `input_boolean` the Instellingen "Kioskmodus" switch flips. The
+   * dashboard doesn't hide HA's header and sidebar itself — the kiosk-mode
+   * plugin (HACS) does, keyed on this entity in its own YAML. Defaults to
+   * `input_boolean.kiosk_mode`; the section hides when the entity is missing.
+   */
+  kioskEntity?: string;
+  /**
    * Media player per area id, overriding the auto-pick (the first
    * `media_player.*` the area's registry happens to list — a TV can easily
    * beat a Sonos this way). Household-wide: set from the card's visual editor
@@ -157,6 +164,22 @@ const TINT_BY_NAME: Record<string, string> = {
   waskot: 'oklch(0.70 0.09 245)',
   toilet: 'oklch(0.74 0.08 215)',
 };
+
+/**
+ * The eight tints the Instellingen tint picker offers (v8) — a 4 × 2 grid.
+ * Separate from `TINT_CYCLE` so picking from a wider set never changes the
+ * default tint an unnamed room already has.
+ */
+export const TINT_CHOICES = [
+  'oklch(0.74 0.07 70)',
+  'oklch(0.70 0.09 130)',
+  'oklch(0.66 0.09 200)',
+  'oklch(0.62 0.10 300)',
+  'oklch(0.70 0.08 235)',
+  'oklch(0.68 0.10 45)',
+  'oklch(0.60 0.04 260)',
+  'oklch(0.66 0.11 145)',
+];
 
 /** Hues cycled through for areas the design did not name. */
 export const TINT_CYCLE = [

@@ -20,6 +20,16 @@ export interface ServiceCall {
   optimistic: OptimisticPatch[];
 }
 
+/** Flips an `input_boolean` — the Instellingen kiosk switch. */
+export function toggleInputBoolean(entityId: string, states: HassEntities): ServiceCall {
+  return {
+    domain: 'input_boolean',
+    service: 'toggle',
+    target: { entity_id: entityId },
+    optimistic: [{ entityId, state: states[entityId]?.state === 'on' ? 'off' : 'on' }],
+  };
+}
+
 /** Lights in a room: if any is on, turn them all off; else turn them all on. */
 export function toggleRoomLights(lightIds: string[], states: HassEntities): ServiceCall | null {
   if (lightIds.length === 0) return null;
