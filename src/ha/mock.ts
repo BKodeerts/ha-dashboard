@@ -77,7 +77,16 @@ interface MockQuiet {
    */
   battery?: number | 'unavailable';
   agoMin: number;
+  /**
+   * When the device really went quiet, if earlier than `agoMin`: the mock
+   * house was restarted since, so `last_changed` only reaches back to the
+   * restart and the history call has to find the real start.
+   */
+  goneMin?: number;
 }
+
+/** The mock house's last restart, as a real one resets `last_changed`. */
+const RESTART_AGO_MIN = 27 * 60;
 
 const QUIET: MockQuiet[] = [
   {
@@ -131,7 +140,8 @@ const QUIET: MockQuiet[] = [
     state: 'unavailable',
     attributes: { friendly_name: 'Slaapkamer dimmer LQI' },
     battery: 'unavailable',
-    agoMin: 27 * 60,
+    agoMin: RESTART_AGO_MIN,
+    goneMin: 9 * 24 * 60 + 120,
   },
 ];
 
@@ -548,6 +558,24 @@ function buildRegistries(states: HassEntities): {
  * It lands on `endsAt` so the history and the live state agree — otherwise the
  * card draws a cliff where the two series meet.
  */
+/**
+ * A silent tracker's history: talking until `goneMin`, then its silent state
+ * — recorded again at the restart, which is what resets `last_changed`.
+ */
+function quietHistory(quiet: MockQuiet): { s: string; lu: number }[] {
+  const at = (min: number) => (Date.now() - min * 60_000) / 1000;
+  const gone = quiet.goneMin ?? quiet.agoMin;
+  const rows = [
+    { s: quiet.state === 'off' ? 'on' : '120', lu: at(gone + 24 * 60) },
+    { s: quiet.state, lu: at(gone) },
+  ];
+  if (gone > RESTART_AGO_MIN) {
+    rows.push({ s: 'unavailable', lu: at(RESTART_AGO_MIN + 1) });
+    rows.push({ s: quiet.state, lu: at(RESTART_AGO_MIN) });
+  }
+  return rows;
+}
+
 function mockHistory(entityId: string, points: number, endsAt: number): { s: string; lu: number }[] {
   const seed = [...entityId].reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 97;
   const now = Date.now();
@@ -794,6 +822,11 @@ export function mockBackend(): HaBackend {
           const ids = (message.entity_ids as string[]) ?? [];
           const result: Record<string, { s: string; lu: number }[]> = {};
           for (const id of ids) {
+            const quiet = QUIET.find((q) => q.entityId === id);
+            if (quiet) {
+              result[id] = quietHistory(quiet);
+              continue;
+            }
             const current = Number(states[id]?.state);
             result[id] = mockHistory(id, 48, Number.isFinite(current) ? current : 22);
           }

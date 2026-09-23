@@ -123,7 +123,7 @@ function StaleRow({ device }: { device: StaleDevice }) {
         </div>
       </div>
       <div className={`stale__badge mono${silent ? ' stale__badge--warn' : ''}`}>
-        {formatSilence(device.silentMs)}
+        {formatSilence(device.silentMs, device.silenceAtLeast)}
       </div>
     </div>
   );

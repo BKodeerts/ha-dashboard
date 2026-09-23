@@ -1,3 +1,4 @@
+import type { SilentSince } from './history';
 import { friendlyName, toNumber } from './selectors';
 import type { HassEntities, HassEntity, Registries } from './types';
 
@@ -39,6 +40,8 @@ export interface StaleDevice {
   /** The flagged entity this row's silence is measured from. */
   entityId: string;
   silentMs: number;
+  /** History ran out before the silence did: it is at least `silentMs`. */
+  silenceAtLeast?: boolean;
   /**
    * What the dashboard knows about how the device is powered. `mains` only
    * means no battery entity was found on the device — HA has no positive
@@ -119,13 +122,17 @@ function powerOf(
   return power;
 }
 
-/** `6 d` / `31 u` / `12 min` — the v7 badge. Days from 48 h on. */
-export function formatSilence(ms: number): string {
+/**
+ * `6 d` / `31 u` / `12 min` — the v7 badge. Days from 48 h on. `atLeast`
+ * adds a `+` (`10+ d`) for a silence older than the history that measured it.
+ */
+export function formatSilence(ms: number, atLeast = false): string {
+  const plus = atLeast ? '+' : '';
   const minutes = Math.floor(ms / 60e3);
-  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 60) return `${minutes}${plus} min`;
   const hours = Math.floor(ms / 3600e3);
-  if (hours < 48) return `${hours} u`;
-  return `${Math.floor(hours / 24)} d`;
+  if (hours < 48) return `${hours}${plus} u`;
+  return `${Math.floor(hours / 24)}${plus} d`;
 }
 
 /**
@@ -138,15 +145,47 @@ export function formatSilence(ms: number): string {
  */
 const AGO_PATTERN = /^(\d+)\s*([dw])\s*ago$/i;
 
-function silenceOf(entity: HassEntity, now: number): number {
+/**
+ * A "last seen" sensor (`device_class: timestamp`) carries the answer in its
+ * own state, and that survives a restart too.
+ */
+function lastSeenOf(entity: HassEntity): number | undefined {
+  if (entity.attributes?.device_class !== 'timestamp') return undefined;
+  const seen = Date.parse(entity.state);
+  return Number.isFinite(seen) ? seen : undefined;
+}
+
+/**
+ * Whether this tracker's silence has to come from history. The two state
+ * formats above already say how long it has been; everything else only has
+ * `last_changed`, which a restart resets.
+ */
+export function needsSilenceHistory(entity: HassEntity): boolean {
+  return !AGO_PATTERN.test(entity.state.trim()) && lastSeenOf(entity) === undefined;
+}
+
+function silenceOf(
+  entity: HassEntity,
+  now: number,
+  known: SilentSince | undefined,
+): { ms: number; atLeast: boolean } {
   const ago = AGO_PATTERN.exec(entity.state.trim());
   if (ago) {
     const amount = Number(ago[1]);
     const unitMs = ago[2]!.toLowerCase() === 'w' ? 7 * 24 * 3600e3 : 24 * 3600e3;
-    return amount * unitMs;
+    return { ms: amount * unitMs, atLeast: false };
   }
+  const seen = lastSeenOf(entity);
+  if (seen !== undefined) return { ms: Math.max(0, now - seen), atLeast: false };
+
   const changed = Date.parse(entity.last_changed);
-  return Number.isFinite(changed) ? Math.max(0, now - changed) : 0;
+  const live = Number.isFinite(changed) ? Math.max(0, now - changed) : 0;
+  // History can only push the silence further back than `last_changed`, never
+  // closer: whichever is longer is the truth.
+  if (known && now - known.since > live) {
+    return { ms: now - known.since, atLeast: known.atLeast };
+  }
+  return { ms: live, atLeast: false };
 }
 
 interface Group extends Omit<StaleDevice, 'power'> {}
@@ -162,6 +201,8 @@ export function collectStale(
   states: HassEntities,
   now = Date.now(),
   sensorEntityId: string = DISCONNECTED_SENSOR,
+  /** From `fetchSilentSince`, per flagged entity id — see `useSilentSince`. */
+  silentSince: ReadonlyMap<string, SilentSince> = new Map(),
 ): StaleDevice[] {
   const flagged: unknown = states[sensorEntityId]?.attributes?.entities;
   if (!Array.isArray(flagged) || flagged.length === 0) return [];
@@ -186,7 +227,8 @@ export function collectStale(
 
     const key = device?.id ?? entityId;
     const areaId = entry?.area_id ?? device?.area_id ?? null;
-    const silentMs = silenceOf(state, now);
+    const silence = silenceOf(state, now, silentSince.get(entityId));
+    const silentMs = silence.ms;
 
     const existing = groups.get(key);
     if (existing && existing.silentMs >= silentMs) continue;
@@ -198,6 +240,7 @@ export function collectStale(
       entityId,
       silentMs,
     };
+    if (silence.atLeast) group.silenceAtLeast = true;
     if (areaId && areaName.has(areaId)) group.areaId = areaId;
     groups.set(key, group);
   }
