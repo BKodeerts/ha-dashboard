@@ -3,10 +3,11 @@ import type { IconName } from '../ui/icons';
 
 /**
  * `meer` is the settings screen behind the gear. It is a view like any other —
- * it just has no tab of its own, so none of the four ever shows as active while
- * it is open.
+ * it just has no tab of its own, so none of the three ever shows as active
+ * while it is open. v7 dropped the Auto tab: it only ever rendered a title and
+ * one line, and the laadpaal already shows up as an Energie load.
  */
-export type Tab = 'home' | 'energie' | 'netwerk' | 'auto' | 'meer';
+export type Tab = 'home' | 'energie' | 'netwerk' | 'meer';
 
 export interface TabBarState {
   /** Positive = exporting to the grid. `undefined` when there is no sensor. */
@@ -16,7 +17,7 @@ export interface TabBarState {
 }
 
 /**
- * Icons only; the label lives in `aria-label`. Two of the four say something
+ * Icons only; the label lives in `aria-label`. Two of the three say something
  * about the house regardless of which tab is selected: Energie shows the
  * direction the meter is running, and Netwerk warns while anything is silent.
  */
@@ -50,7 +51,6 @@ export function TabBar({
       label: state.stale ? 'Netwerk · stille apparaten' : 'Netwerk',
       ...(state.stale ? { tone: 'tabbar__item--stale', dot: true } : {}),
     },
-    { id: 'auto', icon: 'car', label: 'Auto' },
   ];
 
   return (

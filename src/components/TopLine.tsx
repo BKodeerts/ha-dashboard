@@ -24,8 +24,18 @@ import { AlarmChip } from './AlarmChip';
  *    The weather stays the tap target for its sheet; the chip opens the
  *    person's own sheet.
  * 3. The section label, plus the open-windows chip when — and only when —
- *    something in the house is open. Hidden entirely on the power tab.
+ *    something in the house is open. The chip is home-only.
+ *
+ * v7: the rows sit in the same 820px column as the views under them; only
+ * the header's background stays full-bleed.
  */
+const SECTION_LABELS: Record<Tab, string> = {
+  home: 'Kamers',
+  energie: 'Nu',
+  netwerk: 'Netwerk',
+  meer: 'Instellingen',
+};
+
 export function TopLine({
   weather,
   forecast,
@@ -70,81 +80,81 @@ export function TopLine({
   });
 
   const onHome = tab === 'home';
-  // The section row is shared screen furniture, but its label only means
-  // something on the two tabs this revision covers — Netwerk, Auto and
-  // Instellingen print their own titles further down and leave this row
-  // blank rather than borrowing a label that isn't theirs.
-  const sectionLabel = onHome ? 'Kamers' : tab === 'energie' ? 'Nu' : undefined;
+  // The section row is shared screen furniture; v7 gives every view its own
+  // label there.
+  const sectionLabel = SECTION_LABELS[tab];
   const chipVisible = onHome && openCount > 0;
 
   return (
     <div className="header">
-      <div className="header__top">
-        <span className="header__date mono">{formatFullDate(new Date())}</span>
+      <div className="header__column">
+        <div className="header__top">
+          <span className="header__date mono">{formatFullDate(new Date())}</span>
 
-        <div className="header__buttons">
-          <button
-            type="button"
-            className="header__btn"
-            onClick={onOpenSettings}
-            aria-label="Instellingen"
-          >
-            <Icon name="cog" size={17} />
-          </button>
+          <div className="header__buttons">
+            <button
+              type="button"
+              className="header__btn"
+              onClick={onOpenSettings}
+              aria-label="Instellingen"
+            >
+              <Icon name="cog" size={17} />
+            </button>
 
-          <AlarmChip alarm={alarm} open={alarmPickerOpen} onOpenChange={onAlarmPickerChange} />
+            <AlarmChip alarm={alarm} open={alarmPickerOpen} onOpenChange={onAlarmPickerChange} />
+          </div>
         </div>
-      </div>
 
-      <div className="header__weather-row">
-        <button
-          type="button"
-          className="header__weather"
-          aria-label="Weer"
-          onPointerDown={weatherLongPress.onPointerDown}
-          onPointerMove={weatherLongPress.onPointerMove}
-          onPointerUp={weatherLongPress.onPointerUp}
-          onPointerCancel={weatherLongPress.onPointerCancel}
-          onClick={weatherLongPress.onClick}
-        >
-          <Icon
-            name={weatherIcon(weather.condition)}
-            size={20}
-            className="header__weather-icon"
-          />
-          <span className="header__temp">{formatTemp(weather.temperature, 1)}</span>
-          {range && <span className="header__range mono">{range}</span>}
-        </button>
-
-        {account && (
+        <div className="header__weather-row">
           <button
             type="button"
-            className="person-chip"
-            aria-label={account.label}
-            onPointerDown={personLongPress.onPointerDown}
-            onPointerMove={personLongPress.onPointerMove}
-            onPointerUp={personLongPress.onPointerUp}
-            onPointerCancel={personLongPress.onPointerCancel}
-            onClick={personLongPress.onClick}
+            className="header__weather"
+            aria-label="Weer"
+            onPointerDown={weatherLongPress.onPointerDown}
+            onPointerMove={weatherLongPress.onPointerMove}
+            onPointerUp={weatherLongPress.onPointerUp}
+            onPointerCancel={weatherLongPress.onPointerCancel}
+            onClick={weatherLongPress.onClick}
           >
-            <span className="person-chip__avatar">
-              <Icon name="account" size={15} />
-            </span>
-            <span className="person-chip__zone mono">{account.zoneLabel}</span>
+            <Icon
+              name={weatherIcon(weather.condition)}
+              size={20}
+              className="header__weather-icon"
+            />
+            <span className="header__temp">{formatTemp(weather.temperature, 1)}</span>
+            {range && <span className="header__range mono">{range}</span>}
           </button>
-        )}
-      </div>
 
-      <div className="header__section">
-        {sectionLabel && <span className="header__section-label mono">{sectionLabel}</span>}
+          {account && (
+            <button
+              type="button"
+              className="person-chip"
+              aria-label={account.label}
+              onPointerDown={personLongPress.onPointerDown}
+              onPointerMove={personLongPress.onPointerMove}
+              onPointerUp={personLongPress.onPointerUp}
+              onPointerCancel={personLongPress.onPointerCancel}
+              onClick={personLongPress.onClick}
+            >
+              <span className="person-chip__avatar">
+                <Icon name="account" size={15} />
+              </span>
+              <span className="person-chip__zone mono">{account.zoneLabel}</span>
+            </button>
+          )}
+        </div>
 
-        {chipVisible && (
-          <button type="button" className="window-chip" onClick={onOpenOpenings}>
-            <Icon name="window" size={17} className="window-chip__icon" />
-            {openCount === 1 ? '1 raam open' : `${openCount} ramen open`}
-            <Icon name="chevronRight" size={15} className="window-chip__chevron" />
-          </button>
-        )}
+        <div className="header__section">
+          {sectionLabel && <span className="header__section-label mono">{sectionLabel}</span>}
+
+          {chipVisible && (
+            <button type="button" className="window-chip" onClick={onOpenOpenings}>
+              <Icon name="window" size={17} className="window-chip__icon" />
+              {openCount === 1 ? '1 raam open' : `${openCount} ramen open`}
+              <Icon name="chevronRight" size={15} className="window-chip__chevron" />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

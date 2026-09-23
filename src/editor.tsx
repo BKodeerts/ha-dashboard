@@ -15,40 +15,7 @@ import { bucketEntities, fetchRegistries, resolveAreaEntities } from './ha/regis
 import { friendlyName } from './ha/selectors';
 import type { HassEntities, HomeAssistant, Registries } from './ha/types';
 
-const domainEntities = (states: HassEntities, domain: string): string[] =>
-  Object.keys(states)
-    .filter((id) => id.startsWith(`${domain}.`))
-    .sort();
-
 const entityLabel = (states: HassEntities, id: string): string => `${friendlyName(states, id)} (${id})`;
-
-function EntityPicker({
-  label,
-  value,
-  options,
-  states,
-  onChange,
-}: {
-  label: string;
-  value: string | undefined;
-  options: string[];
-  states: HassEntities;
-  onChange(value: string | undefined): void;
-}) {
-  return (
-    <label className="hdpe__field">
-      <span className="hdpe__field-label">{label}</span>
-      <select value={value ?? ''} onChange={(event) => onChange(event.target.value || undefined)}>
-        <option value="">— geen —</option>
-        {options.map((id) => (
-          <option key={id} value={id}>
-            {entityLabel(states, id)}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
 
 /** One level of the "Bladeren" breadcrumb — enough to browse back into. */
 type BrowseCrumb = { title: string; media_content_id: string; media_content_type: string };
@@ -358,7 +325,7 @@ function DeviceListRows({
 /**
  * The GUI half of the Lovelace card editor, covering exactly the settings
  * that used to require hand-written YAML with no in-app alternative — power,
- * the car, media presets — plus "media per kamer", which used to be an
+ * media presets — plus "media per kamer", which used to be an
  * admin-only setting written straight into HA's system store. All of it is
  * just the card's own YAML now, edited with form controls instead of a text
  * box. Personal preferences (theme, favourites, tracked person, …) stay in
@@ -398,7 +365,6 @@ function Editor({
   }, []);
 
   const states = hass.states;
-  const sensors = useMemo(() => domainEntities(states, 'sensor'), [states]);
 
   /*
    * `onChange` round-trips through HA's edit-card dialog and back down as a
@@ -441,7 +407,6 @@ function Editor({
   const power: NonNullable<ConfigLayer['power']> = (local.power as ConfigLayer['power']) ?? {
     minWatts: 0,
   };
-  const car: NonNullable<ConfigLayer['car']> = (local.car as ConfigLayer['car']) ?? {};
   const mediaEntity: NonNullable<ConfigLayer['mediaEntity']> =
     (local.mediaEntity as ConfigLayer['mediaEntity']) ?? {};
   const mediaPresets: NonNullable<ConfigLayer['mediaPresets']> =
@@ -523,33 +488,6 @@ function Editor({
             onBlur={flush}
           />
         </label>
-      </section>
-
-      <section className="hdpe__section">
-        <h3 className="hdpe__title">Auto</h3>
-        <label className="hdpe__field">
-          <span className="hdpe__field-label">Naam</span>
-          <input
-            type="text"
-            value={car.name ?? ''}
-            onChange={(event) => patch({ car: { name: event.target.value || undefined } })}
-            onBlur={flush}
-          />
-        </label>
-        <EntityPicker
-          label="Batterij"
-          value={car.battery}
-          options={sensors}
-          states={states}
-          onChange={(value) => patch({ car: { battery: value } }, { immediate: true })}
-        />
-        <EntityPicker
-          label="Bereik"
-          value={car.range}
-          options={sensors}
-          states={states}
-          onChange={(value) => patch({ car: { range: value } }, { immediate: true })}
-        />
       </section>
 
       <section className="hdpe__section">

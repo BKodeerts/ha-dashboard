@@ -267,70 +267,72 @@ function DayView({
 
   return (
     <div className="weather__day">
-      {chart ? (
-        <>
-          <div className="weather__legend mono">
-            <span className="weather__legend-item">
-              <span className="weather__legend-swatch weather__legend-swatch--temp" />
-              temperatuur
-            </span>
-            {chart.appPath && (
+      <div className="weather__day-chart">
+        {chart ? (
+          <>
+            <div className="weather__legend mono">
               <span className="weather__legend-item">
-                <span className="weather__legend-swatch weather__legend-swatch--app" />
-                voelt als
+                <span className="weather__legend-swatch weather__legend-swatch--temp" />
+                temperatuur
               </span>
-            )}
-            {chart.rainPath && (
-              <span className="weather__legend-item">
-                <span className="weather__legend-swatch weather__legend-swatch--rain" />
-                neerslag mm
-              </span>
-            )}
-            {chart.sunArcPath && (
-              <span className="weather__legend-item">
-                <span className="weather__legend-swatch weather__legend-swatch--sun" />
-                zonshoogte
-              </span>
-            )}
-          </div>
+              {chart.appPath && (
+                <span className="weather__legend-item">
+                  <span className="weather__legend-swatch weather__legend-swatch--app" />
+                  voelt als
+                </span>
+              )}
+              {chart.rainPath && (
+                <span className="weather__legend-item">
+                  <span className="weather__legend-swatch weather__legend-swatch--rain" />
+                  neerslag mm
+                </span>
+              )}
+              {chart.sunArcPath && (
+                <span className="weather__legend-item">
+                  <span className="weather__legend-swatch weather__legend-swatch--sun" />
+                  zonshoogte
+                </span>
+              )}
+            </div>
 
-          <div className="weather__chart">
-            <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="weather__chart-svg" aria-hidden="true">
-              {chart.sunArcPath && <path d={chart.sunArcPath} className="weather__chart-sun" />}
-              <path d={chart.gridPath} className="weather__chart-grid" />
-              <path d={chart.rainPath} className="weather__chart-rain" />
-              <path d={chart.nowPath} className="weather__chart-nowline" />
-              {chart.appPath && <path d={chart.appPath} className="weather__chart-app" />}
-              {chart.areaPath && <path d={chart.areaPath} className="weather__chart-area" />}
-              <path d={chart.tempPath} className="weather__chart-temp" />
-              <circle cx={chart.nowX} cy={chart.nowY} r={4} className="weather__chart-dot" />
-            </svg>
-            {chart.gridLabels.map((label) => (
-              <div
-                key={label.label}
-                className="weather__chart-axis mono"
-                style={{ top: `${(label.y / CHART_H) * 100}%` }}
-              >
-                {label.label}
-              </div>
-            ))}
-          </div>
+            <div className="weather__chart">
+              <svg viewBox={`0 0 ${CHART_W} ${CHART_H}`} className="weather__chart-svg" aria-hidden="true">
+                {chart.sunArcPath && <path d={chart.sunArcPath} className="weather__chart-sun" />}
+                <path d={chart.gridPath} className="weather__chart-grid" />
+                <path d={chart.rainPath} className="weather__chart-rain" />
+                <path d={chart.nowPath} className="weather__chart-nowline" />
+                {chart.appPath && <path d={chart.appPath} className="weather__chart-app" />}
+                {chart.areaPath && <path d={chart.areaPath} className="weather__chart-area" />}
+                <path d={chart.tempPath} className="weather__chart-temp" />
+                <circle cx={chart.nowX} cy={chart.nowY} r={4} className="weather__chart-dot" />
+              </svg>
+              {chart.gridLabels.map((label) => (
+                <div
+                  key={label.label}
+                  className="weather__chart-axis mono"
+                  style={{ top: `${(label.y / CHART_H) * 100}%` }}
+                >
+                  {label.label}
+                </div>
+              ))}
+            </div>
 
-          <div className="weather__chart-ticks">
-            {chart.ticks.map((tick) => (
-              <span
-                key={tick.x}
-                className="weather__chart-tick mono"
-                style={{ left: `${(tick.x / CHART_W) * 100}%` }}
-              >
-                {tick.label}
-              </span>
-            ))}
-          </div>
-        </>
-      ) : (
-        <div className="weather__empty">Geen uurvoorspelling beschikbaar.</div>
-      )}
+            <div className="weather__chart-ticks">
+              {chart.ticks.map((tick) => (
+                <span
+                  key={tick.x}
+                  className="weather__chart-tick mono"
+                  style={{ left: `${(tick.x / CHART_W) * 100}%` }}
+                >
+                  {tick.label}
+                </span>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div className="weather__empty">Geen uurvoorspelling beschikbaar.</div>
+        )}
+      </div>
 
       {metrics.length > 0 && (
         <div className="weather__metrics">
@@ -500,7 +502,7 @@ export function WeatherSheet({
   }, [hourly]);
 
   return (
-    <Sheet onClose={onClose} labelledBy="weather-sheet-title">
+    <Sheet onClose={onClose} labelledBy="weather-sheet-title" size="wide">
       <div className="sheet__head">
         <div className="sheet__tile">
           <Icon name={weatherIcon(weather.condition)} size={19} />

@@ -7,16 +7,20 @@ import { Icon } from '../ui/Icon';
  *
  * The panel stops 96px above the bottom and the scrim sits *below* the tab bar
  * in the stacking order — v1's sheets covered the bar, which is what made the
- * navigation feel like it disappeared. On desktop the CSS turns this into a
- * centred modal.
+ * navigation feel like it disappeared. From 1000px of dashboard width (v7,
+ * `data-wide` on `.app`) the CSS turns this into a centred modal: 460px wide,
+ * or 680px for `size="wide"` — the weather sheet, whose chart and metrics sit
+ * side by side there.
  */
 export function Sheet({
   onClose,
   labelledBy,
+  size,
   children,
 }: {
   onClose(): void;
   labelledBy: string;
+  size?: 'wide';
   children: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -48,7 +52,7 @@ export function Sheet({
       />
       <div
         ref={panelRef}
-        className="sheet__panel"
+        className={`sheet__panel${size === 'wide' ? ' sheet__panel--wide' : ''}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}

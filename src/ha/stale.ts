@@ -22,11 +22,20 @@ export const DISCONNECTED_SENSOR = 'sensor.disconnected_devices';
 /** Past this the badge turns amber. */
 export const ALARM_AFTER_MS = 48 * 3600e3;
 
+/**
+ * Under this the battery line turns amber, however long the device has been
+ * silent: a flat battery is usually *why* a device goes quiet, so it is
+ * flagged before the silence reaches 48 h.
+ */
+export const LOW_BATTERY_PCT = 15;
+
 export interface StaleDevice {
   /** The device id, or the entity id when the entity has no device. */
   key: string;
   name: string;
   area: string;
+  /** The HA area id, when the device (or entity) has one — for its tint. */
+  areaId?: string;
   /** The flagged entity this row's silence is measured from. */
   entityId: string;
   silentMs: number;
@@ -37,13 +46,13 @@ const isBattery = (entityId: string, states: HassEntities): boolean =>
   states[entityId]?.attributes?.device_class === 'battery' ||
   (entityId.startsWith('sensor.') && entityId.endsWith('_battery'));
 
-/** `6 dagen` / `31 uur` / `12 min`, matching the badge in the handoff. */
+/** `6 d` / `31 u` / `12 min` — the v7 badge. Days from 48 h on. */
 export function formatSilence(ms: number): string {
   const minutes = Math.floor(ms / 60e3);
   if (minutes < 60) return `${minutes} min`;
   const hours = Math.floor(ms / 3600e3);
-  if (hours < 48) return `${hours} uur`;
-  return `${Math.floor(hours / 24)} dagen`;
+  if (hours < 48) return `${hours} u`;
+  return `${Math.floor(hours / 24)} d`;
 }
 
 /**
@@ -109,13 +118,15 @@ export function collectStale(
     const existing = groups.get(key);
     if (existing && existing.silentMs >= silentMs) continue;
 
-    groups.set(key, {
+    const group: Group = {
       key,
       name: device?.name_by_user ?? device?.name ?? friendlyName(states, entityId),
-      area: (areaId ? areaName.get(areaId) : undefined) ?? '—',
+      area: (areaId ? areaName.get(areaId) : undefined) ?? 'Geen ruimte',
       entityId,
       silentMs,
-    });
+    };
+    if (areaId && areaName.has(areaId)) group.areaId = areaId;
+    groups.set(key, group);
   }
 
   const stale: StaleDevice[] = [];

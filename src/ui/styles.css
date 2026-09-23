@@ -136,6 +136,15 @@
      on an actual phone (companion app, not the design artboard) that read as
      dead space eating into the room grid rather than as breathing room. */
   --gutter-v5: 16px;
+  /*
+   * v7's content column: at most 820px (gutter included) centred in however
+   * wide the dashboard is, as horizontal padding on the full-width scroller
+   * rather than a max-width wrapper inside it — so the scrollbar stays at
+   * the dashboard's edge. A `%` inside a custom property resolves where it is
+   * *used*, against that scroller's own containing block.
+   */
+  --column-max: 820px;
+  --column-pad: max(var(--gutter), calc((100% - var(--column-max)) / 2 + var(--gutter)));
 
   /*
    * Tab-bar geometry, as tokens because four things measure themselves against
@@ -513,6 +522,12 @@ button {
   background: var(--page);
 }
 
+.header__column {
+  width: 100%;
+  max-width: var(--column-max);
+  margin: 0 auto;
+}
+
 .header__top {
   display: flex;
   align-items: center;
@@ -784,24 +799,34 @@ button {
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-  padding: 18px var(--gutter-v5) var(--bar-clearance);
-  overflow: hidden;
+  padding: 18px var(--column-pad) var(--bar-clearance);
+  /* v7: a scroller in both states. Collapsed, the rows share the height but
+     never drop under 128px, so a short viewport scrolls instead of clipping
+     the humidity line. */
+  overflow-y: auto;
   /* No scroll chaining to the document: a rubber-band bounce at the ends of the
      list drags the whole page under the fixed bars. */
   overscroll-behavior: contain;
 }
 
-.room-grid-area--open {
-  overflow-y: auto;
-}
-
+/* Columns follow the dashboard's own width (`data-cols` on `.app`, measured
+   in `app/layout.ts`): 2 under 700px, 3 to 999px, 4 from 1000px. The row
+   ceiling (160px) is the inline `max-height` RoomGrid sets. */
 .room-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-auto-rows: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(128px, 1fr);
   flex: 1 1 auto;
   min-height: 0;
   gap: 12px;
+}
+
+.app[data-cols='3'] .room-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.app[data-cols='4'] .room-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .room-grid-area--open .room-grid {
@@ -886,16 +911,11 @@ button {
   font-weight: 500;
   letter-spacing: -0.015em;
   max-width: 100%;
+  /* Room for the glyph column pinned top-right: the name ellipsizes before it. */
+  padding-right: 44px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.tile__bottom {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 8px;
 }
 
 .tile__reading {
@@ -918,17 +938,19 @@ button {
 }
 
 /*
- * The state glyphs: a vertical stack pinned to the tile's bottom-right
- * corner, beside the reading. The negative margin lets the padded glyphs
- * still reach the tile's own corner.
+ * The state glyphs (v7): a vertical stack pinned to the tile's top-right
+ * corner, absolutely — out of the flex flow, so however many glyphs a room
+ * has they can never push the tile taller or clip at its bottom edge.
  */
 .tile__glyphs {
-  flex: 0 0 auto;
+  position: absolute;
+  z-index: 2;
+  top: 12px;
+  right: 12px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 1px;
-  margin: 0 -6px -6px 0;
 }
 
 /*
@@ -944,33 +966,10 @@ button {
 .glyph {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 8px 8px 8px 4px;
+  padding: 8px;
+  cursor: pointer;
   user-select: none;
   color: var(--glyph-idle);
-}
-
-.glyph--control {
-  padding: 8px;
-}
-
-/* The value beside a glyph — only the AC has one. It sits to the *left*, so
-   the glyphs themselves stay in one column. */
-.glyph__note {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.02em;
-  color: var(--text-faint);
-}
-
-/* Active: the note darkens with the glyph it belongs to. */
-.glyph--light .glyph__note,
-.glyph--warn .glyph__note,
-.glyph--cool .glyph__note,
-.glyph--heat .glyph__note,
-.glyph--dry .glyph__note,
-.glyph--fan_only .glyph__note {
-  color: var(--text-3);
 }
 
 .glyph--light {
@@ -1016,18 +1015,31 @@ button {
   right: 0;
   bottom: 0;
   z-index: 3;
+  display: flex;
+  justify-content: center;
   padding: 0 16px max(var(--bar-drop), env(safe-area-inset-bottom));
+  /* The row is full-width; only the bar itself takes taps. */
+  pointer-events: none;
 }
 
+/* v7: three tabs, so the bar narrows to 340px and stays bottom-centred at
+   every width — no left rail on desktop any more. */
 .tabbar__inner {
   display: flex;
   align-items: center;
   gap: 4px;
+  width: 100%;
+  max-width: 340px;
+  pointer-events: auto;
   height: var(--bar-h);
   padding: 0 6px;
   border-radius: 22px;
   background: var(--bar-bg);
   border: 1px solid var(--bar-bg);
+}
+
+.app[data-wide] .tabbar__inner {
+  box-shadow: 0 14px 30px -18px rgba(17, 19, 24, 0.4);
 }
 
 .tabbar__item {
@@ -1125,6 +1137,35 @@ button {
   border: 1px solid var(--border);
   box-shadow: 0 -18px 44px -22px rgba(17, 19, 24, 0.3);
   animation: sheetUp 0.28s var(--ease-sheet);
+}
+
+/*
+ * From 1000px of dashboard width the sheet becomes a centred modal: the
+ * scrim centres the panel with 32px to spare, and it pops in (scale + fade)
+ * instead of sliding up. 460px for a room, 680px for `.sheet__panel--wide`
+ * (the weather sheet).
+ */
+.app[data-wide] .sheet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+
+.app[data-wide] .sheet__panel {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  width: 100%;
+  max-width: 460px;
+  max-height: 100%;
+  box-shadow: 0 22px 52px -22px rgba(17, 19, 24, 0.4);
+  animation: popIn 0.16s ease;
+}
+
+.app[data-wide] .sheet__panel--wide {
+  max-width: 680px;
 }
 
 .sheet__head {
@@ -1857,35 +1898,49 @@ button {
   display: flex;
   gap: 4px;
   background: var(--control);
-  border-radius: 11px;
+  border-radius: 16px;
   padding: 4px;
 }
 
 .weather__tab {
   flex: 1;
-  text-align: center;
-  padding: 7px 0;
-  border-radius: 8px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 36px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-3);
   background: transparent;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .weather__tab--on {
-  background: var(--control-alt);
+  background: var(--card);
   color: var(--text);
 }
 
 /* ── Komende 24u ─────────────────────────────────────────────────────────── */
 
 .weather__day {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+
+/* v7: in the desktop modal, chart left and metrics right. */
+.app[data-wide] .weather__day {
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 16px;
+}
+
+.weather__day-chart {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 8px;
 }
 
 .weather__legend {
@@ -2021,33 +2076,35 @@ button {
 }
 
 .weather__metrics {
+  min-width: 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
 }
 
 .weather__metric {
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 9px 10px;
-  border-radius: 12px;
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 14px;
   background: var(--card);
-  border: 1px solid var(--border);
 }
 
 .weather__metric-key {
   font-family: var(--font-mono);
-  font-size: 8.5px;
-  letter-spacing: 0.09em;
+  font-size: 10px;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-faint);
+  color: var(--text-muted);
 }
 
 .weather__metric-value {
   font-size: 14px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .weather__empty {
@@ -2254,8 +2311,9 @@ button {
   min-height: 0;
   overflow-y: auto;
   /* Same clearance as `.scroll` — the pinned bar covers every tab, not just the
-     home screen's grid. */
-  padding: 20px var(--gutter) var(--bar-clearance);
+     home screen's grid. No top padding: the header's section row already
+     labels every view (v7). */
+  padding: 0 var(--column-pad) var(--bar-clearance);
   overscroll-behavior: contain;
   display: flex;
   flex-direction: column;
@@ -2269,36 +2327,49 @@ button {
 }
 
 .view__sub {
-  margin-top: 5px;
+  margin-top: 4px;
   font-family: var(--font-mono);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 /* ── Energie / Stroom ──────────────────────────────────────────────────── */
-/* Handoff: design_handoff_ha_energy_tab/README.md. Three stacked cards —
-   solar/now (today's curve + self-consumption), device trend (small
-   multiples), and the plain "apparaten nu" list. */
+/* Handoff: design_handoff_ha_energy_tab/README.md, reworked by v7 §2. The
+   solar/now card (today's curve + two ratios) and the device trend on the
+   left, the "apparaten nu" list — which is the trend's legend — on the right
+   from 760px; one column below that, list last. */
 
-.view--energy {
-  gap: 16px;
-  padding: 20px var(--gutter) var(--bar-clearance);
+.energy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.app[data-split] .energy {
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+}
+
+.energy__main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .solar-now,
 .device-trend {
-  border-radius: 20px;
+  border-radius: 24px;
   background: var(--card);
-  border: 1px solid var(--border);
 }
 
 .solar-now {
-  padding: 16px 16px 4px;
+  padding: 18px 18px 0;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .solar-now__head {
@@ -2324,7 +2395,7 @@ button {
 .solar-now__value {
   font-size: 28px;
   font-weight: 400;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.035em;
   line-height: 1.2;
 }
 
@@ -2341,7 +2412,7 @@ button {
 }
 
 .solar-now__stat-value {
-  color: var(--text-faint);
+  color: var(--text-2);
 }
 
 .solar-now__stat-value--export {
@@ -2368,8 +2439,12 @@ button {
 
 .solar-now__chart-svg {
   width: 100%;
-  height: 112px;
+  height: 116px;
   display: block;
+}
+
+.app[data-wide] .solar-now__chart-svg {
+  height: 168px;
 }
 
 .solar-now__chart-area {
@@ -2419,57 +2494,102 @@ button {
 .solar-now__axis {
   display: flex;
   justify-content: space-between;
-  margin-top: 4px;
+  padding: 6px 0 14px;
   font-size: 9px;
+  letter-spacing: 0.04em;
   color: var(--text-faint);
 }
 
-.solar-now__ratio {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding-bottom: 14px;
+/* v7: two ratios from HA's statistics, side by side under the chart. */
+.solar-now__ratios {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: -10px;
+  padding: 14px 0 16px;
+  border-top: 1px solid var(--border);
 }
 
-.solar-now__ratio-track {
-  flex: 1;
+.ratio {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ratio__head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.ratio__value {
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.ratio__label {
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.ratio__track {
   height: 5px;
   border-radius: 3px;
-  background: color-mix(in oklab, var(--cool) 16%, transparent);
   overflow: hidden;
 }
 
-.solar-now__ratio-fill {
+/* "uit zon" fills against grid blue — the rest came from the grid; "zelf
+   gebruikt" against export green — the rest went to it. */
+.ratio__track--grid {
+  background: oklch(0.68 0.13 250 / 0.18);
+}
+
+.ratio__track--export {
+  background: oklch(0.7 0.12 150 / 0.22);
+}
+
+.ratio__fill {
   height: 5px;
   border-radius: 3px;
   background: var(--accent);
 }
 
-.solar-now__ratio-label {
-  flex: 0 0 auto;
+.ratio__sub {
   font-size: 10px;
-  color: var(--text-3);
+  color: var(--text-muted);
 }
 
 .device-trend {
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.device-trend__legend {
+.device-trend__head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 10px;
 }
 
-.device-trend__legend-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
+.device-trend__label {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--text-muted);
+}
+
+.device-trend__hint {
+  letter-spacing: 0.04em;
+  text-align: right;
+  color: var(--text-faint);
 }
 
 .device-trend__chart-wrap {
@@ -2486,53 +2606,65 @@ button {
   pointer-events: none;
 }
 
-.device-trend__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-
 .device-trend__chart {
   width: 100%;
-  height: 50px;
+  height: 56px;
   display: block;
 }
 
+.app[data-wide] .device-trend__chart {
+  height: 76px;
+}
+
 .apparaten {
+  min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
 .apparaten__label {
   font-size: 11px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--text-muted);
-  padding: 0 2px 2px;
+  padding: 4px 2px;
 }
 
+/* The list is the trend chart's legend: no separators, a dot in the line's
+   colour, and a tap picks that line out. */
 .apparaten__row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px 2px;
-  border-top: 1px solid var(--border);
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 10px;
+  border-radius: 14px;
+  text-align: left;
+  color: var(--text);
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
-.apparaten__icon {
+.apparaten__row--on {
+  background: var(--control);
+}
+
+.apparaten__dot {
   flex: 0 0 auto;
-  color: var(--cool-glyph);
-  /* Sizes the injected `<ha-icon>` when the row uses the device's own icon
-     (`ui/HaIcon.tsx`) instead of the generic bolt — see `.tile__glyph-bg`. */
-  --mdc-icon-size: 18px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+/* No line of its own — "overige", or a device the chart doesn't track. */
+.apparaten__dot--hollow {
+  box-shadow: inset 0 0 0 1.5px var(--glyph-idle);
 }
 
 .apparaten__name {
   flex: 1;
   min-width: 0;
   font-size: 14px;
-  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2541,36 +2673,103 @@ button {
 .apparaten__value {
   flex: 0 0 auto;
   font-size: 13px;
+  white-space: nowrap;
   color: var(--text-body);
 }
 
-/* ── Netwerk ───────────────────────────────────────────────────────────── */
+.apparaten__row--other {
+  color: var(--text-2);
+}
+
+.apparaten__row--other .apparaten__value {
+  color: var(--text-3);
+}
+
+/* Another device is picked: everything else steps back with its line. */
+.apparaten__row--dim,
+.apparaten__row--dim.apparaten__row--other {
+  color: var(--text-faint);
+}
+
+.apparaten__row--dim .apparaten__value,
+.apparaten__row--dim.apparaten__row--other .apparaten__value {
+  color: var(--glyph-idle);
+}
+
+/* ── Netwerk ──────────────────────────────────────────────────────────── */
+/* v7: one card per area, spined in the area's tint like a room tile. From
+   760px the cards flow into two CSS columns — not a grid, which would leave
+   a gap beside a short card whose row-mate is taller. */
 
 .stale {
+  column-gap: 12px;
+}
+
+.app[data-split] .stale {
+  column-count: 2;
+}
+
+.stale__area {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 14px 16px 4px 20px;
+  border-radius: 24px;
+  background: var(--card);
+  break-inside: avoid;
+}
+
+.stale__spine {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--divider);
+}
+
+.stale__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 6px;
+}
+
+.stale__area-name {
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.015em;
+}
+
+.stale__count {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
 }
 
 .stale__row {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 12px 14px;
+  min-height: 52px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
 }
 
 .stale__names {
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .stale__name {
-  font-size: 15px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
+  font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2578,52 +2777,66 @@ button {
 
 .stale__meta {
   display: flex;
-  overflow: hidden;
-  margin-top: 3px;
-  font-family: var(--font-mono);
+  align-items: center;
+  gap: 4px;
   font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-3);
+  letter-spacing: 0.02em;
+  color: var(--text-faint);
   white-space: nowrap;
 }
 
-.stale__meta > span {
-  flex: 0 0 auto;
-  white-space: pre;
+/* Battery under 15% — flagged before the silence reaches 48 h. */
+.stale__meta--warn {
+  color: var(--warn-fg);
 }
 
 .stale__badge {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  height: 30px;
+  height: 26px;
   padding: 0 10px;
-  border-radius: 9px;
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  border-radius: 13px;
+  font-size: 11px;
   background: var(--control);
-  color: var(--text-dim);
-  flex: 0 0 auto;
+  color: var(--text-2);
 }
 
 .stale__badge--warn {
-  background: var(--warn-bg);
+  background: oklch(0.72 0.14 60 / 0.2);
   color: var(--warn-fg);
 }
 
 .stale__foot {
+  margin-top: -12px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
-  text-align: center;
-  padding-top: 4px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
 }
 
 /* ── Settings (the gear view) ──────────────────────────────────────────── */
+/* v7: from 760px two columns — who you are, who you follow and "Overig" on
+   the left, the room order on the right. One column below that, same order. */
+
+.settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.app[data-split] .settings {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+
+.settings__col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
 
 .settings__label {
   font-family: var(--font-mono);
@@ -2633,18 +2846,38 @@ button {
   color: var(--text-muted);
 }
 
+.settings__label--sub {
+  padding-top: 10px;
+}
+
+.settings__label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .settings__note {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--text-3);
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
 }
 
 .settings__section {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.settings__reset {
+  align-self: flex-start;
+  padding-top: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  text-decoration: underline;
 }
 
 /*
@@ -2657,34 +2890,41 @@ button {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 60px;
-  padding: 0 16px;
+  min-height: 56px;
+  padding: 0 14px;
   border-radius: 18px;
   background: var(--card);
-  border: 1px solid var(--border);
 }
 
 .me__icon {
   flex: 0 0 auto;
-  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  background: var(--control);
+  color: var(--text-2);
 }
 
 .me__names {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .me__name {
   font-size: 15px;
   font-weight: 500;
-  letter-spacing: -0.015em;
 }
 
 .me__id {
-  margin-top: 2px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2693,68 +2933,51 @@ button {
 
 .me__badge {
   flex: 0 0 auto;
-  padding: 5px 8px;
-  border-radius: 7px;
+  padding: 5px 9px;
+  border-radius: 10px;
   background: var(--control);
-  color: var(--text-dim);
+  color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 /* ── radio lists ────────────────────────────────────────────────────────────
-   The shared look for "pick exactly one of these": who you follow up top and
-   which media player a room uses. Picking a row replaces whatever was chosen
-   before rather than adding to it, so a filled dot reads better than a
-   checkbox — nothing here is ever a set of more than one.                  */
+   "Pick exactly one of these": who you follow up top. Picking a row replaces
+   whoever was chosen before rather than adding to them, so a ring that fills
+   reads better than a checkbox. The chosen row lifts onto a card.          */
 
 .radio-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .radio-row {
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 56px;
+  min-height: 52px;
   padding: 0 14px;
   border-radius: 16px;
-  background: var(--card);
-  border: 1px solid var(--border);
   text-align: left;
 }
 
 .radio-row--on {
-  /* A lighter wash than the header chip's: this is a checked row in a list,
-     not a state to read across the room. */
-  background: var(--cool-wash);
-  border-color: var(--cool-border);
+  background: var(--card);
 }
 
 .radio-dot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
   flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
-  border: 1.5px solid var(--divider);
+  box-shadow: inset 0 0 0 1.5px var(--glyph-idle);
 }
 
 .radio-row--on .radio-dot {
-  border-color: var(--cool-fg);
-}
-
-.radio-row--on .radio-dot::after {
-  content: '';
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--cool-fg);
+  box-shadow: inset 0 0 0 5px var(--text);
 }
 
 .radio-names {
@@ -2766,15 +2989,14 @@ button {
 }
 
 .radio-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: -0.015em;
 }
 
 .radio-id {
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.04em;
   color: var(--text-faint);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2784,10 +3006,10 @@ button {
 .radio-state {
   flex: 0 0 auto;
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--text-dim);
+  color: var(--text-muted);
 }
 
 .persons {
@@ -2838,70 +3060,111 @@ button {
   opacity: 0.6;
 }
 
+/* "Kamers sorteren": favourites, then "Niet op home" — a room only ever
+   moves within its own group. */
 .order {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .order__row {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 2px;
+  min-height: 52px;
+  padding: 0 4px 0 12px;
+  border-radius: 16px;
   background: var(--card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 5px 6px 5px 14px;
+}
+
+.order__row[draggable='true'] {
+  cursor: grab;
+}
+
+.order__row--dragging {
+  background: var(--control);
+  opacity: 0.55;
+}
+
+.order__grip {
+  flex: 0 0 auto;
+  margin-right: 8px;
+  color: var(--glyph-idle);
 }
 
 .order__names {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .order__name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.order__id {
-  margin-top: 2px;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-3);
-}
-
-.order__btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: var(--control);
+.order__row--other .order__name {
   color: var(--text-2);
-  flex: 0 0 auto;
 }
 
-.order__btn--fav {
-  background: var(--control);
+.order__id {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
   color: var(--text-faint);
 }
 
-.order__btn--fav-on {
-  background: var(--accent-star);
-  color: var(--warn-fg);
+.order__btn {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 44px;
+  color: var(--text-2);
+}
+
+.order__btn--move {
+  width: 36px;
 }
 
 .order__btn:disabled {
-  opacity: 0.25;
+  color: var(--divider);
   cursor: default;
+}
+
+.order__swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+.order__btn--fav {
+  color: var(--glyph-idle);
+}
+
+.order__btn--fav-on {
+  color: var(--accent-glyph);
+}
+
+/* "Overig": Weer · Thema · Kleuren · Opslag, one card with hairline
+   separators; each row expands its own panel inline. */
+.more {
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  background: var(--card);
+  overflow: hidden;
+}
+
+.more__item + .more__item {
+  border-top: 1px solid var(--border);
 }
 
 .more__row {
@@ -2909,17 +3172,14 @@ button {
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 60px;
-  padding: 0 16px;
-  border-radius: 18px;
-  background: var(--card);
-  border: 1px solid var(--border);
+  min-height: 54px;
+  padding: 0 10px 0 14px;
   text-align: left;
   transition: background 0.15s ease;
 }
 
 .more__row:hover {
-  background: var(--control-alt);
+  background: var(--sheet);
 }
 
 .more__names {
@@ -2931,23 +3191,24 @@ button {
    content only — so the stacking has to be asked for rather than inherited. */
 .more__name {
   display: block;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
-  letter-spacing: -0.01em;
 }
 
 .more__meta {
   display: block;
-  margin-top: 3px;
+  margin-top: 2px;
   font-family: var(--font-mono);
   font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .more__chevron {
-  color: var(--text-faint);
+  color: var(--glyph-idle);
   flex: 0 0 auto;
   transition: transform 0.18s ease;
 }
@@ -2960,34 +3221,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 0 4px 4px;
-}
-
-.tint-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.tint-row__name {
-  flex: 1;
-  min-width: 0;
-  font-size: 14px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tint-swatch {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  flex: 0 0 auto;
-}
-
-.tint-swatch--on {
-  border-color: var(--text);
+  padding: 0 14px 14px;
 }
 
 /* One room's block in "Media per kamer" — the name above its own picker
@@ -3115,6 +3349,17 @@ button {
   }
 }
 
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -3127,6 +3372,7 @@ button {
 @media (prefers-reduced-motion: reduce) {
   .sheet,
   .sheet__panel,
+  .app[data-wide] .sheet__panel,
   .toast {
     animation: none;
   }
@@ -3149,92 +3395,5 @@ button {
   .header__btn,
   .room-grid__more {
     transition: none;
-  }
-}
-
-/* ── responsive ────────────────────────────────────────────────────────────
-   Phone is primary. 481–1024: 3-up grid, sheets capped at 560 and centred.
-   ≥1025: 4-up grid in a 1200 column, tab bar becomes a left rail.          */
-
-@media (min-width: 481px) {
-  .room-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  .sheet__panel {
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-    width: min(560px, calc(100% - 16px));
-  }
-
-  @keyframes sheetUp {
-    from {
-      transform: translate(-50%, 101%);
-    }
-    to {
-      transform: translate(-50%, 0);
-    }
-  }
-}
-
-@media (min-width: 1025px) {
-  .app {
-    flex-direction: row;
-  }
-
-  .app__main {
-    max-width: 1200px;
-    margin: 0 auto;
-  }
-
-  .room-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-
-  /* tab bar → left rail, same icons and active treatment */
-  .tabbar {
-    order: -1;
-    padding: 22px 0 22px 18px;
-    display: flex;
-    align-items: center;
-  }
-
-  .tabbar__inner {
-    flex-direction: column;
-    justify-content: center;
-    gap: 6px;
-    width: 64px;
-    height: auto;
-    padding: 6px 0;
-  }
-
-  .tabbar__item {
-    flex: 0 0 auto;
-    width: 52px;
-    height: 52px;
-  }
-
-  .tabbar__dot {
-    right: calc(50% - 15px);
-  }
-
-  .sheet__panel {
-    top: 50%;
-    bottom: auto;
-    transform: translate(-50%, -50%);
-    max-height: min(80vh, 760px);
-    border-radius: 24px;
-  }
-
-  @keyframes sheetUp {
-    from {
-      transform: translate(-50%, calc(-50% + 24px));
-      opacity: 0;
-    }
-    to {
-      transform: translate(-50%, -50%);
-      opacity: 1;
-    }
   }
 }

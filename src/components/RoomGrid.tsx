@@ -1,3 +1,4 @@
+import { useLayout } from '../app/layout';
 import type { Room } from '../ha/types';
 import { Icon } from '../ui/Icon';
 import { RoomTile } from './RoomTile';
@@ -6,19 +7,28 @@ import { RoomTile } from './RoomTile';
  * Favourites fill the screen; the rest are one tap away.
  *
  * v5 ("Adem") spreads the same v4 content over the full screen height instead
- * of packing it into the top half. Collapsed, the grid is not a scroller: it
- * is sized to the space left under the header and the tiles share it evenly
- * (`grid-auto-rows: 1fr`), so a favourite count that fills the screen shows
- * with no scroll at all — that is the point of the revision. The "N meer"
+ * of packing it into the top half. Collapsed, the grid is sized to the space
+ * left under the header and the tiles share it evenly (`1fr` rows), so a
+ * favourite count that fills the screen shows with no scroll at all — that
+ * is the point of the revision. The "N meer"
  * tile is a normal grid cell, not a row underneath, so it fills whatever slot
  * is left over rather than spanning full width.
  *
  * Expanded, the non-favourites append in place and the grid switches to a
  * fixed row height and becomes the thing that scrolls.
  *
+ * v7 bounds the collapsed rows both ways: never under 128px (a short
+ * viewport would otherwise clip the humidity line — the area scrolls
+ * instead) and never over 160px (a desktop-sized card would otherwise turn
+ * every tile into a 300px slab). The ceiling is a `max-height` on the grid,
+ * since `grid-auto-rows` cannot express "share the space, up to N".
+ *
  * `rooms` arrives already sorted favourites-first in the user's own order, so
  * the split below preserves that order within each group.
  */
+const ROW_MAX = 160;
+const GRID_GAP = 12;
+
 export function RoomGrid({
   rooms,
   showOther,
@@ -39,21 +49,20 @@ export function RoomGrid({
   const hasFold = !noFavourites && others.length > 0;
   const shown = noFavourites || showOther ? [...favourites, ...others] : favourites;
 
+  const { cols } = useLayout();
+  const rows = Math.max(1, Math.ceil((shown.length + (hasFold ? 1 : 0)) / cols));
+  const maxHeight = showOther ? undefined : rows * ROW_MAX + (rows - 1) * GRID_GAP;
+
   return (
-    // `scroll` carries no styles of its own — it's the hook `element.tsx`'s
-    // touch handler looks for before letting a drag through as a scroll
-    // rather than blocking it (see the note on `#onTouchMove`). Collapsed,
-    // this area is `overflow: hidden` and genuinely not a scroller — see the
-    // doc comment above — so the marker only goes on once `showOther` makes
-    // it one. Carrying it unconditionally let a vertical drag over a
-    // collapsed grid whose content didn't perfectly fill its 1fr rows read
-    // as "has room to scroll" (scrollHeight > clientHeight even though
-    // `overflow: hidden` blocks it from actually moving), so the touch
-    // handler stood aside instead of blocking it — and WKWebView handed the
-    // unconsumed drag to its own page-level bounce, dragging the "fixed"
-    // header and tab bar along with it.
-    <div className={`room-grid-area${showOther ? ' room-grid-area--open scroll' : ''}`}>
-      <div className="room-grid">
+    // `scroll` is the hook `element.tsx`'s touch handler looks for before
+    // letting a drag through as a scroll rather than blocking it (see the
+    // note on `#onTouchMove`). v7 makes this area a real scroller in both
+    // states — collapsed tiles have a 128px floor, so a short viewport has to
+    // be able to scroll to the last row — which also keeps the marker honest:
+    // `overflow-y: auto` means scrollHeight > clientHeight only when it can
+    // genuinely move.
+    <div className={`room-grid-area scroll${showOther ? ' room-grid-area--open' : ''}`}>
+      <div className="room-grid" style={maxHeight === undefined ? undefined : { maxHeight }}>
         {shown.map((room) => (
           <RoomTile key={room.id} room={room} onOpen={() => onOpenRoom(room.id)} />
         ))}
