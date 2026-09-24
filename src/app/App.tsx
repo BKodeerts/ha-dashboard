@@ -95,6 +95,7 @@ export function App() {
     backend,
     entities,
     config.staleDevicesEntity ?? DISCONNECTED_SENSOR,
+    config.recorderKeepDays,
   );
   const stale = useMemo(
     () =>
