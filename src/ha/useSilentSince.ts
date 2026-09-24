@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { fetchSilentSince, type SilentSince } from './history';
-import { needsSilenceHistory } from './stale';
+import { isLastSeenTracker, needsSilenceHistory } from './stale';
 import type { HaBackend, HassEntities } from './types';
 
 /**
@@ -26,7 +26,8 @@ export function useSilentSince(
       if (typeof entityId !== 'string') continue;
       const entity = states[entityId];
       if (!entity || !needsSilenceHistory(entity)) continue;
-      parts.push(`${entityId}\u0000${entity.state}\u0000${entity.last_changed}`);
+      const lastSeen = isLastSeenTracker(entity) ? '1' : '';
+      parts.push(`${entityId}\u0000${entity.state}\u0000${entity.last_changed}\u0000${lastSeen}`);
     }
     return parts.sort().join('\u0001');
   }, [states, sensorEntityId]);
@@ -40,12 +41,17 @@ export function useSilentSince(
     }
     let cancelled = false;
     const targets = key.split('\u0001').map((part) => {
-      const [entityId, state, lastChanged] = part.split('\u0000') as [string, string, string];
-      return { entityId, state, lastChanged };
+      const [entityId, state, lastChanged, lastSeen] = part.split('\u0000') as [
+        string,
+        string,
+        string,
+        string,
+      ];
+      return { entityId, state, lastChanged, lastSeen: lastSeen === '1' };
     });
     Promise.all(
-      targets.map(({ entityId, state, lastChanged }) =>
-        fetchSilentSince(backend, entityId, state, lastChanged).then(
+      targets.map(({ entityId, state, lastChanged, lastSeen }) =>
+        fetchSilentSince(backend, entityId, state, lastChanged, lastSeen).then(
           (value) => [entityId, value] as const,
         ),
       ),

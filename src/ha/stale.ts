@@ -147,10 +147,17 @@ const AGO_PATTERN = /^(\d+)\s*([dw])\s*ago$/i;
 
 /**
  * A "last seen" sensor (`device_class: timestamp`) carries the answer in its
- * own state, and that survives a restart too.
+ * own state — while it has one. Zigbee2MQTT's `*_last_seen` goes
+ * `unavailable` with the rest of the device once Z2M's availability check
+ * gives up on it, and a restart brings it back that way with a fresh
+ * `last_changed`; history then still holds the last timestamp it showed.
  */
+export function isLastSeenTracker(entity: HassEntity): boolean {
+  return entity.attributes?.device_class === 'timestamp';
+}
+
 function lastSeenOf(entity: HassEntity): number | undefined {
-  if (entity.attributes?.device_class !== 'timestamp') return undefined;
+  if (!isLastSeenTracker(entity)) return undefined;
   const seen = Date.parse(entity.state);
   return Number.isFinite(seen) ? seen : undefined;
 }
