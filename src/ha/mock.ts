@@ -143,6 +143,19 @@ const QUIET: MockQuiet[] = [
     agoMin: RESTART_AGO_MIN,
     goneMin: 9 * 24 * 60 + 120,
   },
+  {
+    // Zigbee2MQTT with availability on: the whole device reads `unavailable`,
+    // `last_seen` included, and its last timestamp only survives in history.
+    device: 'dev_garagepoort_bart',
+    name: 'Garagepoort Bart',
+    area: 'hal',
+    entityId: 'sensor.o_garage_bart_last_seen',
+    state: 'unavailable',
+    attributes: { friendly_name: 'o_garage_bart Last seen', device_class: 'timestamp' },
+    battery: 'unavailable',
+    agoMin: RESTART_AGO_MIN,
+    goneMin: 4 * 24 * 60 + 300,
+  },
 ];
 
 const ROOMS: MockRoom[] = [
@@ -566,6 +579,18 @@ function buildRegistries(states: HassEntities): {
 function quietHistory(quiet: MockQuiet): { s: string; lu: number }[] {
   const at = (min: number) => (Date.now() - min * 60_000) / 1000;
   const gone = quiet.goneMin ?? quiet.agoMin;
+  if (quiet.attributes.device_class === 'timestamp') {
+    // A last-seen tracker's state is the time it last heard the device.
+    const seen = new Date(Date.now() - gone * 60_000).toISOString();
+    const rows = [
+      { s: new Date(Date.now() - (gone + 60) * 60_000).toISOString(), lu: at(gone + 60) },
+      { s: seen, lu: at(gone) },
+      { s: 'unavailable', lu: at(gone - 25 * 60) },
+    ];
+    if (gone - 25 * 60 < RESTART_AGO_MIN) return rows;
+    rows.push({ s: 'unavailable', lu: at(RESTART_AGO_MIN) });
+    return rows;
+  }
   const rows = [
     { s: quiet.state === 'off' ? 'on' : '120', lu: at(gone + 24 * 60) },
     { s: quiet.state, lu: at(gone) },

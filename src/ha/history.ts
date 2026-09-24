@@ -195,8 +195,24 @@ function parseHistoryStates(payload: unknown, entityId: string): StateRow[] {
  * `unavailable`/`unknown` around a restart. A connectivity sensor that reads
  * `off` goes `off → unavailable → off` across a reboot; that is still one
  * silence, not a fresh one.
+ *
+ * A "last seen" tracker (`device_class: timestamp`, e.g. Zigbee2MQTT's
+ * `*_last_seen`) is different: its state *is* the answer, until a restart
+ * blanks it to `unknown` and it stays that way until the device talks again.
+ * Walking the run back would stop at the last timestamp row and date the
+ * silence to the restart, so for those the newest timestamp in history wins.
  */
-export function silentRunStart(rows: StateRow[], current: string): SilentSince | undefined {
+export function silentRunStart(
+  rows: StateRow[],
+  current: string,
+  lastSeen = false,
+): SilentSince | undefined {
+  if (lastSeen) {
+    for (let index = rows.length - 1; index >= 0; index -= 1) {
+      const seen = Date.parse(rows[index]!.state);
+      if (Number.isFinite(seen)) return { since: seen, atLeast: false };
+    }
+  }
   let start: number | undefined;
   let index = rows.length - 1;
   for (; index >= 0; index -= 1) {
@@ -218,6 +234,8 @@ export async function fetchSilentSince(
   entityId: string,
   current: string,
   lastChanged: string,
+  /** The tracker is a `device_class: timestamp` "last seen" sensor. */
+  lastSeen = false,
 ): Promise<SilentSince | undefined> {
   const key = `${entityId}@${lastChanged}`;
   const hit = silentSinceCache.get(key);
@@ -234,7 +252,7 @@ export async function fetchSilentSince(
       no_attributes: true,
     })
     .then((payload) => {
-      const value = silentRunStart(parseHistoryStates(payload, entityId), current);
+      const value = silentRunStart(parseHistoryStates(payload, entityId), current, lastSeen);
       silentSinceCache.set(key, { value });
       return value;
     })
