@@ -146,15 +146,28 @@ const QUIET: MockQuiet[] = [
   {
     // Zigbee2MQTT with availability on: the whole device reads `unavailable`,
     // `last_seen` included, and its last timestamp only survives in history.
-    device: 'dev_garagepoort_bart',
-    name: 'Garagepoort Bart',
+    device: 'dev_garagepoort',
+    name: 'Garagepoort contact',
     area: 'hal',
-    entityId: 'sensor.o_garage_bart_last_seen',
+    entityId: 'sensor.garagepoort_last_seen',
     state: 'unavailable',
-    attributes: { friendly_name: 'o_garage_bart Last seen', device_class: 'timestamp' },
+    attributes: { friendly_name: 'Garagepoort Last seen', device_class: 'timestamp' },
     battery: 'unavailable',
     agoMin: RESTART_AGO_MIN,
     goneMin: 4 * 24 * 60 + 300,
+  },
+  {
+    // The same, gone longer than the recorder keeps: its last timestamp has
+    // been purged, and the oldest row left is a restart eight days ago.
+    device: 'dev_zolder_raam',
+    name: 'Zolderraam contact',
+    area: 'hal',
+    entityId: 'sensor.zolderraam_last_seen',
+    state: 'unavailable',
+    attributes: { friendly_name: 'Zolderraam Last seen', device_class: 'timestamp' },
+    battery: 'unavailable',
+    agoMin: RESTART_AGO_MIN,
+    goneMin: 16 * 24 * 60,
   },
 ];
 
@@ -587,9 +600,14 @@ function quietHistory(quiet: MockQuiet): { s: string; lu: number }[] {
       { s: seen, lu: at(gone) },
       { s: 'unavailable', lu: at(gone - 25 * 60) },
     ];
-    if (gone - 25 * 60 < RESTART_AGO_MIN) return rows;
-    rows.push({ s: 'unavailable', lu: at(RESTART_AGO_MIN) });
-    return rows;
+    // Restarts only: nothing else changes a dead device's state.
+    for (const restart of [8 * 24 * 60, RESTART_AGO_MIN]) {
+      if (restart >= gone - 25 * 60) continue;
+      rows.push({ s: 'unknown', lu: at(restart) });
+      rows.push({ s: 'unavailable', lu: at(restart - 1) });
+    }
+    // The recorder's default purge.
+    return rows.filter((row) => row.lu >= at(10 * 24 * 60));
   }
   const rows = [
     { s: quiet.state === 'off' ? 'on' : '120', lu: at(gone + 24 * 60) },

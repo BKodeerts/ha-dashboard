@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { fetchSilentSince, type SilentSince } from './history';
+import { fetchSilentSince, RECORDER_KEEP_DAYS, type SilentSince } from './history';
 import { isLastSeenTracker, needsSilenceHistory } from './stale';
 import type { HaBackend, HassEntities } from './types';
 
@@ -17,7 +17,14 @@ export function useSilentSince(
   backend: HaBackend,
   states: HassEntities,
   sensorEntityId: string,
+  /** `DashboardConfig.recorderKeepDays`. */
+  keepDaysSetting?: number,
 ): ReadonlyMap<string, SilentSince> {
+  // Hand-written YAML: anything that isn't a positive number means the default.
+  const keepDays =
+    typeof keepDaysSetting === 'number' && keepDaysSetting > 0
+      ? keepDaysSetting
+      : RECORDER_KEEP_DAYS;
   const key = useMemo(() => {
     const flagged: unknown = states[sensorEntityId]?.attributes?.entities;
     if (!Array.isArray(flagged)) return '';
@@ -51,7 +58,7 @@ export function useSilentSince(
     });
     Promise.all(
       targets.map(({ entityId, state, lastChanged, lastSeen }) =>
-        fetchSilentSince(backend, entityId, state, lastChanged, lastSeen).then(
+        fetchSilentSince(backend, entityId, state, lastChanged, lastSeen, keepDays).then(
           (value) => [entityId, value] as const,
         ),
       ),
@@ -64,7 +71,7 @@ export function useSilentSince(
     return () => {
       cancelled = true;
     };
-  }, [backend, key]);
+  }, [backend, key, keepDays]);
 
   return known;
 }

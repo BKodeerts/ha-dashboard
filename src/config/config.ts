@@ -50,6 +50,13 @@ export interface DashboardConfig {
    */
   staleDevicesEntity?: string;
   /**
+   * Home Assistant's `recorder: purge_keep_days` — HA doesn't expose it over
+   * the socket. The Netwerk tab uses it as the floor for a "last seen"
+   * tracker whose last timestamp has already been purged. Defaults to HA's
+   * own default, 10.
+   */
+  recorderKeepDays?: number;
+  /**
    * The `input_boolean` the Instellingen "Kioskmodus" switch flips. The
    * dashboard doesn't hide HA's header and sidebar itself — the kiosk-mode
    * plugin (HACS) does, keyed on this entity in its own YAML. Defaults to

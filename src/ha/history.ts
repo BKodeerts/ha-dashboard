@@ -147,6 +147,9 @@ export async function fetchLastKnown(
 
 const SILENCE_LOOKBACK_MS = 30 * 24 * 3600e3;
 
+/** HA's default `recorder: purge_keep_days`. */
+export const RECORDER_KEEP_DAYS = 10;
+
 /** States a restart can bounce a tracker through without it having talked. */
 const IN_BETWEEN = new Set(['unavailable', 'unknown']);
 
@@ -201,16 +204,28 @@ function parseHistoryStates(payload: unknown, entityId: string): StateRow[] {
  * blanks it to `unknown` and it stays that way until the device talks again.
  * Walking the run back would stop at the last timestamp row and date the
  * silence to the restart, so for those the newest timestamp in history wins.
+ *
+ * No timestamp left at all means the last one was purged, so it is older
+ * than the recorder's retention. The oldest row that *is* left is only the
+ * first restart inside that window — a dead device records nothing else —
+ * and it moves forward every night as the purge catches up, so it would make
+ * a long-dead device look younger by the day. `keepMs` is the floor instead.
  */
 export function silentRunStart(
   rows: StateRow[],
   current: string,
   lastSeen = false,
+  now = Date.now(),
+  keepMs = RECORDER_KEEP_DAYS * 24 * 3600e3,
 ): SilentSince | undefined {
   if (lastSeen) {
     for (let index = rows.length - 1; index >= 0; index -= 1) {
       const seen = Date.parse(rows[index]!.state);
       if (Number.isFinite(seen)) return { since: seen, atLeast: false };
+    }
+    if (rows.length > 0) {
+      const floor = now - Math.min(keepMs, SILENCE_LOOKBACK_MS);
+      return { since: Math.min(rows[0]!.time, floor), atLeast: true };
     }
   }
   let start: number | undefined;
@@ -236,8 +251,10 @@ export async function fetchSilentSince(
   lastChanged: string,
   /** The tracker is a `device_class: timestamp` "last seen" sensor. */
   lastSeen = false,
+  /** The recorder's `purge_keep_days` — see `silentRunStart`. */
+  keepDays = RECORDER_KEEP_DAYS,
 ): Promise<SilentSince | undefined> {
-  const key = `${entityId}@${lastChanged}`;
+  const key = `${entityId}@${lastChanged}@${keepDays}`;
   const hit = silentSinceCache.get(key);
   if (hit) return hit.promise ?? hit.value;
 
@@ -252,7 +269,13 @@ export async function fetchSilentSince(
       no_attributes: true,
     })
     .then((payload) => {
-      const value = silentRunStart(parseHistoryStates(payload, entityId), current, lastSeen);
+      const value = silentRunStart(
+        parseHistoryStates(payload, entityId),
+        current,
+        lastSeen,
+        now,
+        keepDays * 24 * 3600e3,
+      );
       silentSinceCache.set(key, { value });
       return value;
     })
