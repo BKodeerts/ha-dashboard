@@ -66,14 +66,18 @@ const normalise = (value: string): string =>
     .trim();
 
 /**
- * Picks the sensor that most likely represents the room itself: prefer one whose
- * friendly name or entity_id contains the area name, else the first one.
+ * Picks the sensor that represents the room itself. The one set on the area in
+ * HA wins; it only has to still exist, not be among the area's own entities.
+ * Without one, guess: prefer a sensor whose friendly name or entity_id contains
+ * the area name, else the first one.
  */
 function pickRoomSensor(
+  configured: string | null | undefined,
   candidates: string[],
   areaName: string,
   states: HassEntities,
 ): string | undefined {
+  if (configured && states[configured]) return configured;
   if (candidates.length <= 1) return candidates[0];
   const needle = normalise(areaName);
   const match = candidates.find((id) => {
@@ -90,7 +94,7 @@ const MOTION_CLASSES = new Set(['motion', 'occupancy']);
 /** Buckets one area's entities into the slots the room card and sheet render. */
 export function bucketEntities(
   entityIds: string[],
-  areaName: string,
+  area: AreaRegistryEntry,
   states: HassEntities,
 ): RoomEntities {
   const temperatures: string[] = [];
@@ -138,8 +142,8 @@ export function bucketEntities(
     }
   }
 
-  const temperature = pickRoomSensor(temperatures, areaName, states);
-  const humidity = pickRoomSensor(humidities, areaName, states);
+  const temperature = pickRoomSensor(area.temperature_entity_id, temperatures, area.name, states);
+  const humidity = pickRoomSensor(area.humidity_entity_id, humidities, area.name, states);
   if (temperature) bucket.temperature = temperature;
   if (humidity) bucket.humidity = humidity;
 

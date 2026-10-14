@@ -533,6 +533,8 @@ function buildRegistries(states: HassEntities): {
     area_id: room.id,
     name: room.name,
     ...(room.icon ? { icon: room.icon } : {}),
+    temperature_entity_id: room.temp !== undefined ? `sensor.${room.id}_temperatuur` : null,
+    humidity_entity_id: room.hum !== undefined ? `sensor.${room.id}_vochtigheid` : null,
   }));
   const areaOf = (entityId: string): string | null => {
     const room = ROOMS.find(

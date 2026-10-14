@@ -8,6 +8,9 @@ export interface AreaRegistryEntry {
   name: string;
   floor_id?: string | null;
   icon?: string | null;
+  /** The area's own temperature / humidity sensor, as picked in HA's area settings. */
+  temperature_entity_id?: string | null;
+  humidity_entity_id?: string | null;
 }
 
 export interface DeviceRegistryEntry {
