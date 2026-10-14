@@ -173,7 +173,7 @@ export function buildRooms(
   const favourites = new Set(config.favouriteAreas);
 
   const rooms = registries.areas.map((area): Room => {
-    const entities = bucketEntities(areaEntities.get(area.area_id) ?? [], area.name, states);
+    const entities = bucketEntities(areaEntities.get(area.area_id) ?? [], area, states);
     const temperature = entities.temperature
       ? numericState(states[entities.temperature])
       : undefined;

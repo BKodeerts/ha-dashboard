@@ -432,7 +432,7 @@ function Editor({
     return registries.areas
       .map((area) => ({
         area,
-        players: bucketEntities(byArea.get(area.area_id) ?? [], area.name, states).mediaPlayers,
+        players: bucketEntities(byArea.get(area.area_id) ?? [], area, states).mediaPlayers,
       }))
       .filter(({ players }) => players.length > 0);
   }, [registries, states]);
