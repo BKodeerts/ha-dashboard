@@ -78,11 +78,43 @@ export function setLightBrightness(entityId: string, percent: number): ServiceCa
   };
 }
 
-/** Picks the mode an AC returns to when switched back on. */
+/** `ClimateEntityFeature.TURN_ON` in a climate entity's `supported_features`. */
+const CLIMATE_TURN_ON = 256;
+
+/**
+ * Whether the unit takes `climate.turn_on`. Those that do are switched on with
+ * it, which leaves the mode to the integration — Daikin Onecta only flips the
+ * power, so the unit resumes whatever it was doing before it went off.
+ */
+export function climateResumes(states: HassEntities, entityId: string): boolean {
+  const features = Number(states[entityId]?.attributes?.supported_features);
+  return Number.isFinite(features) && (features & CLIMATE_TURN_ON) !== 0;
+}
+
+/**
+ * The mode to switch on in for a unit without `climate.turn_on`: nothing
+ * remembers what it ran last, so `cool` where offered, else its first mode.
+ */
 export function preferredHvacMode(states: HassEntities, entityId: string): string {
   const modes = states[entityId]?.attributes?.hvac_modes;
   const list = Array.isArray(modes) ? (modes as string[]) : [];
   return list.find((mode) => mode === 'cool') ?? list.find((mode) => mode !== 'off') ?? 'cool';
+}
+
+/**
+ * Switches a unit that is off back on. No optimistic state for a unit that
+ * resumes: the mode it comes back in is not known until HA reports it.
+ */
+export function turnOnClimate(entityId: string, states: HassEntities): ServiceCall {
+  if (!climateResumes(states, entityId)) {
+    return setHvacMode(entityId, preferredHvacMode(states, entityId));
+  }
+  return {
+    domain: 'climate',
+    service: 'turn_on',
+    target: { entity_id: entityId },
+    optimistic: [],
+  };
 }
 
 /** Straight to a mode — what the sheet's dropdown writes. */
@@ -98,14 +130,13 @@ export function setHvacMode(entityId: string, mode: string): ServiceCall {
 
 /**
  * The AC chip on a tile, and the power button in its sheet. Off is off for
- * every unit; on is `preferredHvacMode`, since HA keeps no memory of the mode
- * a unit was in before it was switched off. The dropdown in the sheet is how
- * you reach the other modes.
+ * every unit; on is `turnOnClimate`. The dropdown in the sheet is how you
+ * change modes.
  */
 export function toggleClimate(entityId: string, states: HassEntities): ServiceCall {
   const current = states[entityId]?.state;
   const on = current !== undefined && current !== 'off';
-  return setHvacMode(entityId, on ? 'off' : preferredHvacMode(states, entityId));
+  return on ? setHvacMode(entityId, 'off') : turnOnClimate(entityId, states);
 }
 
 export function setClimateTemperature(entityId: string, temperature: number): ServiceCall {

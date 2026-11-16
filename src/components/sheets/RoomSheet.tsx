@@ -14,12 +14,14 @@ import {
   mediaPlayPreset,
   mediaStep,
   mediaVolume,
+  climateResumes,
   preferredHvacMode,
   setClimateTemperature,
   setHvacMode,
   setLightBrightness,
   toggleClimate,
   toggleLight,
+  turnOnClimate,
 } from '../../ha/services';
 import type { HvacMode, Room, RoomClimate, RoomLight, RoomMedia } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
@@ -321,7 +323,7 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
     const next = toCelsius(percent);
     void (async () => {
       // A drag on a unit that is off means "run at this" — switch it on first.
-      if (!on) await call(setHvacMode(entityId, preferredHvacMode(entities, entityId)));
+      if (!on) await call(turnOnClimate(entityId, entities));
       await call(setClimateTemperature(entityId, next));
     })();
   };
@@ -350,8 +352,13 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
     if (next !== target) void call(setClimateTemperature(entityId, next));
   };
 
-  // While the unit is off, a drag previews the mode it is about to come back in.
-  const fillMode: HvacMode = on ? mode : hvacMode(preferredHvacMode(entities, entityId));
+  // While the unit is off, a drag previews the mode it is about to come back in
+  // — neutral for a unit that resumes its own, since that is not known yet.
+  const fillMode: HvacMode = on
+    ? mode
+    : climateResumes(entities, entityId)
+      ? 'other'
+      : hvacMode(preferredHvacMode(entities, entityId));
   const shownTarget = dragging ? toCelsius(percent) : target;
 
   // The glyph sits on top of the drag surface, so it has to stop the pointer

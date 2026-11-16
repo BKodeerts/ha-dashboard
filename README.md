@@ -579,9 +579,11 @@ are painted from one source.
   The same holds for the keyboard: the tile ignores `Enter`/`Space` that started on a chip inside
   it, so activating a chip does not also open the card on top of it.
 - Light chip: if any light in the room is on, turn them all off; else turn them all on.
-- **AC chip**: switches the unit off, or back on in `preferredHvacMode` — `cool` when the unit
-  offers it, else its first non-`off` mode. HA remembers no previous mode, so there is nothing
-  truer to return to; picking a specific one is the sheet's job.
+- **AC chip**: switches the unit off, or back on with `climate.turn_on` when the unit supports it
+  (`supported_features` has `TURN_ON`), which leaves the mode to the integration — Daikin Onecta
+  only flips the power, so the unit resumes the mode it was last in. Units without `turn_on` fall
+  back to `preferredHvacMode`: `cool` when offered, else the first non-`off` mode. Picking a
+  specific mode is the sheet's job.
 - **Per-lamp rows** drag horizontally to set brightness and tap to toggle. A pointer that never
   travelled more than 6 px is a tap. The drag state is set *before* `setPointerCapture`, and the
   capture is wrapped in `try`/`catch` — a failed capture must not kill the tap. Rows use
