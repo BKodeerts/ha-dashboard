@@ -376,6 +376,8 @@ function buildStates(globals: MockGlobals): HassEntities {
         entity(room.climate.id, room.climate.mode, {
           friendly_name: room.climate.name,
           hvac_modes: ['off', 'cool', 'heat', 'dry', 'fan_only'],
+          // TARGET_TEMPERATURE | TURN_OFF | TURN_ON, as Daikin Onecta reports.
+          supported_features: 1 | 128 | 256,
           temperature: room.climate.target,
           current_temperature: room.climate.current,
           min_temp: 16,
@@ -708,6 +710,8 @@ export function mockBackend(): HaBackend {
     };
   };
 
+  const lastHvacMode = new Map<string, string>();
+
   const targetIds = (target?: Record<string, unknown>, data?: Record<string, unknown>): string[] => {
     const raw = target?.entity_id ?? data?.entity_id;
     if (Array.isArray(raw)) return raw as string[];
@@ -722,6 +726,11 @@ export function mockBackend(): HaBackend {
       return () => listeners.delete(cb);
     },
     async callService(domain, service, data, target) {
+      // A resuming AC answers through its vendor's cloud; without the wait the
+      // pending pulse would never be on screen in the mock.
+      if (domain === 'climate' && service === 'turn_on') {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
       const ids = targetIds(target, data);
       for (const id of ids) {
         if (domain === 'light' || domain === 'switch' || domain === 'input_boolean') {
@@ -745,8 +754,14 @@ export function mockBackend(): HaBackend {
             patch(id, states[id]?.state === 'on' ? 'off' : 'on');
           }
         } else if (domain === 'climate') {
+          const before = states[id]?.state;
+          // Like a real unit, remember the mode it was in so `turn_on` resumes it.
+          if (before && before !== 'off') lastHvacMode.set(id, before);
           if (service === 'set_hvac_mode') patch(id, String(data?.hvac_mode ?? 'off'));
-          else if (service === 'set_temperature')
+          else if (service === 'turn_off') patch(id, 'off');
+          else if (service === 'turn_on') {
+            if (before === 'off') patch(id, lastHvacMode.get(id) ?? 'cool');
+          } else if (service === 'set_temperature')
             patch(id, states[id]?.state ?? 'off', { temperature: Number(data?.temperature) });
         } else if (domain === 'media_player') {
           const current = states[id]?.state;

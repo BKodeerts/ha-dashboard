@@ -14,12 +14,14 @@ import {
   mediaPlayPreset,
   mediaStep,
   mediaVolume,
+  climateResumes,
   preferredHvacMode,
   setClimateTemperature,
   setHvacMode,
   setLightBrightness,
   toggleClimate,
   toggleLight,
+  turnOnClimate,
 } from '../../ha/services';
 import type { HvacMode, Room, RoomClimate, RoomLight, RoomMedia } from '../../ha/types';
 import { Icon } from '../../ui/Icon';
@@ -304,8 +306,10 @@ function pickerModes(modes: string[]): string[] {
  * and the release of a drag.
  */
 function ClimateRow({ climate }: { climate: RoomClimate }) {
-  const { entities, call } = useHass();
+  const { entities, call, pending } = useHass();
   const { entityId, mode, modeId, modes, target, min, max, step } = climate;
+  // Switching on waits for the unit to say which mode it resumed.
+  const busy = pending.has(entityId);
   const [pickerOpen, setPickerOpen] = useState(false);
   const on = mode !== 'off';
 
@@ -321,12 +325,15 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
     const next = toCelsius(percent);
     void (async () => {
       // A drag on a unit that is off means "run at this" — switch it on first.
-      if (!on) await call(setHvacMode(entityId, preferredHvacMode(entities, entityId)));
+      if (!on) await call(turnOnClimate(entityId, entities));
       await call(setClimateTemperature(entityId, next));
     })();
   };
 
-  const toggle = () => void call(toggleClimate(entityId, entities));
+  const toggle = () => {
+    // A second tap while the first is still in flight would only repeat it.
+    if (!busy) void call(toggleClimate(entityId, entities));
+  };
 
   const { rowRef, percent, dragging, handlers } = useDragRow({
     // Off has no setpoint to show, so the track reads empty until it is on.
@@ -350,8 +357,13 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
     if (next !== target) void call(setClimateTemperature(entityId, next));
   };
 
-  // While the unit is off, a drag previews the mode it is about to come back in.
-  const fillMode: HvacMode = on ? mode : hvacMode(preferredHvacMode(entities, entityId));
+  // While the unit is off, a drag previews the mode it is about to come back in
+  // — neutral for a unit that resumes its own, since that is not known yet.
+  const fillMode: HvacMode = on
+    ? mode
+    : climateResumes(entities, entityId)
+      ? 'other'
+      : hvacMode(preferredHvacMode(entities, entityId));
   const shownTarget = dragging ? toCelsius(percent) : target;
 
   // The glyph sits on top of the drag surface, so it has to stop the pointer
@@ -370,6 +382,7 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
           target === undefined ? '' : `, ${formatTemp(target, 1)}`
         }`}
         aria-pressed={on}
+        aria-busy={busy || undefined}
         onKeyDown={onKeyDown}
         {...handlers}
       >
@@ -380,7 +393,9 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
         <div className="climate__body">
           <button
             type="button"
-            className={`climate__glyph${on ? ` climate__glyph--${mode}` : ''}`}
+            className={`climate__glyph${on ? ` climate__glyph--${mode}` : ''}${
+              busy ? ' climate__glyph--busy' : ''
+            }`}
             aria-label="Modus kiezen"
             aria-expanded={pickerOpen}
             onClick={(event) => {
