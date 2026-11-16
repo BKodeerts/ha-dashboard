@@ -18,6 +18,12 @@ export interface ServiceCall {
   data?: Record<string, unknown>;
   target?: Record<string, unknown>;
   optimistic: OptimisticPatch[];
+  /**
+   * Entities whose outcome cannot be predicted, so there is nothing to flip
+   * optimistically. They are marked pending until their state changes instead,
+   * so the tap still visibly lands.
+   */
+  pending?: string[];
 }
 
 /** Flips an `input_boolean` — the Instellingen kiosk switch. */
@@ -103,7 +109,8 @@ export function preferredHvacMode(states: HassEntities, entityId: string): strin
 
 /**
  * Switches a unit that is off back on. No optimistic state for a unit that
- * resumes: the mode it comes back in is not known until HA reports it.
+ * resumes: the mode it comes back in is not known until HA reports it, so it
+ * is marked pending and the glyph pulses until then.
  */
 export function turnOnClimate(entityId: string, states: HassEntities): ServiceCall {
   if (!climateResumes(states, entityId)) {
@@ -114,6 +121,7 @@ export function turnOnClimate(entityId: string, states: HassEntities): ServiceCa
     service: 'turn_on',
     target: { entity_id: entityId },
     optimistic: [],
+    pending: [entityId],
   };
 }
 

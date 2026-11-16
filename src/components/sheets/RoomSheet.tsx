@@ -306,8 +306,10 @@ function pickerModes(modes: string[]): string[] {
  * and the release of a drag.
  */
 function ClimateRow({ climate }: { climate: RoomClimate }) {
-  const { entities, call } = useHass();
+  const { entities, call, pending } = useHass();
   const { entityId, mode, modeId, modes, target, min, max, step } = climate;
+  // Switching on waits for the unit to say which mode it resumed.
+  const busy = pending.has(entityId);
   const [pickerOpen, setPickerOpen] = useState(false);
   const on = mode !== 'off';
 
@@ -328,7 +330,10 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
     })();
   };
 
-  const toggle = () => void call(toggleClimate(entityId, entities));
+  const toggle = () => {
+    // A second tap while the first is still in flight would only repeat it.
+    if (!busy) void call(toggleClimate(entityId, entities));
+  };
 
   const { rowRef, percent, dragging, handlers } = useDragRow({
     // Off has no setpoint to show, so the track reads empty until it is on.
@@ -377,6 +382,7 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
           target === undefined ? '' : `, ${formatTemp(target, 1)}`
         }`}
         aria-pressed={on}
+        aria-busy={busy || undefined}
         onKeyDown={onKeyDown}
         {...handlers}
       >
@@ -387,7 +393,9 @@ function ClimateRow({ climate }: { climate: RoomClimate }) {
         <div className="climate__body">
           <button
             type="button"
-            className={`climate__glyph${on ? ` climate__glyph--${mode}` : ''}`}
+            className={`climate__glyph${on ? ` climate__glyph--${mode}` : ''}${
+              busy ? ' climate__glyph--busy' : ''
+            }`}
             aria-label="Modus kiezen"
             aria-expanded={pickerOpen}
             onClick={(event) => {

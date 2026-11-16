@@ -726,6 +726,11 @@ export function mockBackend(): HaBackend {
       return () => listeners.delete(cb);
     },
     async callService(domain, service, data, target) {
+      // A resuming AC answers through its vendor's cloud; without the wait the
+      // pending pulse would never be on screen in the mock.
+      if (domain === 'climate' && service === 'turn_on') {
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+      }
       const ids = targetIds(target, data);
       for (const id of ids) {
         if (domain === 'light' || domain === 'switch' || domain === 'input_boolean') {

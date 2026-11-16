@@ -583,7 +583,9 @@ are painted from one source.
   (`supported_features` has `TURN_ON`), which leaves the mode to the integration — Daikin Onecta
   only flips the power, so the unit resumes the mode it was last in. Units without `turn_on` fall
   back to `preferredHvacMode`: `cool` when offered, else the first non-`off` mode. Picking a
-  specific mode is the sheet's job.
+  specific mode is the sheet's job. Since the resumed mode is not known until HA reports it,
+  there is no optimistic flip: the glyph **pulses** (`ServiceCall.pending`) until the unit's state
+  changes, the call fails, or 15 s pass, and further taps are ignored meanwhile.
 - **Per-lamp rows** drag horizontally to set brightness and tap to toggle. A pointer that never
   travelled more than 6 px is a tap. The drag state is set *before* `setPointerCapture`, and the
   capture is wrapped in `try`/`catch` — a failed capture must not kill the tap. Rows use

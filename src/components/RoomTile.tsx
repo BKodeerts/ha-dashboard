@@ -20,6 +20,8 @@ interface StateGlyph {
   on?: boolean;
   /** The single entity a long hold opens more-info for, when the glyph has one. */
   entityId?: string;
+  /** A tap is in flight and its result is not on screen yet — the glyph pulses. */
+  busy?: boolean;
 }
 
 /**
@@ -44,6 +46,7 @@ function stateGlyphs(
   room: Room,
   onToggleLights: () => void,
   onToggleClimate: (entityId: string) => void,
+  pending: ReadonlySet<string>,
 ): StateGlyph[] {
   const glyphs: StateGlyph[] = [];
 
@@ -94,6 +97,8 @@ function stateGlyphs(
       onTap: () => onToggleClimate(entityId),
       on,
       entityId,
+      // Switching on waits for the unit to say which mode it resumed.
+      busy: pending.has(entityId),
     });
   }
 
@@ -108,7 +113,7 @@ function stateGlyphs(
  */
 function GlyphView({ glyph, onOpenRoom }: { glyph: StateGlyph; onOpenRoom(): void }) {
   const face = <Icon name={glyph.icon} size={16} />;
-  const className = `glyph${glyph.tone ? ` ${glyph.tone}` : ''}`;
+  const className = `glyph${glyph.tone ? ` ${glyph.tone}` : ''}${glyph.busy ? ' glyph--busy' : ''}`;
 
   const longPress = useLongPress({
     entityId: glyph.entityId,
@@ -145,6 +150,7 @@ function GlyphView({ glyph, onOpenRoom }: { glyph: StateGlyph; onOpenRoom(): voi
       className={`${className} glyph--control`}
       aria-label={glyph.label}
       aria-pressed={glyph.on}
+      aria-busy={glyph.busy || undefined}
       onPointerDown={longPress.onPointerDown}
       onPointerMove={longPress.onPointerMove}
       onPointerUp={longPress.onPointerUp}
@@ -157,12 +163,16 @@ function GlyphView({ glyph, onOpenRoom }: { glyph: StateGlyph; onOpenRoom(): voi
 }
 
 export function RoomTile({ room, onOpen }: { room: Room; onOpen(): void }) {
-  const { entities, call } = useHass();
+  const { entities, call, pending } = useHass();
 
   const glyphs = stateGlyphs(
     room,
     () => void call(toggleRoomLights(room.entities.lights, entities)),
-    (entityId) => void call(toggleClimate(entityId, entities)),
+    (entityId) => {
+      // A second tap while the first is still in flight would only repeat it.
+      if (!pending.has(entityId)) void call(toggleClimate(entityId, entities));
+    },
+    pending,
   );
 
   return (

@@ -1051,6 +1051,16 @@ button {
   color: var(--fan-fg);
 }
 
+/* A write is in flight and its result is not known yet (an AC switching on). */
+.glyph--busy,
+.climate__glyph--busy {
+  animation: pulseBusy 1s ease-in-out infinite;
+}
+
+.glyph--busy {
+  color: var(--text-2);
+}
+
 /* ── tab bar ───────────────────────────────────────────────────────────────
    **Fixed to the viewport**, not part of the column flow: v4 makes it something
    a long room grid cannot scroll away, no matter how long the content is. Every
@@ -3425,6 +3435,17 @@ button {
   }
 }
 
+/* Opacity only: the glyph sits in a tight column and must not nudge it. */
+@keyframes pulseBusy {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
 @keyframes popIn {
   from {
     opacity: 0;
@@ -3461,6 +3482,13 @@ button {
   .alarm-chip__face--triggered {
     animation: none;
     background: var(--alarm-triggered);
+  }
+
+  /* Same reasoning: the wait still has to show, so hold the dimmed end. */
+  .glyph--busy,
+  .climate__glyph--busy {
+    animation: none;
+    opacity: 0.45;
   }
 
   .lamp__fill,

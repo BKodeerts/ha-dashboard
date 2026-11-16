@@ -53,6 +53,34 @@ interface Overlay {
 /** How long an unconfirmed optimistic value survives before the truth wins. */
 const OVERLAY_TTL_MS = 5000;
 
+/** A write with no predictable outcome, waiting for the entity's state to move. */
+interface Pending {
+  /** The entity's state when the call was made. */
+  from: string | undefined;
+  expires: number;
+}
+
+/**
+ * How long a pending mark survives without a state change. Longer than an
+ * overlay: these are the calls that wait on a cloud round-trip.
+ */
+const PENDING_TTL_MS = 15_000;
+
+/** Drops pending marks whose entity has since changed state, and stale ones. */
+function prunePending(
+  pending: Record<string, Pending>,
+  entities: HassEntities,
+): Record<string, Pending> {
+  const now = Date.now();
+  let changed = false;
+  const next: Record<string, Pending> = {};
+  for (const [entityId, mark] of Object.entries(pending)) {
+    if (entities[entityId]?.state !== mark.from || mark.expires <= now) changed = true;
+    else next[entityId] = mark;
+  }
+  return changed ? next : pending;
+}
+
 const describe = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
@@ -81,6 +109,8 @@ interface HassContextValue {
   status: ConnectionStatus;
   ready: boolean;
   call(serviceCall: ServiceCall | null): Promise<void>;
+  /** Entities with a write in flight whose result is not on screen yet. */
+  pending: ReadonlySet<string>;
   toasts: Toast[];
   notify(message: string): void;
 }
@@ -138,6 +168,7 @@ export function HassProvider({
 }) {
   const [rawEntities, setRawEntities] = useState<HassEntities>(initialEntities ?? {});
   const [overlays, setOverlays] = useState<Record<string, Overlay>>({});
+  const [pendingMarks, setPendingMarks] = useState<Record<string, Pending>>({});
   const [registries, setRegistries] = useState<Registries | null>(null);
   const [energyPrefs, setEnergyPrefs] = useState<EnergyPrefs | undefined>(undefined);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -171,6 +202,9 @@ export function HassProvider({
       setLive(true);
       setOverlays((current) =>
         Object.keys(current).length === 0 ? current : pruneOverlays(current, entities),
+      );
+      setPendingMarks((current) =>
+        Object.keys(current).length === 0 ? current : prunePending(current, entities),
       );
     });
     return unsubscribe;
@@ -396,9 +430,30 @@ export function HassProvider({
         });
       }
 
+      const waiting = serviceCall.pending ?? [];
+      if (waiting.length > 0) {
+        setPendingMarks((current) => {
+          const next = { ...current };
+          for (const entityId of waiting) {
+            next[entityId] = {
+              from: entitiesRef.current[entityId]?.state,
+              expires: Date.now() + PENDING_TTL_MS,
+            };
+          }
+          return next;
+        });
+      }
+
       try {
         await execute(backend, serviceCall);
       } catch (error) {
+        if (waiting.length > 0) {
+          setPendingMarks((current) => {
+            const next = { ...current };
+            for (const entityId of waiting) delete next[entityId];
+            return next;
+          });
+        }
         setOverlays((current) => {
           const next = { ...current };
           for (const patch of optimistic) delete next[patch.entityId];
@@ -419,6 +474,20 @@ export function HassProvider({
     return () => clearTimeout(id);
   }, [overlays]);
 
+  /* Same for pending marks: a unit that never answers must stop pulsing. */
+  useEffect(() => {
+    if (Object.keys(pendingMarks).length === 0) return;
+    const id = setTimeout(() => {
+      setPendingMarks((current) => prunePending(current, entitiesRef.current));
+    }, PENDING_TTL_MS);
+    return () => clearTimeout(id);
+  }, [pendingMarks]);
+
+  const pending = useMemo<ReadonlySet<string>>(
+    () => new Set(Object.keys(pendingMarks)),
+    [pendingMarks],
+  );
+
   const value = useMemo<HassContextValue>(
     () => ({
       backend,
@@ -434,6 +503,7 @@ export function HassProvider({
       status,
       ready: registries !== null && live,
       call,
+      pending,
       toasts,
       notify,
     }),
@@ -450,6 +520,7 @@ export function HassProvider({
       status,
       live,
       call,
+      pending,
       toasts,
       notify,
     ],
